@@ -1,4 +1,4 @@
-name: fastscape-demo
+name: phydra
 channels:
   - conda-forge
   - defaults
@@ -26,7 +26,3 @@ dependencies:
   - tqdm
   - nodejs
   - pip
-  - pip:
-      # TODO: use conda > v1.0.1 is released
-      - git+https://github.com/dask/dask-labextension
-      - git+https://github.com/fastscape-lem/fastscape
