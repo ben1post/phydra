@@ -1,6 +1,7 @@
 import numpy as np
 import xsimlab as xs
 
+from ..processes.environments import BaseEnvironment
 
 @xs.process
 class BaseGrid:
@@ -27,7 +28,7 @@ class GridXY(BaseGrid):
     dx = xs.variable(intent='out', description='grid distance in regular grid, x direction')
     dy = xs.variable(intent='out', description='grid distance in regular grid, y direction')
 
-    grid_dims = xs.foreign(PhysicalEnvironment, 'grid_dims', intent='out')
+    grid_dims = xs.foreign(BaseEnvironment, 'grid_dims', intent='out')
 
     def initialize(self):
         self.dx, self.dy = 10 / np.array([self.x_dim, self.x_dim], dtype='float64')

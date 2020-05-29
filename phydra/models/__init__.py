@@ -1,3 +1,5 @@
-from ._models import (NPZDslab_model)
+from ._models import (ZeroD_NPxZx_Slab_model,
+                      ZeroD_NPxZx_Chemostat_model ,
+                      ZeroD_NPZD_Slab_model,
 
-# add model prototypes above
+                      GridXY_NP_Chemostat_model)
