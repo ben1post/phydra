@@ -5,6 +5,46 @@ from ..processes.environments import BaseEnvironment
 
 from ..processes.components import Nutrient, Phytoplankton
 
+import attr
+
+
+# NOTE: like so! add a CellVariable base class, that each component is initialised as
+# this keeps adding to common Grid ! automatically initialises component at each grid point
+
+# what do I need for Term/Fluxes
+# generally need to define interactions between CellVariables
+# needs to take multiple CellVariables as input, compute a function, and output flux
+
+# for now: solve needs to supply to run_step
+
+
+#@attr.s
+#class Term:
+#    var = attr.ib(default=attr.Factory(dict))#
+
+#    _in = attr.ib(default=attr.Factory(dict))
+
+#    @property
+#    def solve(self):
+#        """This is called to create system of ode"""
+#        raise NotImplementedError
+
+
+@xs.process
+class Flux:
+    var = xs.any_object("This contains the actual mathematical formulation described by this term")
+
+    _in = xs.any_object("This handles input (and output) to var")
+
+    def initialize(self):
+        self.var = 0
+
+    def run_step(self):
+        self._delta = self.solve(self.var)
+
+
+#xs.Model({'Flux':Flux})
+
 
 @xs.process
 class NutrientUptake:
@@ -57,3 +97,4 @@ class PhytoplanktonMortality:
 
     def run_step(self):
         self.P_mortality = - np.array(self.P_mortality_rate * self.P ** 2, dtype='float64')
+
