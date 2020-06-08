@@ -67,6 +67,7 @@ class Time:
     time = xs.index(dims='time', description='time in days')
 
     def initialize(self):
+        print('Initializing Model Time')
         self.time = self.days
 
 
@@ -103,6 +104,7 @@ class GekkoContext:
     Fluxes = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific SV')
 
     def initialize(self):
+        print('Initializing Gekko Context')
         self.m = GEKKO()  # specific gekko model instance
         self.context = ContextList()  # simple defaultdict list store containing additional info
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
@@ -112,18 +114,6 @@ class GekkoContext:
         self.m.time = self.time
 
         self.context["shape"] = self.shape
-
-        # freeze context defaultdict after full initialization:
-        #self.context.default_factory = None
-
-    def run_step(self):
-        print('step')
-
-
-#TODO:
-# So I want every instance of a component to supply it's own index
-# this should be possible somehow!
-# perhaps I need to simply wrap the Component process? !
 
 
 @xs.process
@@ -137,11 +127,11 @@ class Component:
 
     gridshape = xs.foreign(GekkoContext, 'shape')
 
-    #label = xs.variable(intent='in')
     init = xs.variable(intent='in')
 
-    def initialize(self):
 
+    def initialize(self):
+        print('Initializing component ', self.label)
         # add label to gk_context - components list:
         self.gk_context['components'] = (self.label, self.dim)
 
@@ -152,17 +142,37 @@ class Component:
         self.gk_SVshapes[self.label] = self.FullDims
         self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
 
-        print(self.gk_SVshapes[self.label])
 
         # define m.SV array in full model dimensions, add to SV dict:
         self.gk_SVs[self.label] = self.m.Array(self.m.SV, (self.FullDims.shape))
-        print(self.gk_SVs)
 
-        # initialize SV m.Array through FullDims multi_index
+        # initialize SV m.Array with self.init val through FullDims multi_index
         it = np.nditer(self.FullDims, flags=['multi_index'])
         while not it.finished:
             self.gk_SVs[self.label][it.multi_index].value = self.init
             it.iternext()
+
+    def run_step(self):
+        """Assemble component equations from initialized fluxes"""
+        print('Assembling equation for component ',self.label)
+        it1 = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
+        while not it1.finished:
+            self.m.Equation(
+                self.gk_SVs[self.label][it1.multi_index].dt() == \
+                self.gk_Fluxes[self.label][it1.multi_index])
+            it1.iternext()
+
+    def finalize_step(self):
+        """Store component output to array here!"""
+        print('Storing output component ', self.label)
+        out = []
+        _it = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
+        while not _it.finished:
+            out.append([val for val in self.gk_SVs[self.label][_it.multi_index].value])
+            _it.iternext()
+
+        self.output = np.array(out, dtype='float64')
+
 
 
 @xs.process
@@ -181,14 +191,11 @@ class Flux:
     c2_label = xs.variable(intent='in')
 
     def initialize(self):
+        print('Initializing Flux')
         # get SVs
         C1 = self.gk_SVs[self.c1_label]
-        print(C1)
         C2 = self.gk_SVs[self.c2_label]
-        print(C2)
 
-        print(self.gk_Fluxes[self.c1_label])
-        print(self.gk_Fluxes[self.c2_label])
 
         # define flux for all dimensions of SV
         it1 = np.nditer(self.gk_SVshapes[self.c1_label], flags=['multi_index', 'refs_ok'])
@@ -200,106 +207,26 @@ class Flux:
                 it1.iternext()
                 it2.iternext()
 
-        it1 = np.nditer(self.gk_SVshapes[self.c1_label], flags=['multi_index', 'refs_ok'])
-        it2 = np.nditer(self.gk_SVshapes[self.c2_label], flags=['multi_index', 'refs_ok'])
-        while not it1.finished:
-            while not it2.finished:
-                self.m.Equation(
-                    self.gk_SVs[self.c1_label][it1.multi_index].dt() == \
-                    self.gk_Fluxes[self.c1_label][it1.multi_index])
-                self.m.Equation(
-                    self.gk_SVs[self.c2_label][it2.multi_index].dt() == \
-                    self.gk_Fluxes[self.c2_label][it2.multi_index])
-                it1.iternext()
-                it2.iternext()
-
-        print(self.gk_Fluxes[self.c1_label])
-        print(self.gk_Fluxes[self.c2_label])
-
 
 @xs.process
 class GekkoSolve:
     m = xs.foreign(GekkoContext, 'm')
     gk_context = xs.foreign(GekkoContext, 'context')
 
-    gk_SVs = xs.foreign(GekkoContext, 'SVs')
-    gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
-    gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+    #gk_SVs = xs.foreign(GekkoContext, 'SVs')
+    #gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
+    #gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
 
     gridshape = xs.foreign(GekkoContext, 'shape')
 
-    # get all dims as xs.group, then use labels to create index?
-    components = xs.group('component')
-    time = xs.foreign(Time,'time')
 
 
-    output1 = xs.variable(intent='out', dims=[(),('c1','time'),('c1','env','time')])
-    output2 = xs.variable(intent='out', dims=('c2','time'))
-
-    def initialize(self):
+    def run_step(self):
         print('SolveInit')
-        #dimshape = ((len(self.time),) + self.gk_SVshapes['c1'].shape)
-        #print(dimshape)
-        #self.output1 = np.zeros(dimshape, dtype='float64')
-        #self.output2 = np.zeros_like((self.gk_SVshapes['c2'].shape, len(self.time)), dtype='float64')
 
-        print('finalize')
-        print(self.gk_context['components'])
+        print(self.gk_context)
 
         self.m.options.IMODE = 7
         self.m.solve(disp=False)
 
-        print('XXX')
-
-        out = []
-        _it = np.nditer(self.gk_SVshapes['c1'], flags=['multi_index', 'refs_ok'])
-        while not _it.finished:
-            out.append([val for val in self.gk_SVs['c1'][_it.multi_index].value])
-            _it.iternext()
-
-        self.output1 = np.array(out, dtype='float64')
-
-        print('filled_output')
-        print(self.output1)
-
-    def finalize_x(self):
-        # clean data here, not sure how yet.
-        # after full initialization build model:
-        print('finalize')
-        print(self.gk_context['components'])
-
-        self.m.options.IMODE = 7
-        self.m.solve(disp=False)
-
-
-        print('XXX')
-
-        out = []
-        _it = np.nditer(self.gk_SVshapes['c1'], flags=['multi_index', 'refs_ok'])
-        while not _it.finished:
-            out.append([val for val in self.gk_SVs['c1'][_it.multi_index].value])
-            _it.iternext()
-
-        self.output1 = np.array(out, dtype='float64')
-
-        print('filled_output')
-        print(self.output1)
-        #i = 0
-        #for label, dim in self.gk_context['components']:
-        #    out = np.empty_like(self.gk_SVshapes[label])
-        #    print(out)
-        #    _it = np.nditer(self.gk_SVshapes[label], flags=['multi_index', 'refs_ok'])
-        #    while not _it.finished:
-        #        print('iterator:')
-        #        out[_it.index] = [val for val in self.gk_SVs[label][_it.multi_index].value]
-        #        _it.iternext()
-        #    print(self.outputs[i])
-        #    self.outputs[i] = np.array(self.out)
-        #    i += 1
-        #    print('HEEE')
-        #    print(label, dim)
-
-
-        print(self.gk_SVs)
-        print('hey')
-        print(self.gk_SVs['D'])
+        print('ModelSolve done')
