@@ -120,6 +120,12 @@ class GekkoContext:
         print('step')
 
 
+#TODO:
+# So I want every instance of a component to supply it's own index
+# this should be possible somehow!
+# perhaps I need to simply wrap the Component process? !
+
+
 @xs.process
 class Component:
     m = xs.foreign(GekkoContext, 'm')
@@ -131,14 +137,10 @@ class Component:
 
     gridshape = xs.foreign(GekkoContext, 'shape')
 
-    label = xs.variable(intent='in')
+    #label = xs.variable(intent='in')
     init = xs.variable(intent='in')
-    dim = xs.variable(intent='in')
-
-    component = xs.variable(intent='out', groups='component')
 
     def initialize(self):
-        self.component = np.arange(self.dim)
 
         # add label to gk_context - components list:
         self.gk_context['components'] = (self.label, self.dim)
@@ -228,34 +230,76 @@ class GekkoSolve:
 
     # get all dims as xs.group, then use labels to create index?
     components = xs.group('component')
+    time = xs.foreign(Time,'time')
 
-    # SO NOW,
-    # SV_out = xs.variable(dims=)
 
-    def finalize(self):
-        # clean data here, not sure how yet.
-        # after full initialization build model:
+    output1 = xs.variable(intent='out', dims=[(),('c1','time'),('c1','env','time')])
+    output2 = xs.variable(intent='out', dims=('c2','time'))
+
+    def initialize(self):
+        print('SolveInit')
+        #dimshape = ((len(self.time),) + self.gk_SVshapes['c1'].shape)
+        #print(dimshape)
+        #self.output1 = np.zeros(dimshape, dtype='float64')
+        #self.output2 = np.zeros_like((self.gk_SVshapes['c2'].shape, len(self.time)), dtype='float64')
+
         print('finalize')
         print(self.gk_context['components'])
-        dims = []
-        i = 0
-        for label, dim in self.gk_context['components']:
-            dims.append(xs.index(dims=label))
-            dims[i] = np.arange(dim)
-            i += 1
-
-            print('HEEE')
-            print(label,dim)
-
-        out1 = xs.variable(dims=dims[0])
-        print(out1)
-        print('dims:', dims)
 
         self.m.options.IMODE = 7
         self.m.solve(disp=False)
 
+        print('XXX')
+
+        out = []
+        _it = np.nditer(self.gk_SVshapes['c1'], flags=['multi_index', 'refs_ok'])
+        while not _it.finished:
+            out.append([val for val in self.gk_SVs['c1'][_it.multi_index].value])
+            _it.iternext()
+
+        self.output1 = np.array(out, dtype='float64')
+
+        print('filled_output')
+        print(self.output1)
+
+    def finalize_x(self):
+        # clean data here, not sure how yet.
+        # after full initialization build model:
+        print('finalize')
+        print(self.gk_context['components'])
+
+        self.m.options.IMODE = 7
+        self.m.solve(disp=False)
+
+
+        print('XXX')
+
+        out = []
+        _it = np.nditer(self.gk_SVshapes['c1'], flags=['multi_index', 'refs_ok'])
+        while not _it.finished:
+            out.append([val for val in self.gk_SVs['c1'][_it.multi_index].value])
+            _it.iternext()
+
+        self.output1 = np.array(out, dtype='float64')
+
+        print('filled_output')
+        print(self.output1)
+        #i = 0
+        #for label, dim in self.gk_context['components']:
+        #    out = np.empty_like(self.gk_SVshapes[label])
+        #    print(out)
+        #    _it = np.nditer(self.gk_SVshapes[label], flags=['multi_index', 'refs_ok'])
+        #    while not _it.finished:
+        #        print('iterator:')
+        #        out[_it.index] = [val for val in self.gk_SVs[label][_it.multi_index].value]
+        #        _it.iternext()
+        #    print(self.outputs[i])
+        #    self.outputs[i] = np.array(self.out)
+        #    i += 1
+        #    print('HEEE')
+        #    print(label, dim)
+
+
         print(self.gk_SVs)
         print('hey')
         print(self.gk_SVs['D'])
-        print('hello')
-        print(self.gk_SVs['D'].shape)
