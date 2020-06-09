@@ -12,8 +12,10 @@ def phydra_setup(model, input_vars, output_vars):
 
 
 def createMultiComp(base_process, comp_label, comp_dim):
-    """ This function allows addition of a specific label and dimension to create
-    multiple interacting instances of a component"""
+    """This function allows creating specific instance of component during model setup
+       a new subclass with the appropriate labels and dimensions is created by a dynamically
+       created xs.process AddIndexComplabel inheritng from the base_process
+       """
     @xs.process
     class AddIndexCompLabel(base_process):
         label = xs.variable(intent='out')

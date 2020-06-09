@@ -48,12 +48,6 @@ class GekkoSolve:
     m = xs.foreign(GekkoContext, 'm')
     gk_context = xs.foreign(GekkoContext, 'context')
 
-    #gk_SVs = xs.foreign(GekkoContext, 'SVs')
-    #gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
-    #gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
-
-    gridshape = xs.foreign(GekkoContext, 'shape')
-
     def run_step(self):
         print('SolveInit')
 

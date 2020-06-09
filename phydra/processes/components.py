@@ -3,28 +3,6 @@ import xsimlab as xs
 
 from .gekkocontext import GekkoContext
 
-def createMultiComp(base_process, comp_label, comp_dim):
-    """This function allows creating specific instance of component during model setup
-    a new subclass with the appropriate labels and dimensions is created by a dynamically
-    created xs.process AddIndexComplabel inheritng form the base_process
-    """
-    @xs.process
-    class AddIndexCompLabel(base_process):
-        label = xs.variable(intent='out')
-        dim = xs.variable(intent='out')
-        index = xs.index(dims=comp_label)
-
-        output = xs.variable(intent='out', dims=(comp_label, 'time'))
-
-        def initialize(self):
-            self.label = comp_label
-            self.dim = comp_dim
-            self.index = [f"{comp_label}-{i}" for i in range(comp_dim)]
-            super(AddIndexCompLabel, self).initialize()
-
-    return AddIndexCompLabel
-
-
 @xs.process
 class Component:
     m = xs.foreign(GekkoContext, 'm')
