@@ -19,7 +19,7 @@ class Context:
 
 
 class ContextDict(Context):
-    """ This stores model context in lists for setup and debugging
+    """ This stores model context in a dict of dicts for setup and debugging
     """
     def __init__(self):
         """overwrite ContextDict to default list"""
@@ -27,13 +27,9 @@ class ContextDict(Context):
         self.name = 'Model context dict'
 
     def __setitem__(self, key, args):
-        print('args', args)
         label, value = args
-        print('key', key)
-        print('value', value)
-        print('context', self.context)
         self.context[key].update({label: value})
-        #return self.context
+
 
 
 class GekkoMath(Context):
