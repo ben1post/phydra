@@ -5,6 +5,14 @@ from .gekkocontext import GekkoContext
 
 @xs.process
 class Component:
+    """This is the basis for a state variable in the model,
+    or an array of state variables that share the same mathematical equations
+
+    ToDo:
+    - Figure out how to best supply allometric parameterization for MultiComponents
+        Options: with Flux, external xs.Process (intent='inout),
+        or wrapper function for create_setup containing math
+    """
     m = xs.foreign(GekkoContext, 'm')
     gk_context = xs.foreign(GekkoContext, 'context')
 
@@ -19,7 +27,7 @@ class Component:
     def initialize(self):
         print('Initializing component ', self.label)
         # add label to gk_context - components list:
-        self.gk_context['components'] = (self.label, self.dim)
+        self.gk_context['comp_dims'] = (self.label,self.dim)
 
         # define np.array of full dimensions for this component:
         self.FullDims = np.zeros((self.gridshape, self.dim))

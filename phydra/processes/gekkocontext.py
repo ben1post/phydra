@@ -4,7 +4,7 @@ from gekko import GEKKO
 from collections import defaultdict
 
 from .main import (Grid0D, Boundary0D, Time)
-from ..utility.modelcontext import (ContextList, GekkoMath, SVDimsDict)
+from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict)
 
 @xs.process
 class GekkoContext:
@@ -29,14 +29,14 @@ class GekkoContext:
         print('Initializing Gekko Context')
         self.m = GEKKO()  # specific gekko model instance
 
-        self.context = ContextList()  # simple defaultdict list store containing additional info
+        self.context = ContextDict()  # simple defaultdict list store containing additional info
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
         self.Fluxes = SVDimsDict()  # stores m.Intermediates with corresponding label, needs to be appended to
 
         self.m.time = self.time
 
-        self.context["shape"] = self.shape
+        self.context["shape"] = ('env',self.shape)
 
 
 @xs.process

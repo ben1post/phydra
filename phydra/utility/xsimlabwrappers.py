@@ -14,7 +14,7 @@ def phydra_setup(model, input_vars, output_vars):
 def createMultiComp(base_process, comp_label, comp_dim):
     """This function allows creating specific instance of component during model setup
        a new subclass with the appropriate labels and dimensions is created by a dynamically
-       created xs.process AddIndexComplabel inheritng from the base_process
+       created xs.process AddIndexCompLabel inheritng from the base_process
        """
     @xs.process
     class AddIndexCompLabel(base_process):
@@ -31,3 +31,25 @@ def createMultiComp(base_process, comp_label, comp_dim):
             super(AddIndexCompLabel, self).initialize()
 
     return AddIndexCompLabel
+
+
+def specifyComps4Flux(base_process, comp1_label, comp2_label):
+    """This function allows creating specific instance of flux during model setup
+       a new subclass with the appropriate labels and dimensions is created by a dynamically
+       created xs.process AddCompLabels inheritng from the base_process
+
+       ToDo:
+       - This will need to also pass on specific component dimensions later on,
+       in more complex implementations
+       """
+    @xs.process
+    class AddCompLabels(base_process):
+        c1_label = xs.variable(intent='out')
+        c2_label = xs.variable(intent='out')
+
+        def initialize(self):
+            self.c1_label = comp1_label
+            self.c2_label = comp2_label
+            super(AddCompLabels, self).initialize()
+
+    return AddCompLabels
