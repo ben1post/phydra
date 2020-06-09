@@ -1,13 +1,13 @@
 import numpy as np
 import xsimlab as xs
 
-from ..processes.environments import BaseEnvironment
+from .main import Grid0D
 
 
 @xs.process
 class ChemostatForcing:
     """Here we initialise the Nutrient Input Forcing (also spatially defined)"""
-    Model_dims = xs.foreign(BaseEnvironment, 'dims')
+    Model_dims = xs.foreign(Grid0D, 'dims')
 
     N_0 = xs.variable(dims=('x', 'y', 'Env'), intent='out', static=True)
 

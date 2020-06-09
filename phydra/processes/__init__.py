@@ -1,3 +1,3 @@
-from .grid import (BaseGrid, GridXY)
-from .main import *
-# add model processes above
+from .main import (Grid0D, Boundary0D, Time)
+from .components import Component
+from .gekkocontext import (GekkoContext, GekkoSolve)

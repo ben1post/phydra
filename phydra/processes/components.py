@@ -1,63 +1,82 @@
 import numpy as np
 import xsimlab as xs
 
+from .gekkocontext import GekkoContext
+
+def createMultiComp(base_process, comp_label, comp_dim):
+    """This function allows creating specific instance of component during model setup
+    a new subclass with the appropriate labels and dimensions is created by a dynamically
+    created xs.process AddIndexComplabel inheritng form the base_process
+    """
+    @xs.process
+    class AddIndexCompLabel(base_process):
+        label = xs.variable(intent='out')
+        dim = xs.variable(intent='out')
+        index = xs.index(dims=comp_label)
+
+        output = xs.variable(intent='out', dims=(comp_label, 'time'))
+
+        def initialize(self):
+            self.label = comp_label
+            self.dim = comp_dim
+            self.index = [f"{comp_label}-{i}" for i in range(comp_dim)]
+            super(AddIndexCompLabel, self).initialize()
+
+    return AddIndexCompLabel
+
 
 @xs.process
 class Component:
-    """
-    Basis for all components, defines the calculation of fluxes and state.
-    specific fluxes, variables, and parameters need to be defined in subclass.
-    """
+    m = xs.foreign(GekkoContext, 'm')
+    gk_context = xs.foreign(GekkoContext, 'context')
 
-    @xs.runtime(args="step_delta")
-    def run_step(self, dt):
-        self.delta = sum((v for v in self.fluxes)) * dt  # multiply by time step
+    gk_SVs = xs.foreign(GekkoContext, 'SVs')
+    gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
+    gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+
+    gridshape = xs.foreign(GekkoContext, 'shape')
+
+    init = xs.variable(intent='in')
+
+    def initialize(self):
+        print('Initializing component ', self.label)
+        # add label to gk_context - components list:
+        self.gk_context['components'] = (self.label, self.dim)
+
+        # define np.array of full dimensions for this component:
+        self.FullDims = np.zeros((self.gridshape, self.dim))
+
+        # add to SVDims dict:
+        self.gk_SVshapes[self.label] = self.FullDims
+        self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
+
+
+        # define m.SV array in full model dimensions, add to SV dict:
+        self.gk_SVs[self.label] = self.m.Array(self.m.SV, (self.FullDims.shape))
+
+        # initialize SV m.Array with self.init val through FullDims multi_index
+        it = np.nditer(self.FullDims, flags=['multi_index'])
+        while not it.finished:
+            self.gk_SVs[self.label][it.multi_index].value = self.init
+            it.iternext()
+
+    def run_step(self):
+        """Assemble component equations from initialized fluxes"""
+        print('Assembling equation for component ',self.label)
+        it1 = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
+        while not it1.finished:
+            self.m.Equation(
+                self.gk_SVs[self.label][it1.multi_index].dt() == \
+                self.gk_Fluxes[self.label][it1.multi_index])
+            it1.iternext()
 
     def finalize_step(self):
-        self.state += self.delta
+        """Store component output to array here!"""
+        print('Storing output component ', self.label)
+        out = []
+        _it = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
+        while not _it.finished:
+            out.append([val for val in self.gk_SVs[self.label][_it.multi_index].value])
+            _it.iternext()
 
-
-@xs.process
-class SingularComp(Component):
-    dim = xs.variable(intent='out')
-
-    # e.g. N
-
-    def initialize(self):
-        self.dim = 1
-
-
-@xs.process
-class Nutrient(SingularComp):
-    # create the own N dimension
-    dim_label = xs.variable(default='N')
-    N = xs.index(dims='N')
-
-    state = xs.variable(intent='inout', dims=[('N'), ('Env', 'N'), ('x', 'y', 'Env', 'N')])
-    fluxes = xs.group('N_flux')
-
-    def initialize(self):
-        super(Nutrient, self).initialize()
-
-        self.N = np.arange(self.dim)
-
-
-@xs.process
-class MultiComp(Component):
-    # e.g. P, Z
-    dim = xs.variable(intent='inout')
-
-
-@xs.process
-class Phytoplankton(MultiComp):
-    dim_label = xs.variable(default='P')
-    P = xs.index(dims='P')
-
-    state = xs.variable(intent='inout', dims=[('P'), ('Env', 'P'), ('x', 'y', 'Env', 'P')])
-    fluxes = xs.group('P_flux')
-
-    halfsat = xs.variable(intent='inout', dims=[('P'), ('Env', 'P'), ('x', 'y', 'Env', 'P')])
-    mortality_rate = xs.variable(intent='inout', dims=[('P'), ('Env', 'P'), ('x', 'y', 'Env', 'P')])
-
-    def initialize(self):
-        self.P = np.arange(self.dim)
+        self.output = np.array(out, dtype='float64')

@@ -1,21 +1,19 @@
 import xsimlab as xs
 
-from ..processes.grid import BaseGrid, GridXY
-from ..processes.environments import BaseEnvironment
-from ..processes.components import Nutrient, Phytoplankton
-from ..processes.fluxes import PhytoplanktonMortality, NutrientUptake
+import phydra
+from phydra.processes.main import Time, Grid0D,Boundary0D
+from phydra.processes.fluxes import Flux
+from phydra.processes.components import Component
+from phydra.processes.gekkocontext import GekkoContext, GekkoSolve
 
-from ..processes.forcing import ChemostatForcing
-from ..processes.forcingfluxes import Mixing
-from ..processes.gridfluxes import GridExchange
-from ..processes.init import ChemostatGridXYSetup
+from phydra.utility.xsimlabwrappers import phydra_setup, createMultiComp
 
 
 # ``Bootstrap model`` has the minimal set of processes required to
 # simulate a
 
 Bootstrap_model = xs.Model({
-    'Grid': BaseGrid
+    'Grid': Grid0D
 })
 
 
@@ -23,7 +21,7 @@ Bootstrap_model = xs.Model({
 # simulate a
 
 ZeroD_NPZD_Slab_model = xs.Model({
-    'Grid': BaseGrid
+    'Grid': Grid0D
 })
 
 
@@ -31,7 +29,7 @@ ZeroD_NPZD_Slab_model = xs.Model({
 # simulate a
 
 ZeroD_NPxZx_Chemostat_model = xs.Model({
-    'Grid': BaseGrid
+    'Grid': Grid0D
 })
 
 
@@ -39,7 +37,7 @@ ZeroD_NPxZx_Chemostat_model = xs.Model({
 # simulate a
 
 ZeroD_NPxZx_Slab_model = xs.Model({
-    'Grid': BaseGrid
+    'Grid': Grid0D
 })
 
 
@@ -48,17 +46,17 @@ ZeroD_NPxZx_Slab_model = xs.Model({
 
 
 GridXY_NP_Chemostat_model = xs.Model({
-    'Grid': GridXY,
+    'Grid': Grid0D,
 
-    'Env': BaseEnvironment,
+    'Env': Grid0D,
 
-    'N': Nutrient, 'P': Phytoplankton,
+    'N': Grid0D, 'P': Grid0D,
 
-    'NP_uptake': NutrientUptake, 'P_Mortality': PhytoplanktonMortality,
+    'NP_uptake': Grid0D, 'P_Mortality': Grid0D,
 
-    'FX': ChemostatForcing, 'Mix': Mixing,
+    'FX': Grid0D, 'Mix': Grid0D,
 
-    'GX': GridExchange,
+    'GX': Grid0D,
 
-    'MS': ChemostatGridXYSetup
+    'MS': Grid0D
 })
