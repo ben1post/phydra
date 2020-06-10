@@ -2,7 +2,8 @@ import numpy as np
 import xsimlab as xs
 
 from .gekkocontext import GekkoContext
-from .main import Grid0D,Time
+from .components import Time
+from .main import Grid0D
 
 
 @xs.process

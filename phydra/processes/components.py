@@ -4,6 +4,31 @@ import xsimlab as xs
 from .gekkocontext import GekkoContext
 
 @xs.process
+class Time:
+    m = xs.foreign(GekkoContext, 'm')
+    gk_context = xs.foreign(GekkoContext, 'context')
+
+    gk_SVs = xs.foreign(GekkoContext, 'SVs')
+    gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
+    gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+
+    days = xs.variable(dims='time', description='time in days')
+
+    # for indexing xarray IO objects
+    time = xs.index(dims='time', description='time in days')
+
+    def initialize(self):
+        print('Initializing Model Time')
+        self.time = self.days
+
+        # ASSIGN MODEL SOLVING TIME HERE:
+        self.m.time = self.time
+
+        self.gk_SVs['time'] = self.m.Var(0, lb=0)
+        # add variable keeping track of time within model:
+        self.m.Equation(self.gk_SVs['time'].dt() == 1)
+
+@xs.process
 class AllComponents:
     """ Process that collects all component output into one single variable for easier plotting
     Note: only works for (ALL) one dimensional components for now! """

@@ -3,7 +3,7 @@ import xsimlab as xs
 from gekko import GEKKO
 from collections import defaultdict
 
-from .main import (Grid0D, Boundary0D, Time)
+from .main import (Grid0D, Boundary0D)
 from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict)
 
 @xs.process
@@ -12,8 +12,6 @@ class GekkoContext:
     update and clean-up of gekko PDE/ODE internal
     state.
     """
-    time = xs.foreign(Time, 'days')
-
     shape = xs.foreign(Grid0D, 'shape')
     length = xs.foreign(Grid0D, 'length')
     ibc = xs.foreign(Boundary0D, 'ibc')
@@ -33,8 +31,6 @@ class GekkoContext:
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
         self.Fluxes = SVDimsDict()  # stores m.Intermediates with corresponding label, needs to be appended to
-
-        self.m.time = self.time
 
         self.context["shape"] = ('env',self.shape)
 
