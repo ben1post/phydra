@@ -18,11 +18,11 @@ def createSingleComp(base_process, comp_label):
        """
     @xs.process
     class AddIndexCompLabel(base_process):
-        label = xs.variable(intent='out')
-        dim = xs.variable(intent='out')
-        index = xs.index(dims=comp_label)
+        label = xs.variable(intent='out', groups='comp_label')
+        dim = xs.variable(intent='out', groups='comp_dim')
+        index = xs.index(dims=comp_label, groups='comp_index')
 
-        output = xs.variable(intent='out', dims=(comp_label, 'time'))
+        output = xs.variable(intent='out', dims=(comp_label, 'time'), groups='comp_output')
 
         def initialize(self):
             self.label = comp_label
@@ -40,11 +40,11 @@ def createMultiComp(base_process, comp_label, comp_dim):
        """
     @xs.process
     class AddIndexCompDimsLabel(base_process):
-        label = xs.variable(intent='out')
-        dim = xs.variable(intent='out')
-        index = xs.index(dims=comp_label)
+        label = xs.variable(intent='out', groups='comp_label')
+        dim = xs.variable(intent='out', groups='comp_dim')
+        index = xs.index(dims=comp_label, groups='comp_index')
 
-        output = xs.variable(intent='out', dims=(comp_label, 'time'))
+        output = xs.variable(intent='out', dims=(comp_label, 'time'), groups='comp_output')
 
         def initialize(self):
             self.label = comp_label

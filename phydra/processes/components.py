@@ -4,6 +4,27 @@ import xsimlab as xs
 from .gekkocontext import GekkoContext
 
 @xs.process
+class AllComponents:
+    """ Process that collects all component output into one single variable for easier plotting
+    Note: only works for (ALL) one dimensional components for now! """
+
+    components = xs.index(dims='components')
+    outputs = xs.variable(intent='out', dims=('components', 'time'))
+
+    comp_labels = xs.group('comp_label')
+    comp_dims = xs.group('comp_dim')
+    comp_indices = xs.group('comp_index')
+    comp_outputs = xs.group('comp_output')
+
+    def initialize(self):
+        self.components = [index for indices in self.comp_indices for index in indices]
+
+    def finalize_step(self):
+        self.outputs = [output for outputs in self.comp_outputs for output in outputs]
+
+
+
+@xs.process
 class Component:
     """This is the basis for a state variable in the model,
     or an array of state variables that share the same mathematical equations
@@ -11,7 +32,7 @@ class Component:
     ToDo:
     - Figure out how to best supply allometric parameterization for MultiComponents
         Options: with Flux, external xs.Process (intent='inout),
-        or wrapper function for create_setup containing math
+        or wrapper function for create_setup with dims passed at model creation
     """
     m = xs.foreign(GekkoContext, 'm')
     gk_context = xs.foreign(GekkoContext, 'context')
