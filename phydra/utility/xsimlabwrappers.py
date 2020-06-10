@@ -11,7 +11,7 @@ def phydra_setup(model, input_vars, output_vars):
                            output_vars=output_vars)
 
 
-def createMultiComp(base_process, comp_label, comp_dim):
+def createSingleComp(base_process, comp_label):
     """This function allows creating specific instance of component during model setup
        a new subclass with the appropriate labels and dimensions is created by a dynamically
        created xs.process AddIndexCompLabel inheritng from the base_process
@@ -26,11 +26,33 @@ def createMultiComp(base_process, comp_label, comp_dim):
 
         def initialize(self):
             self.label = comp_label
-            self.dim = comp_dim
-            self.index = [f"{comp_label}-{i}" for i in range(comp_dim)]
+            self.dim = 1
+            self.index = [f"{comp_label}"]
             super(AddIndexCompLabel, self).initialize()
 
     return AddIndexCompLabel
+
+
+def createMultiComp(base_process, comp_label, comp_dim):
+    """This function allows creating specific instance of component during model setup
+       a new subclass with the appropriate labels and dimensions is created by a dynamically
+       created xs.process AddIndexCompLabel inheritng from the base_process
+       """
+    @xs.process
+    class AddIndexCompDimsLabel(base_process):
+        label = xs.variable(intent='out')
+        dim = xs.variable(intent='out')
+        index = xs.index(dims=comp_label)
+
+        output = xs.variable(intent='out', dims=(comp_label, 'time'))
+
+        def initialize(self):
+            self.label = comp_label
+            self.dim = comp_dim
+            self.index = [f"{comp_label}-{i}" for i in range(comp_dim)]
+            super(AddIndexCompDimsLabel, self).initialize()
+
+    return AddIndexCompDimsLabel
 
 
 def specifyComps4Flux(base_process, comp1_label, comp2_label):
