@@ -1,5 +1,6 @@
 import numpy as np
 import xsimlab as xs
+from xsimlab import runtime_hook
 
 from ..utility.modelcontext import GekkoMath
 from .gekkocontext import GekkoContext
@@ -32,8 +33,8 @@ class Flux:
                                              self.gk_context['comp_dims'][self.c1_label])
 
         # define flux for all dimensions of SV
-        it1 = np.nditer(self.gk_SVshapes[self.c1_label], flags=['multi_index', 'refs_ok'])
-        it2 = np.nditer(self.gk_SVshapes[self.c2_label], flags=['multi_index', 'refs_ok'])
+        it1 = np.nditer(self.gk_SVshapes[self.c1_label], flags=['zerosize_ok', 'multi_index', 'refs_ok'])
+        it2 = np.nditer(self.gk_SVshapes[self.c2_label], flags=['zerosize_ok', 'multi_index', 'refs_ok'])
         while not it1.finished:
             while not it2.finished:
                 self.conversionrate = self.m.Intermediate(C1[it1.multi_index] * self.conversion2_c2)
@@ -81,19 +82,27 @@ class LimitedGrowth(BaseFlux):
         self.C = self.gk_SVs[self.C_label]
 
     def run_step(self):
+        print('Initializing GrowthDependencies:', self.GrowthDependencies)
         self.growth_deps = self.GrowthDependencies[self.C_label]
+        print(self.growth_deps)
 
         # define flux for all dimensions of SV
-        it = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index', 'refs_ok'])
+        it = np.nditer(self.gk_SVshapes[self.C_label], flags=['zerosize_ok', 'multi_index'])
+        growth_deps_it = np.nditer(self.growth_deps, flags=['zerosize_ok', 'multi_index', 'refs_ok'])
         while not it.finished:
-            self.gk_Fluxes[self.C_label][it.multi_index] = self.m.Intermediate(self.mu *
-                                                                               np.prod(self.growth_deps) *
-                                                                               self.C_label[it.multi_index])
+            # first multiply by growth rate
+            self.gk_Fluxes[self.C_label][it.multi_index] = self.m.Intermediate(self.mu * self.C[it.multi_index])
+            while not growth_deps_it.finished:
+                # multiply all collected growth_deps individually
+                self.gk_Fluxes[self.C_label][it.multi_index] = self.m.Intermediate(growth_deps_it.value *
+                                                                                   self.C[it.multi_index])
+                growth_deps_it.iternext()
             it.iternext()
 
 
 @xs.process
 class NutrientDependency(BaseFlux):
+    """ """
     LG_GrowthDep = xs.foreign(LimitedGrowth, 'GrowthDependencies')
     LG_C_label = xs.foreign(LimitedGrowth, 'C_label')
 
@@ -103,10 +112,13 @@ class NutrientDependency(BaseFlux):
         return np.cos(t / 365 * np.pi * 1.5) * .8 + 2
 
     def initialize(self):
+        print('Initialize NutrientDependency')
         self.gk_SVs['nutrient'] = self.m.Var()
 
-        NatT = self.m.Intermediate(np.cos(self.gk_SVs['time'] / 365 * np.pi * 1.5) * .8 + 2)
+        NatT = self.m.Intermediate(self.m.cos(self.gk_SVs['time'] / 365 * np.pi * 1.5) * .8 + 2)
 
         self.m.Equation(self.gk_SVs['nutrient'].dt() == NatT)
-        self.LG_GrowthDep[self.LG_C_label] = self.m.Intermediate(self.gk_SVs['nutrient'] / (self.halfsat + self.gk_SVs['nutrient']))
 
+        self.LG_GrowthDep[self.LG_C_label] = self.m.Intermediate(
+            self.gk_SVs['nutrient'] / (self.halfsat + self.gk_SVs['nutrient']))
+        # self.LG_GrowthDep[self.LG_C_label] = self.m.Intermediate(self.gk_SVs['nutrient'] / (self.halfsat +0.2 + self.gk_SVs['nutrient']))

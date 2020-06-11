@@ -3,15 +3,19 @@ import xsimlab as xs
 
 from .gekkocontext import GekkoContext
 
+
 @xs.process
-class Time:
+class InheritGekkoContext:
+    """ This class is a base class that allows all subclasses to access the common GekkoContext"""
     m = xs.foreign(GekkoContext, 'm')
     gk_context = xs.foreign(GekkoContext, 'context')
-
     gk_SVs = xs.foreign(GekkoContext, 'SVs')
     gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
     gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+    gridshape = xs.foreign(GekkoContext, 'shape')
 
+@xs.process
+class Time(InheritGekkoContext):
     days = xs.variable(dims='time', description='time in days')
 
     # for indexing xarray IO objects
@@ -48,32 +52,71 @@ class AllComponents:
         self.outputs = [output for outputs in self.comp_outputs for output in outputs]
 
 
+def make_Component(cls_name, dim_name):
+    """
+    This functions creates a properly labeled xs.process from class Component.
 
-@xs.process
-class Component:
-    """This is the basis for a state variable in the model,
+    :args:
+        cls_name (str): Name of returned process
+        dim_name (str): Name of sub-dimension of returned process
+
+    :returns:
+        xs.process of class Component
+    """
+    new_cls = type(cls_name, Component.__bases__, dict(Component.__dict__))
+    new_cls.index.metadata['dims'] = dim_name
+    new_cls.output.metadata['dims'] = ((dim_name, 'time'),)
+
+    return xs.process(new_cls)
+
+
+class Component(InheritGekkoContext):
+    """The summary line for a class docstring should fit on one line.
+
+    If the class has public attributes, they may be documented here
+    in an ``Attributes`` section and follow the same formatting as a
+    function's ``Args`` section. Alternatively, attributes may be documented
+    inline with the attribute's declaration (see __init__ method below).
+
+    Properties created with the ``@property`` decorator should be documented
+    in the property's getter method.
+
+    Attributes:
+        attr1 (str): Description of `attr1`.
+        attr2 (:obj:`int`, optional): Description of `attr2`.
+
+
+    -------------------------------------------------------------------
+    This is the basis for a state variable in the model,
     or an array of state variables that share the same mathematical equations
+
+    has to be initialized through the make_Component function above!
 
     ToDo:
     - Figure out how to best supply allometric parameterization for MultiComponents
         Options: with Flux, external xs.Process (intent='inout),
         or wrapper function for create_setup with dims passed at model creation
     """
-    m = xs.foreign(GekkoContext, 'm')
-    gk_context = xs.foreign(GekkoContext, 'context')
 
-    gk_SVs = xs.foreign(GekkoContext, 'SVs')
-    gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
-    gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+    index = xs.index(dims='not_initialized', groups='comp_index')
 
-    gridshape = xs.foreign(GekkoContext, 'shape')
+    output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='comp_output')
 
+    # Necessary Input:
     init = xs.variable(intent='in')
+    label = xs.variable(intent='in', groups='comp_label')
+    dim = xs.variable(intent='in', groups='comp_dim')
 
     def initialize(self):
+        if self.dim == 1:
+            self.index = [f"{self.label}"]
+        else:
+            self.index = [f"{self.label}-{i}" for i in range(self.dim)]
+
         print('Initializing component ', self.label)
+        print(self.index)
         # add label to gk_context - components list:
-        self.gk_context['comp_dims'] = (self.label,self.dim)
+        self.gk_context['comp_dims'] = (self.label, self.dim)
 
         # define np.array of full dimensions for this component:
         self.FullDims = np.zeros((self.gridshape, self.dim))
@@ -82,7 +125,7 @@ class Component:
         self.gk_SVshapes[self.label] = self.FullDims
         self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
 
-
+        print(self.FullDims)
         # define m.SV array in full model dimensions, add to SV dict:
         self.gk_SVs[self.label] = self.m.Array(self.m.SV, (self.FullDims.shape))
 
@@ -94,7 +137,7 @@ class Component:
 
     def run_step(self):
         """Assemble component equations from initialized fluxes"""
-        print('Assembling equation for component ',self.label)
+        print('Assembling equation for component ', self.label)
         it1 = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
         while not it1.finished:
             self.m.Equation(
