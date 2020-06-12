@@ -1,16 +1,61 @@
 import numpy as np
 import xsimlab as xs
+import scipy.interpolate as intrp
 
-from .gekkocontext import GekkoContext
+from .gekkocontext import InheritGekkoContext
 from .components import Time
 from .main import Grid0D
 
+@xs.process
+class Forcing(InheritGekkoContext):
+    """Base class for forcing,
+
+    - interpolated and derivative need to be calculated in subclass
+
+    - and passed as m.Param discretized in model timesteps"""
+
+    time = xs.foreign(Time, 'time')
+
+    # subclass supplies : interpolated object that returns value for input of time
+    interpolated = xs.on_demand()
+
+    # interface to other processes:
+    forcing = xs.any_object()
+    derivative = xs.any_object()
+
+    def initialize(self):
+        """self."""
+        self.forcing = self.m.Param(self.interpolated(np.mod(self.time, 365.)))
+
+        forcing_deriv = self.interpolated.derivative()
+        self.derivative = self.m.Param(forcing_deriv(np.mod(self.time, 365.)))
+
+    @interpolated.compute
+    def interpolate(self):
+        """ returns interpolated scipy object, unit : {d^-1} """
+        raise ValueError('interpolate function needs to be initialized in subclass of forcing')
+
 
 @xs.process
-class Forcing:
+class NutrientForcing(Forcing):
+    """ """
+    interpolated = xs.on_demand()
+
+    @interpolated.compute
+    def SinusoidalN0(self):
+        """ Function returns scipy.interpolate object"""
+
+        data_time = np.arange(365)
+        N0 = np.cos(data_time / 365 * 2 * np.pi) + 1
+
+        return intrp.CubicSpline(data_time, N0)
+
+
+
+
+@xs.process
+class OldForcing:
     """Here we initialise the Nutrient Input Forcing (also spatially defined)"""
-    m = xs.foreign(GekkoContext, 'm')
-    gk_context = xs.foreign(GekkoContext, 'context')
 
     mld = xs.variable(dims=('time'), intent='out', static=True)
     par = xs.variable(dims=('time'), intent='out', static=True)

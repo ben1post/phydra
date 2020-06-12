@@ -1,18 +1,8 @@
 import numpy as np
 import xsimlab as xs
 
-from .gekkocontext import GekkoContext
+from .gekkocontext import InheritGekkoContext
 
-
-@xs.process
-class InheritGekkoContext:
-    """ This class is a base class that allows all subclasses to access the common GekkoContext"""
-    m = xs.foreign(GekkoContext, 'm')
-    gk_context = xs.foreign(GekkoContext, 'context')
-    gk_SVs = xs.foreign(GekkoContext, 'SVs')
-    gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
-    gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
-    gridshape = xs.foreign(GekkoContext, 'shape')
 
 @xs.process
 class Time(InheritGekkoContext):
@@ -123,35 +113,38 @@ class Component(InheritGekkoContext):
 
         # add to SVDims dict:
         self.gk_SVshapes[self.label] = self.FullDims
-        self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
+        #self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
 
-        print(self.FullDims)
+        print('GKFLUXES', self.gk_Fluxes)
         # define m.SV array in full model dimensions, add to SV dict:
-        self.gk_SVs[self.label] = self.m.Array(self.m.SV, (self.FullDims.shape))
+        #self.gk_SVs[self.label] = self.m.Array(self.m.SV, (self.FullDims.shape))
+        self.gk_SVs[self.label] = self.m.SV()
 
         # initialize SV m.Array with self.init val through FullDims multi_index
-        it = np.nditer(self.FullDims, flags=['multi_index'])
-        while not it.finished:
-            self.gk_SVs[self.label][it.multi_index].value = self.init
-            it.iternext()
+        #it = np.nditer(self.FullDims, flags=['multi_index'])
+        #while not it.finished:
+        self.gk_SVs[self.label].value = self.init
+        #    it.iternext()
 
     def run_step(self):
         """Assemble component equations from initialized fluxes"""
         print('Assembling equation for component ', self.label)
-        it1 = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
-        while not it1.finished:
-            self.m.Equation(
-                self.gk_SVs[self.label][it1.multi_index].dt() == \
-                self.gk_Fluxes[self.label][it1.multi_index])
-            it1.iternext()
+        #it1 = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
+        #while not it1.finished:
+        print('FLUXES:', self.gk_SVs[self.label], self.gk_Fluxes[self.label])
+        print([flux for flux in self.gk_Fluxes[self.label]])
+        self.m.Equation(
+            self.gk_SVs[self.label].dt() == \
+            sum([flux for flux in self.gk_Fluxes[self.label]]))
+            #it1.iternext()
 
     def finalize_step(self):
         """Store component output to array here!"""
         print('Storing output component ', self.label)
         out = []
-        _it = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
-        while not _it.finished:
-            out.append([val for val in self.gk_SVs[self.label][_it.multi_index].value])
-            _it.iternext()
+        #_it = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
+        #while not _it.finished:
+        out.append([val for val in self.gk_SVs[self.label]])
+        #_it.iternext()
 
         self.output = np.array(out, dtype='float64')

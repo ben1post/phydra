@@ -31,7 +31,6 @@ class ContextDict(Context):
         self.context[key].update({label: value})
 
 
-
 class GekkoMath(Context):
     """ This stores gekko m.intermediates
     """
@@ -46,3 +45,14 @@ class SVDimsDict(Context):
     def __init__(self):
         self.context = defaultdict(np.array)
         self.name = 'SVDims dict'
+
+class SVFluxesDict(Context):
+    """ This stores a corresponding numpy array of same dimensions as state variable m.Array
+    """
+    def __init__(self):
+        self.context = defaultdict(list)
+        self.name = 'SVFluxes dict'
+
+    def __setitem__(self, key, newvalue):
+        self.context[key].append(newvalue)
+        print('DICTITEMS', key, newvalue, self.context)

@@ -4,7 +4,7 @@ from gekko import GEKKO
 from collections import defaultdict
 
 from .main import (Grid0D, Boundary0D)
-from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict)
+from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, SVFluxesDict)
 
 @xs.process
 class GekkoContext:
@@ -30,10 +30,19 @@ class GekkoContext:
         self.context = ContextDict()  # simple defaultdict list store containing additional info
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
-        self.Fluxes = SVDimsDict()  # stores m.Intermediates with corresponding label, needs to be appended to
+        self.Fluxes = SVFluxesDict()  # stores m.Intermediates with corresponding label, needs to be appended to
 
-        self.context["shape"] = ('env',self.shape)
+        self.context["shape"] = ('env', self.shape)
 
+@xs.process
+class InheritGekkoContext:
+    """ This class is a base class that allows all subclasses to access the common GekkoContext"""
+    m = xs.foreign(GekkoContext, 'm')
+    gk_context = xs.foreign(GekkoContext, 'context')
+    gk_SVs = xs.foreign(GekkoContext, 'SVs')
+    gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
+    gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+    gridshape = xs.foreign(GekkoContext, 'shape')
 
 @xs.process
 class GekkoSolve:
