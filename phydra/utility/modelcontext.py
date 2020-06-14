@@ -55,4 +55,4 @@ class SVFluxesDict(Context):
 
     def __setitem__(self, key, newvalue):
         self.context[key].append(newvalue)
-        print('DICTITEMS', key, newvalue, self.context)
+        #print('DICTITEMS', key, newvalue, self.context)

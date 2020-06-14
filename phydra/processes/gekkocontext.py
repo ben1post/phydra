@@ -22,6 +22,7 @@ class GekkoContext:
     SVs = xs.any_object(description='defaultdict - Stores all state variables')
     SVshapes = xs.any_object(description='defaultdict - Stores all state variables dimensions')
     Fluxes = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific SV')
+    Flux_Intermediates = xs.any_object()
 
     def initialize(self):
         print('Initializing Gekko Context')
@@ -31,6 +32,7 @@ class GekkoContext:
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
         self.Fluxes = SVFluxesDict()  # stores m.Intermediates with corresponding label, needs to be appended to
+        self.Flux_Intermediates = SVFluxesDict()  # used to retrieve flux output and store
 
         self.context["shape"] = ('env', self.shape)
 
@@ -42,6 +44,7 @@ class InheritGekkoContext:
     gk_SVs = xs.foreign(GekkoContext, 'SVs')
     gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
     gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
+    gk_Flux_Int = xs.foreign(GekkoContext, 'Flux_Intermediates')
     gridshape = xs.foreign(GekkoContext, 'shape')
 
 @xs.process

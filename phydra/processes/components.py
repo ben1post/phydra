@@ -72,13 +72,15 @@ class Component(InheritGekkoContext):
     index = xs.index(dims='not_initialized', groups='comp_index')
 
     output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='comp_output')
+    label = xs.variable(intent='out', groups='comp_label')
 
     # Necessary Input:
     init = xs.variable(intent='in')
-    label = xs.variable(intent='in', groups='comp_label')
     dim = xs.variable(intent='in', groups='comp_dim')
 
     def initialize(self):
+        self.label = self.__dict__['__xsimlab_name__']
+
         if self.dim == 1:
             self.index = [f"{self.label}"]
         else:
@@ -96,16 +98,12 @@ class Component(InheritGekkoContext):
         self.gk_SVshapes[self.label] = self.FullDims
         #self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
 
-        print('GKFLUXES', self.gk_Fluxes)
-        # define m.SV array in full model dimensions, add to SV dict:
-        #self.gk_SVs[self.label] = self.m.Array(self.m.SV, (self.FullDims.shape))
+        #print('GKFLUXES', self.gk_Fluxes)
         self.gk_SVs[self.label] = self.m.SV()
 
         # initialize SV m.Array with self.init val through FullDims multi_index
-        #it = np.nditer(self.FullDims, flags=['multi_index'])
-        #while not it.finished:
         self.gk_SVs[self.label].value = self.init
-        #    it.iternext()
+
 
     def run_step(self):
         """Assemble component equations from initialized fluxes"""
