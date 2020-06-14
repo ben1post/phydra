@@ -6,7 +6,6 @@ from phydra.processes.fluxes import Flux
 from phydra.processes.components import Component, Time
 from phydra.processes.gekkocontext import GekkoContext, GekkoSolve
 
-from phydra.utility.xsimlabwrappers import phydra_setup, createMultiComp
 
 
 # ``Bootstrap model`` has the minimal set of processes required to

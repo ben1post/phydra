@@ -22,25 +22,6 @@ class Time(InheritGekkoContext):
         # add variable keeping track of time within model:
         self.m.Equation(self.gk_SVs['time'].dt() == 1)
 
-@xs.process
-class AllComponents:
-    """ Process that collects all component output into one single variable for easier plotting
-    Note: only works for (ALL) one dimensional components for now! """
-
-    components = xs.index(dims='components')
-    outputs = xs.variable(intent='out', dims=('components', 'time'))
-
-    comp_labels = xs.group('comp_label')
-    comp_dims = xs.group('comp_dim')
-    comp_indices = xs.group('comp_index')
-    comp_outputs = xs.group('comp_output')
-
-    def initialize(self):
-        self.components = [index for indices in self.comp_indices for index in indices]
-
-    def finalize_step(self):
-        self.outputs = [output for outputs in self.comp_outputs for output in outputs]
-
 
 def make_Component(cls_name, dim_name):
     """

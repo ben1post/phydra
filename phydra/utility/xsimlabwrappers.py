@@ -10,68 +10,42 @@ def phydra_setup(model, input_vars, output_vars):
                            input_vars=input_vars,
                            output_vars=output_vars)
 
+def add_fulldims_EQ(m, Component, EQ2add):
+    a = np.nditer(Component, op_flags=['readwrite'], flags=['zerosize_ok', 'refs_ok', 'multi_index'])
+    b = np.nditer(EQ2add, op_flags=['readwrite'], flags=['zerosize_ok', 'refs_ok', 'multi_index'])
+    while not b.finished:
+        while not a.finished:
+            print(a.value, b.value)
+            m.Equation(Component[a.multi_index].dt() == EQ2add[b.multi_index])
+            a.iternext()
+        b.iternext()
 
-def createSingleComp(base_process, comp_label):
-    """This function allows creating specific instance of component during model setup
-       a new subclass with the appropriate labels and dimensions is created by a dynamically
-       created xs.process AddIndexCompLabel inheritng from the base_process
-       """
-    @xs.process
-    class AddIndexCompLabel(base_process):
-        label = xs.variable(intent='out', groups='comp_label')
-        dim = xs.variable(intent='out', groups='comp_dim')
-        index = xs.index(dims=comp_label, groups='comp_index')
-
-        output = xs.variable(intent='out', dims=(comp_label, 'time'), groups='comp_output')
-
-        def initialize(self):
-            self.label = comp_label
-            self.dim = 1
-            self.index = [f"{comp_label}"]
-            super(AddIndexCompLabel, self).initialize()
-
-    return AddIndexCompLabel
+def blowup_Dims(IN, FullDims, type):
+    return np.tile(type(IN), FullDims)
 
 
-def createMultiComp(base_process, comp_label, comp_dim):
-    """This function allows creating specific instance of component during model setup
-       a new subclass with the appropriate labels and dimensions is created by a dynamically
-       created xs.process AddIndexCompLabel inheritng from the base_process
-       """
-    @xs.process
-    class AddIndexCompDimsLabel(base_process):
-        label = xs.variable(intent='out', groups='comp_label')
-        dim = xs.variable(intent='out', groups='comp_dim')
-        index = xs.index(dims=comp_label, groups='comp_index')
 
-        output = xs.variable(intent='out', dims=(comp_label, 'time'), groups='comp_output')
+def add_fulldims_Param(Param, Part, Part_dims='component'):
+    if Part_dims == 'component':
+        a = np.nditer(Param, op_flags=['readwrite'], flags=['zerosize_ok', 'refs_ok', 'multi_index'])
+        b = np.nditer(Part, op_flags=['readwrite'], flags=['zerosize_ok', 'refs_ok', 'multi_index'])
+        while not b.finished:
+            while not a.finished:
+                print(a.value, type(a.value), b.value, type(b.value))
+                Param[a.multi_index] = Part[b.multi_index]
+                a.iternext()
+            b.iternext()
+        return Param
+    elif Part_dims == 'environment':
+        pass
 
-        def initialize(self):
-            self.label = comp_label
-            self.dim = comp_dim
-            self.index = [f"{comp_label}-{i}" for i in range(comp_dim)]
-            super(AddIndexCompDimsLabel, self).initialize()
-
-    return AddIndexCompDimsLabel
-
-
-def specifyComps4Flux(base_process, comp1_label, comp2_label):
-    """This function allows creating specific instance of flux during model setup
-       a new subclass with the appropriate labels and dimensions is created by a dynamically
-       created xs.process AddCompLabels inheritng from the base_process
-
-       ToDo:
-       - This will need to also pass on specific component dimensions later on,
-       in more complex implementations
-       """
-    @xs.process
-    class AddCompLabels(base_process):
-        c1_label = xs.variable(intent='out')
-        c2_label = xs.variable(intent='out')
-
-        def initialize(self):
-            self.c1_label = comp1_label
-            self.c2_label = comp2_label
-            super(AddCompLabels, self).initialize()
-
-    return AddCompLabels
+def add_fulldims_SVs(m, Component, FullShape):
+    a = np.nditer(Component, op_flags=['readwrite'], flags=['zerosize_ok', 'refs_ok', 'multi_index'])
+    b = np.nditer(FullShape, op_flags=['readwrite'], flags=['zerosize_ok', 'refs_ok', 'multi_index'])
+    while not b.finished:
+        while not a.finished:
+            print(a.value, type(a.value), b.value, type(b.value))
+            Component[a.multi_index].value = FullShape[b.multi_index]
+            a.iternext()
+        b.iternext()
+    return Param

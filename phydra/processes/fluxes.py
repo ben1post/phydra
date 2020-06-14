@@ -2,9 +2,8 @@ import numpy as np
 import xsimlab as xs
 from itertools import product
 
-from ..utility.modelcontext import GekkoMath
 from .gekkocontext import InheritGekkoContext
-from .forcing import NutrientForcing
+from .forcing import MLDForcing
 
 @xs.process
 class Flux(InheritGekkoContext):
@@ -41,22 +40,6 @@ class Flux(InheritGekkoContext):
                 it2.iternext()
 
 
-@xs.process
-class Mixing(InheritGekkoContext):
-    N0_Forcing = xs.foreign(NutrientForcing, 'forcing')  # m.Param()
-    N0_Forcing_deriv = xs.foreign(NutrientForcing, 'derivative')   # m.Param()
-
-    C_label = xs.variable(intent='in', description='label of component that grows')
-
-    mixingrate = xs.variable(intent='in')
-
-    def initialize(self):
-        self.C = self.gk_SVs[self.C_label]
-
-        #it = np.nditer(self.gk_SVshapes[self.C_label], flags=['zerosize_ok', 'multi_index', 'refs_ok'])
-        #while not it.finished:
-        self.gk_Fluxes[self.C_label] = self.m.Intermediate((self.N0_Forcing - self.C) * self.m.Param(self.mixingrate))
-        #it.iternext()
 
 
 @xs.process
@@ -87,7 +70,6 @@ class LimitedGrowth(InheritGekkoContext):
         self.nutrient_limitation = self.m.Intermediate(
             self.R / (self.halfsat_Par + self.R))
 
-
         print('Growth Dependency_component:', self.C_label, self.gk_Fluxes[self.C_label])
         # first multiply by growth rate
         growth = self.m.Intermediate(self.mu * self.nutrient_limitation * self.C)
@@ -95,26 +77,3 @@ class LimitedGrowth(InheritGekkoContext):
         self.gk_Fluxes[self.R_label] = self.m.Intermediate(- growth)
         self.gk_Fluxes[self.C_label] = self.m.Intermediate(growth)
         print('GK flux', self.gk_Fluxes)
-
-
-
-@xs.process
-class NutrientDependency(InheritGekkoContext):
-    """ """
-    #LG_GrowthDep = xs.foreign(LimitedGrowth, 'GrowthDependencies')
-    #LG_C_label = xs.foreign(LimitedGrowth, 'C_label')
-
-    halfsat = xs.variable(intent='in')
-
-
-    def initialize(self):
-        print('Initialize NutrientDependency')
-        self.gk_SVs['nutrient'] = self.m.Var()
-
-        NatT = self.m.Intermediate(self.m.cos(self.gk_SVs['time'] / 365 * np.pi * 1.5) * .8 + 2)
-
-        self.m.Equation(self.gk_SVs['nutrient'].dt() == NatT)
-
-        self.LG_GrowthDep[self.LG_C_label] = self.m.Intermediate(
-            self.gk_SVs['nutrient'] / (self.halfsat + self.gk_SVs['nutrient']))
-        # self.LG_GrowthDep[self.LG_C_label] = self.m.Intermediate(self.gk_SVs['nutrient'] / (self.halfsat +0.2 + self.gk_SVs['nutrient']))
