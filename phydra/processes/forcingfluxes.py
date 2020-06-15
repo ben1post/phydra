@@ -91,7 +91,6 @@ class Mixing(InheritGekkoContext):
     fx_index = xs.index(dims='not_initialized', groups='flux_index')
     fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
 
-
     MLD = xs.foreign(Slab, 'MLD')  # m.Param()
     MLD_deriv = xs.foreign(Slab, 'MLD_deriv')  # m.Param()
 
