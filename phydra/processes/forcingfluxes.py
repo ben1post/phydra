@@ -5,7 +5,7 @@ from .gekkocontext import InheritGekkoContext
 from .environments import BaseEnvironment, Slab
 
 
-def make_FX_flux(cls_fx_flux, dim_name):
+def make_FX_flux(fxflux_cls, fxflux_name):
     """
     This functions creates a properly labeled xs.process from class Component.
 
@@ -16,14 +16,40 @@ def make_FX_flux(cls_fx_flux, dim_name):
     :returns:
         xs.process of class Component
     """
-    print(cls_fx_flux, dim_name)
-    new_cls_name = cls_fx_flux.__name__ + '_' + dim_name
-    new_cls = type(new_cls_name, cls_fx_flux.__bases__, dict(cls_fx_flux.__dict__))
-    print(new_cls)
-    new_cls.C_labels.metadata['dims'] = dim_name
-    new_cls.fx_index.metadata['dims'] = dim_name
-    new_cls.fx_output.metadata['dims'] = ((dim_name, 'time'),)
 
+
+    new_dim = xs.index(dims=fxflux_name, groups='fxflux_index')
+
+    base_dict = dict(fxflux_cls.__dict__)
+
+    base_dict[fxflux_name] = new_dim
+
+    def initialize_dim(self):
+        c_labels = getattr(self, 'C_labels')
+        cls_label = getattr(self, '__xsimlab_name__')
+        print(f"dimensions of component {cls_label} are initialized at {c_labels}")
+
+        setattr(self, 'fxflux_label', str(cls_label))
+
+        fx_c_list = [f"{cls_label}-{lab}" for lab in c_labels]
+
+        setattr(self, fxflux_name, fx_c_list)
+        #setattr(self, 'label', fx_c_list)
+
+        cls_here = getattr(self, '__class__')
+        super(cls_here, self).initialize_postdimsetup()
+
+    new_cls_name = fxflux_cls.__name__ + '_' + fxflux_name
+    print(new_cls_name)
+    new_cls = type(new_cls_name, fxflux_cls.__bases__, base_dict)
+
+    #new_cls.label.metadata['dims'] = fxflux_name
+
+    setattr(new_cls, 'initialize', initialize_dim)
+
+    print(fxflux_cls, fxflux_name)
+    new_cls.C_labels.metadata['dims'] = fxflux_name
+    new_cls.fx_output.metadata['dims'] = ((fxflux_name, 'time'),)
     return xs.process(new_cls)
 
 
@@ -88,37 +114,31 @@ class Mixing(InheritGekkoContext):
     - can so xs.group was the
 
     """
-    fx_index = xs.index(dims='not_initialized', groups='flux_index')
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
     fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
-
-    MLD = xs.foreign(Slab, 'MLD')  # m.Param()
-    MLD_deriv = xs.foreign(Slab, 'MLD_deriv')  # m.Param()
-
-    N0_forcing = xs.foreign(Slab, 'N0_forcing')
-
-    kappa = xs.variable(intent='in', groups='forcingpar_label', description='constant mixing coefficient')
-
-    mixing = xs.on_demand(description='function to calculate mixing K')
-    flux = xs.on_demand(description='function to calculate fluxes')
-
     C_labels = xs.variable(intent='in',
                            dims='not_initialized',
                            description='label of component(s) that grows')
+    flux = xs.on_demand(description='function to calculate fluxes')
 
-    label = xs.variable(intent='out', groups='fx_flux_label')
 
-    def initialize(self):
-        self.label = self.__dict__['__xsimlab_name__']
+    MLD = xs.foreign(Slab, 'MLD')  # m.Param()
+    MLD_deriv = xs.foreign(Slab, 'MLD_deriv')  # m.Param()
+    N0_forcing = xs.foreign(Slab, 'N0_forcing')
 
-        self.fx_index = [f"{C_label}-{self.label}" for C_label in self.C_labels]
+    kappa = xs.variable(intent='in', description='constant mixing coefficient')
+    mixing = xs.on_demand(description='function to calculate mixing K')
 
-        print('Flux label: ', self.label)
+    def initialize_postdimsetup(self):
+        print(f"Initializing forcing flux {self.fxflux_label} for components {self.C_labels}")
 
         for C_label in self.C_labels:
             self.C = self.gk_SVs[C_label]
             # this stores intermediate to be stored as output later on
             # needs a two-level dict, like "intermediate[comp][flux] = "
-            self.gk_Flux_Int[self.label] = self.flux()
+
+            # this collects flux intermediates for output collection
+            self.gk_Flux_Int[self.fxflux_label] = self.flux()
             # this supplies intermediate flux to specific component
             self.gk_Fluxes[C_label] = self.flux()
 
@@ -127,13 +147,11 @@ class Mixing(InheritGekkoContext):
 
     def finalize_step(self):
         """Store flux output to array here!"""
-        print('storing flux to output: ', self.label)
+        print('storing flux to output: ', self.fxflux_label)
         self.out = []
-
-        print('index', self.fx_index)
         #print('output', self.output)
 
-        for flux in self.gk_Flux_Int[self.label]:
+        for flux in self.gk_Flux_Int[self.fxflux_label]:
             self.out.append([val for val in flux])
 
         print(len(self.out), np.shape(self.out))
@@ -156,13 +174,11 @@ class Mixing(InheritGekkoContext):
 
 class Sinking(Mixing):
     """negative mixing flux"""
-    fx_index = xs.index(dims='not_initialized', groups='flux_index')
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
     fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
-
     C_labels = xs.variable(intent='in',
                            dims='not_initialized',
                            description='label of component(s) that grows')
-
     flux = xs.on_demand(description='function to calculate fluxes')
 
     @flux.compute
@@ -172,13 +188,11 @@ class Sinking(Mixing):
 
 class Upwelling(Mixing):
     """ Nutrient upwelling from a constant source below the mixed layer """
-    fx_index = xs.index(dims='not_initialized', groups='flux_index')
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
     fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
-
     C_labels = xs.variable(intent='in',
                            dims='not_initialized',
                            description='label of component(s) that grows')
-
     flux = xs.on_demand(description='function to calculate fluxes')
 
     @flux.compute
