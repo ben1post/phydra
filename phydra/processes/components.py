@@ -3,11 +3,9 @@ import xsimlab as xs
 
 from .gekkocontext import InheritGekkoContext
 
-
 @xs.process
 class Time(InheritGekkoContext):
     days = xs.variable(dims='time', description='time in days')
-
     # for indexing xarray IO objects
     time = xs.index(dims='time', description='time in days')
 
@@ -17,7 +15,6 @@ class Time(InheritGekkoContext):
 
         # ASSIGN MODEL SOLVING TIME HERE:
         self.m.time = self.time
-
         self.gk_SVs['time'] = self.m.Var(0, lb=0)
         # add variable keeping track of time within model:
         self.m.Equation(self.gk_SVs['time'].dt() == 1)
@@ -32,14 +29,17 @@ def make_Component(cls_name, dim_name):
         dim_name (str): Name of sub-dimension of returned process
 
     :returns:
-        xs.process of class Component
+        new_cls (xs.process) : Component with specific names,
+        an additional initialize_dim() function,
+        and a new xs.index variable, as attribute 'dim_name'
     """
 
     new_dim = xs.index(dims=dim_name, groups='comp_index')
-
     base_dict = dict(Component.__dict__)
-
     base_dict[dim_name] = new_dim
+
+    new_cls = type(cls_name, Component.__bases__, base_dict)
+    new_cls.dim_labels.metadata['dims'] = dim_name
 
     def initialize_dim(self):
         dim = getattr(self, 'dim')
@@ -51,20 +51,12 @@ def make_Component(cls_name, dim_name):
         else:
             index_list = [f"{cls_label}-{i}" for i in range(dim)]
         setattr(self, dim_name, index_list)
-        setattr(self, 'label', index_list)
+        setattr(self, 'dim_labels', index_list)
 
         cls_here = getattr(self, '__class__')
         super(cls_here, self).initialize_postdimsetup()
 
-    new_cls = type(cls_name, Component.__bases__, base_dict)
-
-
-    new_cls.label.metadata['dims'] = dim_name
-
     setattr(new_cls, 'initialize', initialize_dim)
-
-    #new_cls = type(cls_name, Component.__bases__, dict(Component.__dict__))
-    #new_cls.index.metadata['dims'] = dim_name
     new_cls.output.metadata['dims'] = ((dim_name, 'time'),)
 
     return xs.process(new_cls)
@@ -99,55 +91,60 @@ class Component(InheritGekkoContext):
     """
 
     output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='comp_output')
-    label = xs.variable(intent='out', groups='comp_label')
+    dim_labels = xs.variable(intent='out', groups='comp_label')
 
     # Necessary Input:
     init = xs.variable(intent='in')
     dim = xs.variable(intent='in', groups='comp_dim')
 
     def initialize_postdimsetup(self):
-        #self.label = self.__dict__['__xsimlab_name__']
-        print(self.label)
-
-        print('Initializing component ', self.comp_label, self.label)
-
+        print('Initializing component ', self.comp_label, self.dim_labels)
         # add label to gk_context - components list:
-        print(self.comp_label)
         self.gk_context['comp_dims'] = (self.comp_label, self.dim)
-
         # define np.array of full dimensions for this component:
         self.FullDims = np.zeros((self.gridshape, self.dim))
-
+        print('FULLDIMS', self.FullDims)
         # add to SVDims dict:
         self.gk_SVshapes[self.comp_label] = self.FullDims
-        #self.gk_Fluxes[self.label] = np.array(self.FullDims, dtype='object')
 
-        #print('GKFLUXES', self.gk_Fluxes)
-        self.gk_SVs[self.comp_label] = self.m.SV()
+        self.gk_Fluxes[self.comp_label] = np.array(self.FullDims, dtype='object')
+
+        # define m.SV array in full model dimensions, add to SV dict:
+        self.gk_SVs[self.comp_label] = self.m.Array(self.m.SV, (self.FullDims.shape))
+        print('WHUT', self.gk_SVs[self.comp_label])
 
         # initialize SV m.Array with self.init val through FullDims multi_index
-        self.gk_SVs[self.comp_label].value = self.init
+        it = np.nditer(self.FullDims, flags=['multi_index'])
+        while not it.finished:
+            self.gk_SVs[self.comp_label][it.multi_index].value = self.init
+            it.iternext()
+
+        print(self.gk_SVs[self.comp_label])
 
 
     def run_step(self):
         """Assemble component equations from initialized fluxes"""
-        print('Assembling equation for component ', self.comp_label)
-        #it1 = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
-        #while not it1.finished:
-        print('FLUXES:', self.gk_SVs[self.comp_label], self.gk_Fluxes[self.comp_label])
-        print([flux for flux in self.gk_Fluxes[self.comp_label]])
-        self.m.Equation(
-            self.gk_SVs[self.comp_label].dt() == \
-            sum([flux for flux in self.gk_Fluxes[self.comp_label]]))
-            #it1.iternext()
+        print('Assembling equation for component ', self.comp_label, self.gk_Fluxes[self.comp_label])
+
+        # initialize SV m.Array with self.init val through FullDims multi_index
+        it = np.nditer(self.FullDims, flags=['multi_index'])
+        while not it.finished:
+            #print(self.gk_Fluxes[self.comp_label])
+            self.m.Equation(
+                self.gk_SVs[self.comp_label][it.multi_index].dt() == \
+                sum([flux for flux in self.gk_Fluxes[self.comp_label]]))
+            it.iternext()
+
 
     def finalize_step(self):
         """Store component output to array here!"""
-        print('Storing output component ', self.comp_label)
+        print('Storing output for component ', self.comp_label)
         out = []
-        #_it = np.nditer(self.gk_SVshapes[self.label], flags=['multi_index', 'refs_ok'])
-        #while not _it.finished:
-        out.append([val for val in self.gk_SVs[self.comp_label]])
-        #_it.iternext()
+
+        # initialize SV m.Array with self.init val through FullDims multi_index
+        it = np.nditer(self.FullDims, flags=['multi_index'])
+        while not it.finished:
+            out.append([val for val in self.gk_SVs[self.comp_label][it.multi_index]])
+            it.iternext()
 
         self.output = np.array(out, dtype='float64')

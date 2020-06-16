@@ -65,7 +65,6 @@ class LimitedGrowth(InheritGekkoContext):
         self.C = self.gk_SVs[self.C_label]
         self.R = self.gk_SVs[self.R_label]
 
-        print('Initialize NutrientDependency')
         self.halfsat_Par = self.m.Param(self.halfsat)
         self.nutrient_limitation = self.m.Intermediate(
             self.R / (self.halfsat_Par + self.R))
@@ -76,4 +75,3 @@ class LimitedGrowth(InheritGekkoContext):
 
         self.gk_Fluxes[self.R_label] = self.m.Intermediate(- growth)
         self.gk_Fluxes[self.C_label] = self.m.Intermediate(growth)
-        print('GK flux', self.gk_Fluxes)

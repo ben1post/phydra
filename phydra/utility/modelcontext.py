@@ -46,6 +46,7 @@ class SVDimsDict(Context):
         self.context = defaultdict(np.array)
         self.name = 'SVDims dict'
 
+
 class SVFluxesDict(Context):
     """ This stores a corresponding numpy array of same dimensions as state variable m.Array
     """
@@ -55,4 +56,3 @@ class SVFluxesDict(Context):
 
     def __setitem__(self, key, newvalue):
         self.context[key].append(newvalue)
-        #print('DICTITEMS', key, newvalue, self.context)

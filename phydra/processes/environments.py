@@ -3,7 +3,6 @@ import xsimlab as xs
 
 from .gekkocontext import InheritGekkoContext
 from .forcing import MLDForcing, NutrientForcing
-#from .forcingfluxes import Mixing, Sinking, Upwelling
 
 @xs.process
 class BaseEnvironment(InheritGekkoContext):
@@ -15,18 +14,33 @@ class BaseEnvironment(InheritGekkoContext):
     provide an interface for external forcing"""
 
     components = xs.index(dims='components')
-    outputs = xs.variable(intent='out', dims=('components', 'time'))
+    forcingfluxes = xs.index(dims='forcingfluxes')
 
-    comp_labels = xs.group('comp_label')
-    comp_dims = xs.group('comp_dim')
+    comp_output = xs.variable(intent='out', dims=('components', 'time'))
+    fxflux_output = xs.variable(intent='out', dims=('forcingfluxes', 'time'))
+
     comp_indices = xs.group('comp_index')
     comp_outputs = xs.group('comp_output')
 
+    fxflux_indices = xs.group('fxflux_index')
+    fxflux_outputs = xs.group('fxflux_output')
+
     def initialize(self):
         self.components = [index for indices in self.comp_indices for index in indices]
+        self.forcingfluxes = [index for indices in self.fxflux_indices for index in indices]
+        print(f"\n")
+        print(f"Initializing Environment: \n components:{self.components} \n fx-fluxes:{self.forcingfluxes}")
+        print(f"\n")
 
     def finalize_step(self):
-        self.outputs = [output for outputs in self.comp_outputs for output in outputs]
+        if False==True:
+            print(f"HERE OUT:,\n {list(self.comp_outputs)},\n {list(self.fxflux_outputs)}")
+            print(f"\n")
+            print([output for outputs in self.comp_outputs for output in outputs])
+            print(f"\n")
+            print([output for outputs in self.fxflux_outputs for output in outputs])
+        self.comp_output = [output for outputs in self.comp_outputs for output in outputs]
+        self.fxflux_output = [output for outputs in self.fxflux_outputs for output in outputs]
 
 
 @xs.process
@@ -48,20 +62,5 @@ class Slab(BaseEnvironment):
 
     N0_forcing = xs.foreign(NutrientForcing, 'forcing')
 
-    forcingpars_labels = xs.group('forcingpar_label')
-    forcingpars_defaultvals = xs.group('forcingpar_defaultval')
-
-    #K = xs.foreign(Mixing, 'flux_func')  # returns function to calculate mixing from input
-
     def initialize(self):
         super(Slab, self).initialize()
-
-        #default_forcingpars = {label:value for label,value in zip(self.forcingpars_labels,self.forcingpars_defaultval)}
-        #N_forcingpars = {'kappa':0.1, 'sinking':0.1, 'upwelling':'N0'} # perhaps upwelling should be modified in specific upwelling process
-        #P_forcingpars = {'kappa':0.1, 'sinking':0.1, 'upwelling':None}
-        #Z_forcingpars = {'kappa':0.1, 'sinking':0, 'upwelling':None}
-        #D_forcingpars = {'kappa':0.1, 'sinking':0.1, 'upwelling':None}
-
-        #for c_label in self.components:
-        #    self.ForcingParameters[c_label] = self.components
-

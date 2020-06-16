@@ -1,8 +1,8 @@
 import numpy as np
 import xsimlab as xs
 from gekko import GEKKO
-from collections import defaultdict
 
+from time import process_time
 from .main import (Grid0D, Boundary0D)
 from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, SVFluxesDict)
 
@@ -22,7 +22,7 @@ class GekkoContext:
     SVs = xs.any_object(description='defaultdict - Stores all state variables')
     SVshapes = xs.any_object(description='defaultdict - Stores all state variables dimensions')
     Fluxes = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific SV')
-    Flux_Intermediates = xs.any_object()
+    Flux_Intermediates = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific ForcingFlux')
 
     def initialize(self):
         print('Initializing Gekko Context')
@@ -31,10 +31,11 @@ class GekkoContext:
         self.context = ContextDict()  # simple defaultdict list store containing additional info
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
-        self.Fluxes = SVFluxesDict()  # stores m.Intermediates with corresponding label, needs to be appended to
+        self.Fluxes = SVDimsDict()  # stores m.Intermediates with corresponding label, needs to be appended to
         self.Flux_Intermediates = SVFluxesDict()  # used to retrieve flux output and store
 
         self.context["shape"] = ('env', self.shape)
+
 
 @xs.process
 class InheritGekkoContext:
@@ -46,6 +47,7 @@ class InheritGekkoContext:
     gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
     gk_Flux_Int = xs.foreign(GekkoContext, 'Flux_Intermediates')
     gridshape = xs.foreign(GekkoContext, 'shape')
+
 
 @xs.process
 class GekkoSolve:
@@ -59,9 +61,10 @@ class GekkoSolve:
     def run_step(self):
         print('SolveInit')
 
-        print(self.gk_context)
-
         self.m.options.IMODE = 7
-        self.m.solve(disp=False)
 
-        print('ModelSolve done')
+        solve_start = process_time()
+        self.m.solve(disp=False)
+        solve_end = process_time()
+
+        print(f"ModelSolve done in {round(solve_end-solve_start,2)} seconds")

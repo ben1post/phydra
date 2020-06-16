@@ -23,9 +23,7 @@ class ForcingBase(InheritGekkoContext):
 
     def initialize(self):
         """ basic initialisation of forcing """
-        print('initializing forcing base now')
         self.forcing = self.m.Param(self.interpolated(self.time))
-
         self.derivative = self.m.Param(self.interpolated(self.time, deriv=True))
 
     @interpolated.compute
