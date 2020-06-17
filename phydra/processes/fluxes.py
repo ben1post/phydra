@@ -10,7 +10,6 @@ class Flux(InheritGekkoContext):
     # THIS kind of flux needs to check if dims are the same
     # provide different kind of fluxes, that check dims and work accordingly!
 
-
     inputrate_c1 = xs.variable(intent='in')
     inputrate_c1_allo = xs.variable(intent='out')
     conversion2_c2 = xs.variable(intent='in')
@@ -49,6 +48,8 @@ class LimitedGrowth(InheritGekkoContext):
     - nutrient uptake, according to Droop
     - additional dependencies: Light, Temperature
     """
+    flux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
 
     mu = xs.variable(intent='in', description='Maximum growth rate of component')
 
@@ -57,10 +58,9 @@ class LimitedGrowth(InheritGekkoContext):
 
     halfsat = xs.variable(intent='in', description='half-saturation constant of nutrient uptake for component')
 
-    # so this doesn't work with the current simulation stages of xsimlab
-    # I will try to fix it by using the GekkoContext Fluxes Dict instead
-
     def initialize(self):
+        self.flux_label = f"LimitedGrowth-{self.R_label}2{self.R_label}"
+        print('Initializing flux:', self.flux_label)
         # get SVs
         self.C = self.gk_SVs[self.C_label]
         self.R = self.gk_SVs[self.R_label]
@@ -69,9 +69,25 @@ class LimitedGrowth(InheritGekkoContext):
         self.nutrient_limitation = self.m.Intermediate(
             self.R / (self.halfsat_Par + self.R))
 
-        print('Growth Dependency_component:', self.C_label, self.gk_Fluxes[self.C_label])
+
         # first multiply by growth rate
         growth = self.m.Intermediate(self.mu * self.nutrient_limitation * self.C)
+        print('GROWTH', growth)
+        rt = np.nditer(self.gk_SVshapes[self.R_label], flags=['multi_index'])
+        it = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index'])
+        while not rt.finished:
+            while not it.finished:
+                self.gk_Fluxes.apply_exchange_flux(self.R_label, self.C_label, growth,
+                                                   it.multi_index, rt.multi_index)
+                it.iternext()
+            rt.iternext()
 
-        self.gk_Fluxes[self.R_label] = self.m.Intermediate(- growth)
-        self.gk_Fluxes[self.C_label] = self.m.Intermediate(growth)
+    def finalize_step(self):
+        """Store flux output to array here!"""
+        print('storing Nutrient Limtiation from:', self.flux_label)
+        self.out = []
+
+        for flux in self.gk_Flux_Int[self.fxflux_label]:
+            self.out.append([val for val in flux])
+
+        self.fx_output = np.array(self.out, dtype='float64')

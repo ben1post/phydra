@@ -26,6 +26,7 @@ class BaseEnvironment(InheritGekkoContext):
     fxflux_outputs = xs.group('fxflux_output')
 
     def initialize(self):
+        print('hello there')
         self.components = [index for indices in self.comp_indices for index in indices]
         self.forcingfluxes = [index for indices in self.fxflux_indices for index in indices]
         print(f"\n")

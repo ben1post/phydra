@@ -4,7 +4,7 @@ from gekko import GEKKO
 
 from time import process_time
 from .main import (Grid0D, Boundary0D)
-from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, SVFluxesDict)
+from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, FluxesDict, SVDimFluxes)
 
 @xs.process
 class GekkoContext:
@@ -22,17 +22,18 @@ class GekkoContext:
     SVs = xs.any_object(description='defaultdict - Stores all state variables')
     SVshapes = xs.any_object(description='defaultdict - Stores all state variables dimensions')
     Fluxes = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific SV')
-    Flux_Intermediates = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific ForcingFlux')
+    Flux_Intermediates = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a '
+                                                   'specific ForcingFlux')
 
     def initialize(self):
         print('Initializing Gekko Context')
-        self.m = GEKKO()  # specific gekko model instance
+        self.m = GEKKO(remote=False)  # specific gekko model instance
 
         self.context = ContextDict()  # simple defaultdict list store containing additional info
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
-        self.Fluxes = SVDimsDict()  # stores m.Intermediates with corresponding label, needs to be appended to
-        self.Flux_Intermediates = SVFluxesDict()  # used to retrieve flux output and store
+        self.Fluxes = SVDimFluxes()  # stores m.Intermediates with corresponding label, needs to be appended to
+        self.Flux_Intermediates = FluxesDict()  # used to retrieve flux output and store
 
         self.context["shape"] = ('env', self.shape)
 
@@ -64,7 +65,7 @@ class GekkoSolve:
         self.m.options.IMODE = 7
 
         solve_start = process_time()
-        self.m.solve(disp=False)
+        self.m.solve(disp=False)  # disp=True) # to print gekko output
         solve_end = process_time()
 
         print(f"ModelSolve done in {round(solve_end-solve_start,2)} seconds")

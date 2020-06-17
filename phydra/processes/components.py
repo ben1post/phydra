@@ -107,17 +107,18 @@ class Component(InheritGekkoContext):
         # add to SVDims dict:
         self.gk_SVshapes[self.comp_label] = self.FullDims
 
-        self.gk_Fluxes[self.comp_label] = np.array(self.FullDims, dtype='object')
+        #self.gk_Fluxes[self.comp_label] = np.array(self.FullDims, dtype='object')
 
         # define m.SV array in full model dimensions, add to SV dict:
         self.gk_SVs[self.comp_label] = self.m.Array(self.m.SV, (self.FullDims.shape))
-        print('WHUT', self.gk_SVs[self.comp_label])
 
         # initialize SV m.Array with self.init val through FullDims multi_index
         it = np.nditer(self.FullDims, flags=['multi_index'])
         while not it.finished:
             self.gk_SVs[self.comp_label][it.multi_index].value = self.init
             it.iternext()
+
+        self.gk_Fluxes.setup_dims(self.comp_label, self.FullDims)
 
         print(self.gk_SVs[self.comp_label])
 
@@ -127,12 +128,12 @@ class Component(InheritGekkoContext):
         print('Assembling equation for component ', self.comp_label, self.gk_Fluxes[self.comp_label])
 
         # initialize SV m.Array with self.init val through FullDims multi_index
-        it = np.nditer(self.FullDims, flags=['multi_index'])
+        it = np.nditer(self.FullDims, flags=['multi_index', 'refs_ok'])
         while not it.finished:
-            #print(self.gk_Fluxes[self.comp_label])
+            print('XX', self.gk_Fluxes[self.comp_label][it.multi_index])
             self.m.Equation(
                 self.gk_SVs[self.comp_label][it.multi_index].dt() == \
-                sum([flux for flux in self.gk_Fluxes[self.comp_label]]))
+                sum([flux for flux in self.gk_Fluxes[self.comp_label][it.multi_index]]))
             it.iternext()
 
 

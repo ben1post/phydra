@@ -27,10 +27,14 @@ def make_FX_flux(fxflux_cls, fxflux_name):
     def initialize_dim(self):
         c_labels = getattr(self, 'C_labels')
         cls_label = getattr(self, '__xsimlab_name__')
-        print(f"dimensions of component {cls_label} are initialized at {c_labels}")
+        print(f"forcing flux {cls_label} is initialized at {c_labels}")
         setattr(self, 'fxflux_label', str(cls_label))
-
-        fx_c_list = [f"{cls_label}-{lab}" for lab in c_labels]
+        fx_c_list = []
+        for lab in c_labels:
+            for i in self.gk_SVshapes[lab]:
+                print(i)
+                fx_c_list.append(f"{cls_label}-{lab}-{i}")
+        print(fx_c_list)
         setattr(self, fxflux_name, fx_c_list)
         cls_here = getattr(self, '__class__')
         super(cls_here, self).initialize_postdimsetup()
@@ -99,10 +103,6 @@ class Mixing(InheritGekkoContext):
         for C_label in self.C_labels:
             print(C_label, 'initFXflux', self.gk_Fluxes[C_label])
 
-            # this stores intermediate to be stored as output later on
-            # needs a two-level dict, like "intermediate[comp][flux] = "
-
-
             # this supplies intermediate flux to specific component
             it = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
             while not it.finished:
@@ -110,7 +110,7 @@ class Mixing(InheritGekkoContext):
                 # this collects flux intermediates for output collection
                 self.gk_Flux_Int[self.fxflux_label] = self.flux()
                 # define actual flux
-                self.gk_Fluxes[C_label][it.multi_index] = self.flux()
+                self.gk_Fluxes.apply_across_dims(C_label, self.flux(), it.multi_index)
                 it.iternext()
 
             print(C_label, 'initFXflux', self.gk_Fluxes[C_label])
