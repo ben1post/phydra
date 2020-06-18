@@ -10,8 +10,8 @@ def make_FX_flux(fxflux_cls, fxflux_name):
     This functions creates a properly labeled xs.process from class Component.
 
     :args:
-        cls_name (str): Name of returned process
-        dim_name (str): Name of sub-dimension of returned process
+        cls_name (cls): Class of forcing flux to be initialized
+        dim_name (str): Name of sub-dimension of returned process, UPPERCASE!
 
     :returns:
         xs.process of class Component
@@ -31,18 +31,24 @@ def make_FX_flux(fxflux_cls, fxflux_name):
         setattr(self, 'fxflux_label', str(cls_label))
         fx_c_list = []
         for lab in c_labels:
-            for i in self.gk_SVshapes[lab]:
-                print(i)
-                fx_c_list.append(f"{cls_label}-{lab}-{i}")
+            if self.gk_SVshapes[lab].size == 1:
+                fx_c_list.append(f"{cls_label}-{lab}")
+            else:
+                for i in range(self.gk_SVshapes[lab].size):
+                    fx_c_list.append(f"{cls_label}-{lab}-{i}")
         print(fx_c_list)
         setattr(self, fxflux_name, fx_c_list)
+
         cls_here = getattr(self, '__class__')
         super(cls_here, self).initialize_postdimsetup()
 
     setattr(new_cls, 'initialize', initialize_dim)
 
     print(fxflux_cls, fxflux_name)
-    new_cls.C_labels.metadata['dims'] = fxflux_name
+    if fxflux_name.lower() == fxflux_name:
+        raise ValueError(f"dimension label ({fxflux_name}) supplied to forcing flux {fxflux_cls} needs to be Upper Case")
+
+    new_cls.C_labels.metadata['dims'] = fxflux_name.lower()
     new_cls.fx_output.metadata['dims'] = ((fxflux_name, 'time'),)
     return xs.process(new_cls)
 
