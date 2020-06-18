@@ -47,7 +47,7 @@ def make_FX_flux(fxflux_cls, fxflux_name):
     print(fxflux_cls, fxflux_name)
     if fxflux_name.lower() == fxflux_name:
         raise ValueError(f"dimension label ({fxflux_name}) supplied to forcing flux {fxflux_cls} needs to be Upper Case")
-
+    # here the Component label affects all sub components, therefore C_labels dim != Forcingflux dims
     new_cls.C_labels.metadata['dims'] = fxflux_name.lower()
     new_cls.fx_output.metadata['dims'] = ((fxflux_name, 'time'),)
     return xs.process(new_cls)
@@ -87,7 +87,6 @@ class Mixing(InheritGekkoContext):
     - standard parameters, are passed along! as default args, right?
     - can I use the contextdict feature somehow, for these pars.. hm.
     - can so xs.group was the
-
     """
     fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
     fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
@@ -98,7 +97,7 @@ class Mixing(InheritGekkoContext):
 
     MLD = xs.foreign(Slab, 'MLD')  # m.Param()
     MLD_deriv = xs.foreign(Slab, 'MLD_deriv')  # m.Param()
-    N0_forcing = xs.foreign(Slab, 'N0_forcing')
+    N0_forcing = xs.foreign(Slab, 'N0_forcing')  # m.Param()
 
     kappa = xs.variable(intent='in', description='constant mixing coefficient')
     mixing = xs.on_demand(description='function to calculate mixing K')
@@ -107,8 +106,6 @@ class Mixing(InheritGekkoContext):
         print(f"Initializing forcing flux {self.fxflux_label} for components {self.C_labels}")
 
         for C_label in self.C_labels:
-            print(C_label, 'initFXflux', self.gk_Fluxes[C_label])
-
             # this supplies intermediate flux to specific component
             it = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
             while not it.finished:
@@ -118,8 +115,6 @@ class Mixing(InheritGekkoContext):
                 # define actual flux
                 self.gk_Fluxes.apply_across_dims(C_label, self.flux(), it.multi_index)
                 it.iternext()
-
-            print(C_label, 'initFXflux', self.gk_Fluxes[C_label])
 
 
     def finalize_step(self):

@@ -58,36 +58,40 @@ class LimitedGrowth(InheritGekkoContext):
 
     halfsat = xs.variable(intent='in', description='half-saturation constant of nutrient uptake for component')
 
+    #growth = xs.on_demand()
+
     def initialize(self):
-        self.flux_label = f"LimitedGrowth-{self.R_label}2{self.R_label}"
+        self.flux_label = f"LimitedGrowth-{self.R_label}2{self.C_label}"
         print('Initializing flux:', self.flux_label)
-        # get SVs
-        self.C = self.gk_SVs[self.C_label]
-        self.R = self.gk_SVs[self.R_label]
 
         self.halfsat_Par = self.m.Param(self.halfsat)
-        self.nutrient_limitation = self.m.Intermediate(
-            self.R / (self.halfsat_Par + self.R))
 
-
-        # first multiply by growth rate
-        growth = self.m.Intermediate(self.mu * self.nutrient_limitation * self.C)
-        print('GROWTH', growth)
-        rt = np.nditer(self.gk_SVshapes[self.R_label], flags=['multi_index'])
-        it = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index'])
-        while not rt.finished:
-            while not it.finished:
+        # apply growth of all subdimensions of the consumer on all subdimensions of the ressource
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index'])
+        itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['multi_index'])
+        while not itR.finished:
+            self.R = self.gk_SVs[self.R_label][itR.multi_index]
+            self.nutrient_limitation = self.m.Intermediate(
+                self.R / (self.halfsat_Par + self.R))
+            while not itC.finished:
+                self.C = self.gk_SVs[self.C_label][itC.multi_index]
+                growth = self.m.Intermediate(self.mu * self.nutrient_limitation * self.C)
+                print('GROWTH', growth)
                 self.gk_Fluxes.apply_exchange_flux(self.R_label, self.C_label, growth,
-                                                   it.multi_index, rt.multi_index)
-                it.iternext()
-            rt.iternext()
+                                                   itR.multi_index, itC.multi_index)
+                itC.iternext()
+            itR.iternext()
+
+    #@growth.compute
+    #def growth(self):
+    #    return self.m.Intermediate(- self.C * self.mixing())
 
     def finalize_step(self):
         """Store flux output to array here!"""
         print('storing Nutrient Limtiation from:', self.flux_label)
         self.out = []
 
-        for flux in self.gk_Flux_Int[self.fxflux_label]:
+        for flux in self.gk_Flux_Int[self.flux_label]:
             self.out.append([val for val in flux])
 
         self.fx_output = np.array(self.out, dtype='float64')

@@ -108,7 +108,7 @@ class SVDimFluxes:
                     raise BaseException(f"dimensions of value do not match SV dims \n \
                           needs to be scalar or a numpy array of shape {self.shape.shape}")
 
-    def apply_exchange_flux(self, input, output, flux, indexC=None, indexR=None):
+    def apply_exchange_flux(self, ressource, consumer, flux, indexR=None, indexC=None):
         if indexC != None and indexR != None:
-            self.context[input][indexR].append(-flux)
-            self.context[output][indexC].append(flux)
+            self.context[ressource][indexR].append(-flux)
+            self.context[consumer][indexC].append(flux)
