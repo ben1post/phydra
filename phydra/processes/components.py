@@ -130,7 +130,6 @@ class Component(InheritGekkoContext):
         # initialize SV m.Array with self.init val through FullDims multi_index
         it = np.nditer(self.FullDims, flags=['multi_index', 'refs_ok'])
         while not it.finished:
-            print('XX', self.gk_Fluxes[self.comp_label][it.multi_index])
             self.m.Equation(
                 self.gk_SVs[self.comp_label][it.multi_index].dt() == \
                 sum([flux for flux in self.gk_Fluxes[self.comp_label][it.multi_index]]))

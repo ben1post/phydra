@@ -14,33 +14,35 @@ class BaseEnvironment(InheritGekkoContext):
     provide an interface for external forcing"""
 
     components = xs.index(dims='components')
+    fluxes = xs.index(dims='fluxes')
     forcingfluxes = xs.index(dims='forcingfluxes')
 
+
     comp_output = xs.variable(intent='out', dims=('components', 'time'))
+    flux_output = xs.variable(intent='out', dims=('fluxes', 'time'))
     fxflux_output = xs.variable(intent='out', dims=('forcingfluxes', 'time'))
 
     comp_indices = xs.group('comp_index')
     comp_outputs = xs.group('comp_output')
 
+    flux_indices = xs.group('flux_index')
+    flux_outputs = xs.group('flux_output')
+
     fxflux_indices = xs.group('fxflux_index')
     fxflux_outputs = xs.group('fxflux_output')
 
     def initialize(self):
-        print('hello there')
         self.components = [index for indices in self.comp_indices for index in indices]
         self.forcingfluxes = [index for indices in self.fxflux_indices for index in indices]
+        self.fluxes = [index for indices in self.flux_indices for index in indices]
         print(f"\n")
-        print(f"Initializing Environment: \n components:{self.components} \n fx-fluxes:{self.forcingfluxes}")
+        print(f"Initializing Environment: \n components:{self.components} \n fluxes:{self.fluxes} \n fx-fluxes:{self.forcingfluxes}")
         print(f"\n")
 
     def finalize_step(self):
-        if False==True:
-            print(f"HERE OUT:,\n {list(self.comp_outputs)},\n {list(self.fxflux_outputs)}")
-            print(f"\n")
-            print([output for outputs in self.comp_outputs for output in outputs])
-            print(f"\n")
-            print([output for outputs in self.fxflux_outputs for output in outputs])
+        """ Step collects outputs generated in Components, Fluxes and ForcingFluxes"""
         self.comp_output = [output for outputs in self.comp_outputs for output in outputs]
+        self.flux_output = [output for outputs in self.flux_outputs for output in outputs]
         self.fxflux_output = [output for outputs in self.fxflux_outputs for output in outputs]
 
 

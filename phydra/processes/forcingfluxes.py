@@ -21,7 +21,6 @@ def make_FX_flux(fxflux_cls, fxflux_name):
     base_dict[fxflux_name] = new_dim
 
     new_cls_name = fxflux_cls.__name__ + '_' + fxflux_name
-    print(new_cls_name)
     new_cls = type(new_cls_name, fxflux_cls.__bases__, base_dict)
 
     def initialize_dim(self):
@@ -36,7 +35,6 @@ def make_FX_flux(fxflux_cls, fxflux_name):
             else:
                 for i in range(self.gk_SVshapes[lab].size):
                     fx_c_list.append(f"{cls_label}-{lab}-{i}")
-        print(fx_c_list)
         setattr(self, fxflux_name, fx_c_list)
 
         cls_here = getattr(self, '__class__')
@@ -44,7 +42,6 @@ def make_FX_flux(fxflux_cls, fxflux_name):
 
     setattr(new_cls, 'initialize', initialize_dim)
 
-    print(fxflux_cls, fxflux_name)
     if fxflux_name.lower() == fxflux_name:
         raise ValueError(f"dimension label ({fxflux_name}) supplied to forcing flux {fxflux_cls} needs to be Upper Case")
     # here the Component label affects all sub components, therefore C_labels dim != Forcingflux dims
@@ -54,32 +51,52 @@ def make_FX_flux(fxflux_cls, fxflux_name):
 
 
 @xs.process
-class ForcingFlux(InheritGekkoContext):
+class BaseForcingFlux(InheritGekkoContext):
     """Base structure of a Forcing Flux
 
     The basics of a forcing flux, is that they affect a single COMP
     no interaction!
     but they can affect multiple COMPS in the sameway!
     """
-    flux = xs.any_object()
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
     C_labels = xs.variable(intent='in',
                            dims='not_initialized',
                            description='label of component(s) that grows')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
 
-    flux_func = xs.on_demand()
+    def initialize_postdimsetup(self):
+        print(f"Initializing forcing flux {self.fxflux_label} for components {self.C_labels}")
 
-    def initialize(self):
-        """ basic initialisation of forcing """
-        raise ValueError('initialization needs to be defined in ForcingFlux subclass')
+        for C_label in self.C_labels:
+            # this supplies intermediate flux to specific component
+            it = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
+            while not it.finished:
+                self.C = self.gk_SVs[C_label][it.multi_index]
+                # this collects flux intermediates for output collection
+                self.gk_Flux_Int[self.fxflux_label] = self.fxflux
+                # define actual flux
+                self.gk_Fluxes.apply_across_dims(C_label, self.fxflux, it.multi_index)
+                it.iternext()
 
-    @flux_func.compute
+    def finalize_step(self):
+        """Store flux output to array here!"""
+        print('storing flux to output: ', self.fxflux_label)
+        self.out = []
+
+        for flux in self.gk_Flux_Int[self.fxflux_label]:
+            self.out.append([val for val in flux])
+
+        self.fx_output = np.array(self.out, dtype='float64')
+
+    @fxflux.compute
     def function_returning_flux(self):
         """ returns a function that is used in environment to calculate flux """
         raise ValueError('flux function needs to be defined in ForcingFlux subclass')
 
 
 @xs.process
-class Mixing(InheritGekkoContext):
+class Mixing(BaseForcingFlux):
     """ Mixing:
     - this provides the mixing function to the environment that references it
 
@@ -93,7 +110,7 @@ class Mixing(InheritGekkoContext):
     C_labels = xs.variable(intent='in',
                            dims='not_initialized',
                            description='label of component(s) that grows')
-    flux = xs.on_demand(description='function to calculate fluxes')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
 
     MLD = xs.foreign(Slab, 'MLD')  # m.Param()
     MLD_deriv = xs.foreign(Slab, 'MLD_deriv')  # m.Param()
@@ -102,30 +119,10 @@ class Mixing(InheritGekkoContext):
     kappa = xs.variable(intent='in', description='constant mixing coefficient')
     mixing = xs.on_demand(description='function to calculate mixing K')
 
-    def initialize_postdimsetup(self):
-        print(f"Initializing forcing flux {self.fxflux_label} for components {self.C_labels}")
 
-        for C_label in self.C_labels:
-            # this supplies intermediate flux to specific component
-            it = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
-            while not it.finished:
-                self.C = self.gk_SVs[C_label][it.multi_index]
-                # this collects flux intermediates for output collection
-                self.gk_Flux_Int[self.fxflux_label] = self.flux()
-                # define actual flux
-                self.gk_Fluxes.apply_across_dims(C_label, self.flux(), it.multi_index)
-                it.iternext()
-
-
-    def finalize_step(self):
-        """Store flux output to array here!"""
-        print('storing flux to output: ', self.fxflux_label)
-        self.out = []
-
-        for flux in self.gk_Flux_Int[self.fxflux_label]:
-            self.out.append([val for val in flux])
-
-        self.fx_output = np.array(self.out, dtype='float64')
+    @fxflux.compute
+    def fxflux(self):
+        return self.m.Intermediate(- self.C * self.mixing())
 
     @mixing.compute
     def mixing(self):
@@ -133,10 +130,6 @@ class Mixing(InheritGekkoContext):
         H = self.MLD
         K = self.m.Intermediate((h_pos + self.kappa) / H)
         return K
-
-    @flux.compute
-    def flux(self):
-        return self.m.Intermediate(- self.C * self.mixing())
 
 
 class Sinking(Mixing):
@@ -147,10 +140,10 @@ class Sinking(Mixing):
                            dims='not_initialized',
                            description='label of component(s) that grows',
                            )
-    flux = xs.on_demand(description='function to calculate fluxes')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
 
-    @flux.compute
-    def flux(self):
+    @fxflux.compute
+    def sinking(self):
         return self.m.Intermediate( - self.C * self.mixing())
 
 
@@ -161,8 +154,8 @@ class Upwelling(Mixing):
     C_labels = xs.variable(intent='in',
                            dims='not_initialized',
                            description='label of component(s) that grows')
-    flux = xs.on_demand(description='function to calculate fluxes')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
 
-    @flux.compute
-    def flux(self):
+    @fxflux.compute
+    def upwelling(self):
         return self.m.Intermediate((self.N0_forcing - self.C) * self.mixing())
