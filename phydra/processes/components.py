@@ -103,7 +103,7 @@ class Component(InheritGekkoContext):
         self.gk_context['comp_dims'] = (self.comp_label, self.dim)
         # define np.array of full dimensions for this component:
         self.FullDims = np.zeros((self.gridshape, self.dim))
-        print('FULLDIMS', self.FullDims)
+
         # add to SVDims dict:
         self.gk_SVshapes[self.comp_label] = self.FullDims
 
@@ -119,8 +119,6 @@ class Component(InheritGekkoContext):
             it.iternext()
 
         self.gk_Fluxes.setup_dims(self.comp_label, self.FullDims)
-
-        print(self.gk_SVs[self.comp_label])
 
 
     def run_step(self):

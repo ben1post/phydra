@@ -16,7 +16,7 @@ def make_FX_flux(fxflux_cls, fxflux_name):
     :returns:
         xs.process of class Component
     """
-    new_dim = xs.index(dims=fxflux_name, groups='fxflux_index')
+    new_dim = xs.index(dims=(fxflux_name), groups='fxflux_index')
     base_dict = dict(fxflux_cls.__dict__)
     base_dict[fxflux_name] = new_dim
 
@@ -45,7 +45,7 @@ def make_FX_flux(fxflux_cls, fxflux_name):
     if fxflux_name.lower() == fxflux_name:
         raise ValueError(f"dimension label ({fxflux_name}) supplied to forcing flux {fxflux_cls} needs to be Upper Case")
     # here the Component label affects all sub components, therefore C_labels dim != Forcingflux dims
-    new_cls.C_labels.metadata['dims'] = fxflux_name.lower()
+    new_cls.C_labels.metadata['dims'] = (fxflux_name.lower())
     new_cls.fx_output.metadata['dims'] = ((fxflux_name, 'time'),)
     return xs.process(new_cls)
 
@@ -95,6 +95,22 @@ class BaseForcingFlux(InheritGekkoContext):
         raise ValueError('flux function needs to be defined in ForcingFlux subclass')
 
 
+class LinearMortalityClosure(BaseForcingFlux):
+    """negative mixing flux"""
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
+    C_labels = xs.variable(intent='in',
+                           dims='not_initialized',
+                           description='label of component(s) that grows')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
+
+    mortality_rate = xs.variable(intent='in', description='mortality rate of component')
+
+    @fxflux.compute
+    def linearmortality(self):
+        return self.m.Intermediate(- self.mortality_rate * self.C)
+
+
 @xs.process
 class Mixing(BaseForcingFlux):
     """ Mixing:
@@ -118,7 +134,6 @@ class Mixing(BaseForcingFlux):
 
     kappa = xs.variable(intent='in', description='constant mixing coefficient')
     mixing = xs.on_demand(description='function to calculate mixing K')
-
 
     @fxflux.compute
     def fxflux(self):

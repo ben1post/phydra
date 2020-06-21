@@ -15,7 +15,7 @@ def make_flux(flux_cls, flux_name):
     :returns:
         xs.process of class Component
     """
-    new_dim = xs.index(dims=flux_name, groups='flux_index')
+    new_dim = xs.index(dims=(flux_name), groups='flux_index')
     base_dict = dict(flux_cls.__dict__)
     base_dict[flux_name] = new_dim
 
@@ -124,8 +124,6 @@ class LimitedGrowth(BaseFlux):
 
     @flux.compute
     def growth(self):
-        print(self.nutrient_limitation())
-        print(self.additional_limitation())
         return self.m.Intermediate(self.mu * self.nutrient_limitation() * self.C)
 
     @nutrient_limitation.compute
@@ -205,7 +203,7 @@ def make_multiflux(flux_cls, flux_name):
     :returns:
         xs.process of class Component
     """
-    new_dim = xs.index(dims=flux_name, groups='flux_index')
+    new_dim = xs.index(dims=(flux_name), groups='flux_index')
     base_dict = dict(flux_cls.__dict__)
     base_dict[flux_name] = new_dim
 
@@ -247,8 +245,6 @@ def make_multiflux(flux_cls, flux_name):
     # here the Component label affects all sub components, therefore C_labels dim != Forcingflux dims
     new_cls.R_labels.metadata['dims'] = (flux_name + 'R')
     new_cls.C_labels.metadata['dims'] = (flux_name + 'C')
-    print(new_cls.R_labels.metadata['dims'])
-    print(new_cls.C_labels.metadata['dims'])
 
     new_cls.output.metadata['dims'] = ((flux_name, 'time'),)
     return xs.process(new_cls)
@@ -274,12 +270,8 @@ class BaseMultiFlux(InheritGekkoContext):
         self.All_R_sum = np.sum([array for array in [self.gk_SVs[lab] for lab in self.R_labels]])
         self.All_C_sum = np.sum([array for array in [self.gk_SVs[lab] for lab in self.C_labels]])
 
-        print([array for array in [self.gk_SVs[lab] for lab in self.R_labels]])
-
         for R_label in self.R_labels:
-            print('outerloop')
             for C_label in self.C_labels:
-                print('innerloop')
                 # apply growth of all subdimensions of the consumer on all subdimensions of the ressource
                 itR = np.nditer(self.gk_SVshapes[R_label], flags=['multi_index'])
                 itC = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
@@ -296,8 +288,7 @@ class BaseMultiFlux(InheritGekkoContext):
                         self.gk_Flux_Int[self.flux_label] = self.flux
                         itC.iternext()
                     itR.iternext()
-        print('finish')
-        print(self.gk_Flux_Int)
+
     @flux.compute
     def flux(self):
         """ basic initialisation of forcing,
@@ -331,4 +322,4 @@ class GrazingMultiFlux(BaseMultiFlux):
 
     @flux.compute
     def grazing(self):
-        return self.m.Intermediate(self.grazing_rate * (self.R / self.halfsat * self.R_sum) * self.C_sum)
+        return self.m.Intermediate(self.grazing_rate * (self.R / self.halfsat * self.All_R_sum) * self.C)

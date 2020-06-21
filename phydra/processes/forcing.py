@@ -4,6 +4,7 @@ import scipy.interpolate as intrp
 
 from .gekkocontext import InheritGekkoContext
 from .components import Time
+from ..utility.forcingdata import WOAForcing
 
 
 @xs.process
@@ -30,16 +31,6 @@ class ForcingBase(InheritGekkoContext):
     def interpolate(self):
         """ returns interpolated scipy object, unit : {d^-1} """
         raise ValueError('interpolate function needs to be initialized in subclass of forcing')
-
-
-@xs.process
-class WOA2018Forcing:
-    """ This could be an interface to WOA2018, needs each subforcing
-    initialized with different keywords in subclasses
-
-    ToDo: perhaps it would make sense to put this in utility!!!!
-    """
-    pass
 
 
 @xs.process
@@ -129,3 +120,31 @@ class SinusoidalMLD(MLDForcing):
             return interpolted_MLD(np.mod(time, 365.))
 
         return repeat_forcing_yearly
+
+
+@xs.process
+class WOA2018_MLD(MLDForcing):
+    """ Provides MLD forcing from WOA 2018 data based on chosen location in Env """
+    interpolated = xs.on_demand()
+
+    lat = xs.variable(intent='in')
+    lon = xs.variable(intent='in')
+    rbb = xs.variable(intent='in')
+
+    @interpolated.compute
+    def WOA2018_MLD(self):
+        """ Function returns scipy.interpolate object"""
+
+        MLD = WOAForcing(self.lat, self.lon, self.rbb, 'mld')
+        print(MLD)
+        #data_time = np.arange(365)
+        #MLD = (np.cos(data_time / 365 * 2 * np.pi) + 1) * 100 + 20
+        #interpolted_MLD = intrp.CubicSpline(data_time, MLD)
+        #interpolated_MLD_deriv = interpolted_MLD.derivative()
+
+        #def repeat_forcing_yearly(time, deriv=False):
+        #    if deriv == True:
+        #        return interpolated_MLD_deriv(np.mod(time, 365.))
+        #    return interpolted_MLD(np.mod(time, 365.))
+
+        #return repeat_forcing_yearly
