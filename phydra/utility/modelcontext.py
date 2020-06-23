@@ -2,7 +2,7 @@ import numpy as np
 from collections import defaultdict
 
 class Context:
-    """context dict getter/setter that allows sharing properties between model processes
+    """fluxes dict getter/setter that allows sharing properties between model processes
         """
     def __init__(self):
         self.context = defaultdict()
@@ -19,12 +19,12 @@ class Context:
 
 
 class ContextDict(Context):
-    """ This stores model context in a dict of dicts for setup and debugging
+    """ This stores model fluxes in a dict of dicts for setup and debugging
     """
     def __init__(self):
         """overwrite ContextDict to default list"""
         self.context = defaultdict(dict)
-        self.name = 'Model context dict'
+        self.name = 'Model fluxes dict'
 
     def __setitem__(self, key, args):
         label, value = args
@@ -58,39 +58,84 @@ class FluxesDict(Context):
         self.context[key].append(newvalue)
 
 
+class ParameterDict:
+    """ This stores parameters initialized for specific parameters in a dict,
+    within a dict of the key for specific component
+    """
+    def __init__(self):
+        """overwrite ContextDict to default list"""
+        self.parameters = defaultdict(dict)
+        self.shapes = defaultdict(dict)
+        self.name = 'SV Parameter Dict'
+
+    def __getitem__(self, key):
+        return self.parameters[key]
+
+    def __repr__(self):
+        return f"{self.name} stores: {self.parameters.items()}"
+
+    def setup_dims(self, key_label, par_label, dims):
+        self.parameters[key_label].update({par_label: np.full(dims, object)})
+        self.shapes[key_label].update({par_label: np.zeros(dims)})
+
+    def init_param_across_dims(self, comp, param, newvalue, index=None):
+        if index != None:
+            self.parameters[comp][param][index] = newvalue
+        else:
+            if np.array(newvalue).size == 1:
+                it = np.nditer(self.shapes[comp][param], flags=['multi_index', 'refs_ok'])
+                while not it.finished:
+                    self.parameters[comp][param][it.multi_index] = newvalue
+                    it.iternext()
+            else:
+                try:
+                    x = newvalue.size
+                except AttributeError:
+                    raise TypeError(
+                        f"When supplying dimensional parameters, make sure to have them in np.array format, not {type(newvalue)}")
+
+                if np.array(newvalue).size == self.shapes[comp][param].size:
+                    it = np.nditer(self.shapes[comp][param], flags=['multi_index', 'refs_ok'])
+                    while not it.finished:
+                        self.parameters[comp][param][it.multi_index] = newvalue[it.multi_index]
+                        it.iternext()
+                else:
+                    raise BaseException(f"dimensions of supplied parameter do not match SV dims \n \
+                          needs to be scalar or a numpy array of shape {self.shapes[comp][param].shape}")
+
 class SVDimFluxes:
     """ This is a more complex defaultdict, that handles dynamically assigned
     n-dimensional numpy arrays, that contain lists, to which Fluxes (i.e. gekko m.Intermediates)
     can be appended to build the model
     """
     def __init__(self):
-        self.context = defaultdict(object)
+        self.fluxes = defaultdict(object)
         self.name = 'SV Dimensional Fluxes'
         self.shape = 'Not Initialized'
 
     def __getitem__(self, key):
-        return self.context[key]
+        return self.fluxes[key]
 
     def __repr__(self):
-        return f"{self.name} stores: {self.context.items()}"
+        return f"{self.name} stores: {self.fluxes.items()}"
 
     def setup_dims(self, key, fulldims):
         self.shape = np.zeros(fulldims.shape)
-        self.context[key] = np.full(fulldims.shape, object)
+        self.fluxes[key] = np.full(fulldims.shape, object)
 
-        it = np.nditer(self.context[key], flags=['multi_index', 'refs_ok'])
+        it = np.nditer(self.fluxes[key], flags=['multi_index', 'refs_ok'])
         while not it.finished:
-            self.context[key][it.multi_index] = list()
+            self.fluxes[key][it.multi_index] = list()
             it.iternext()
 
     def apply_across_dims(self, key, newvalue, index=None):
         if index != None:
-            self.context[key][index].append(newvalue)
+            self.fluxes[key][index].append(newvalue)
         else:
             if np.array(newvalue).size == 1:
                 it = np.nditer(self.shape, flags=['multi_index', 'refs_ok'])
                 while not it.finished:
-                    self.context[key][it.multi_index].append(newvalue)
+                    self.fluxes[key][it.multi_index].append(newvalue)
                     it.iternext()
             else:
                 try:
@@ -102,7 +147,7 @@ class SVDimFluxes:
                 if np.array(newvalue).size == self.shape.size:
                     it = np.nditer(self.shape, flags=['multi_index', 'refs_ok'])
                     while not it.finished:
-                        self.context[key][it.multi_index].append(newvalue[it.multi_index])
+                        self.fluxes[key][it.multi_index].append(newvalue[it.multi_index])
                         it.iternext()
                 else:
                     raise BaseException(f"dimensions of value do not match SV dims \n \
@@ -110,5 +155,7 @@ class SVDimFluxes:
 
     def apply_exchange_flux(self, ressource, consumer, flux, indexR=None, indexC=None):
         if indexC != None and indexR != None:
-            self.context[ressource][indexR].append(-flux)
-            self.context[consumer][indexC].append(flux)
+            self.fluxes[ressource][indexR].append(-flux)
+            self.fluxes[consumer][indexC].append(flux)
+        else:
+            raise AttributeError('index not passed to apply_exchange_flux function')

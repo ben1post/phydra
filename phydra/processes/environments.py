@@ -2,7 +2,7 @@ import numpy as np
 import xsimlab as xs
 
 from .gekkocontext import InheritGekkoContext
-from .forcing import MLDForcing, NutrientForcing
+from .forcing import MLDForcing, NutrientForcing, IrradianceForcing, TemperatureForcing
 
 @xs.process
 class BaseEnvironment(InheritGekkoContext):
@@ -16,11 +16,13 @@ class BaseEnvironment(InheritGekkoContext):
     components = xs.index(dims='components')
     fluxes = xs.index(dims='fluxes')
     forcingfluxes = xs.index(dims='forcingfluxes')
+    forcings = xs.index(dims='forcings')
 
 
     comp_output = xs.variable(intent='out', dims=('components', 'time'))
     flux_output = xs.variable(intent='out', dims=('fluxes', 'time'))
     fxflux_output = xs.variable(intent='out', dims=('forcingfluxes', 'time'))
+    forcing_output = xs.variable(intent='out', dims=('forcings', 'time'))
 
     comp_indices = xs.group('comp_index')
     comp_outputs = xs.group('comp_output')
@@ -31,12 +33,21 @@ class BaseEnvironment(InheritGekkoContext):
     fxflux_indices = xs.group('fxflux_index')
     fxflux_outputs = xs.group('fxflux_output')
 
+    forcing_indices = xs.group('forcing_index')
+    forcing_outputs = xs.group('forcing_interpolated')
+
+
+
     def initialize(self):
         self.components = [index for indices in self.comp_indices for index in indices]
         self.forcingfluxes = [index for indices in self.fxflux_indices for index in indices]
         self.fluxes = [index for indices in self.flux_indices for index in indices]
+
+        self.forcings = [index for index in self.forcing_indices]
+
         print(f"\n")
-        print(f"Initializing Environment: \n components:{self.components} \n fluxes:{self.fluxes} \n fx-fluxes:{self.forcingfluxes}")
+        print(f"Initializing Environment: \n components:{self.components} \n fluxes:{self.fluxes} \
+                \n fx-fluxes:{self.forcingfluxes} \n gekko context:{self.gk_context}")
         print(f"\n")
 
     def finalize_step(self):
@@ -44,6 +55,8 @@ class BaseEnvironment(InheritGekkoContext):
         self.comp_output = [output for outputs in self.comp_outputs for output in outputs]
         self.flux_output = [output for outputs in self.flux_outputs for output in outputs]
         self.fxflux_output = [output for outputs in self.fxflux_outputs for output in outputs]
+        self.forcing_output = [forcing for forcing in self.forcing_outputs]
+
 
 
 @xs.process
@@ -64,6 +77,10 @@ class Slab(BaseEnvironment):
     MLD_deriv = xs.foreign(MLDForcing, 'derivative')   # m.Param()
 
     N0_forcing = xs.foreign(NutrientForcing, 'forcing')
+
+    I0_forcing = xs.foreign(IrradianceForcing, 'forcing')
+
+    Temp_forcing = xs.foreign(TemperatureForcing, 'forcing')
 
     def initialize(self):
         super(Slab, self).initialize()

@@ -96,6 +96,10 @@ class Component(InheritGekkoContext):
     # Necessary Input:
     init = xs.variable(intent='in')
     dim = xs.variable(intent='in', groups='comp_dim')
+    # TODO: get a parameter dict for each component, containing array of same dims
+    # goal: multiindex can be passed to compute methods, and parameters automatically match
+    # TODO: 2. I need to compute the grazingmatrix, before passing this on to calculate fluxes
+    # in grazing matrix I store the grazed biomass per sub.ressource per sub.consumer
 
     def initialize_postdimsetup(self):
         print('Initializing component ', self.comp_label, self.dim_labels)
@@ -106,8 +110,6 @@ class Component(InheritGekkoContext):
 
         # add to SVDims dict:
         self.gk_SVshapes[self.comp_label] = self.FullDims
-
-        #self.gk_Fluxes[self.comp_label] = np.array(self.FullDims, dtype='object')
 
         # define m.SV array in full model dimensions, add to SV dict:
         self.gk_SVs[self.comp_label] = self.m.Array(self.m.SV, (self.FullDims.shape))
@@ -120,7 +122,6 @@ class Component(InheritGekkoContext):
 
         self.gk_Fluxes.setup_dims(self.comp_label, self.FullDims)
 
-
     def run_step(self):
         """Assemble component equations from initialized fluxes"""
         print('Assembling equation for component ', self.comp_label, self.gk_Fluxes[self.comp_label])
@@ -132,7 +133,6 @@ class Component(InheritGekkoContext):
                 self.gk_SVs[self.comp_label][it.multi_index].dt() == \
                 sum([flux for flux in self.gk_Fluxes[self.comp_label][it.multi_index]]))
             it.iternext()
-
 
     def finalize_step(self):
         """Store component output to array here!"""

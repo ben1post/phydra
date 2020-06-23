@@ -4,7 +4,7 @@ from gekko import GEKKO
 
 from time import process_time
 from .main import (Grid0D, Boundary0D)
-from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, FluxesDict, SVDimFluxes)
+from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, FluxesDict, SVDimFluxes, ParameterDict)
 
 @xs.process
 class GekkoContext:
@@ -21,6 +21,7 @@ class GekkoContext:
 
     SVs = xs.any_object(description='defaultdict - Stores all state variables')
     SVshapes = xs.any_object(description='defaultdict - Stores all state variables dimensions')
+    Parameters = xs.any_object(description='defaultdict - Stores all parameters in state variable dimesnions')
     Fluxes = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a specific SV')
     Flux_Intermediates = xs.any_object(description='defaultdict - Stores all gekko m.Intermediates corresponding to a '
                                                    'specific ForcingFlux')
@@ -32,6 +33,7 @@ class GekkoContext:
         self.context = ContextDict()  # simple defaultdict list store containing additional info
         self.SVs = GekkoMath()  # stores gekko m.SVs by label
         self.SVshapes = SVDimsDict()  # stores dims as np.arrays for iteration over multiple dimensions
+        self.Parameters = ParameterDict()
         self.Fluxes = SVDimFluxes()  # stores m.Intermediates with corresponding label, needs to be appended to
         self.Flux_Intermediates = FluxesDict()  # used to retrieve flux output and store
 
@@ -45,6 +47,7 @@ class InheritGekkoContext:
     gk_context = xs.foreign(GekkoContext, 'context')
     gk_SVs = xs.foreign(GekkoContext, 'SVs')
     gk_SVshapes = xs.foreign(GekkoContext, 'SVshapes')
+    gk_Parameters = xs.foreign(GekkoContext, 'Parameters')
     gk_Fluxes = xs.foreign(GekkoContext, 'Fluxes')
     gk_Flux_Int = xs.foreign(GekkoContext, 'Flux_Intermediates')
     gridshape = xs.foreign(GekkoContext, 'shape')

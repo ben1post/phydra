@@ -12,6 +12,7 @@ class ForcingBase(InheritGekkoContext):
     """Base class for forcing,
     - interpolated and derivative need to be calculated in subclass
     - and passed as m.Param discretized in model timesteps"""
+    fxindex = xs.variable(intent='out', groups='forcing_index')
 
     time = xs.foreign(Time, 'time')
 
@@ -19,11 +20,15 @@ class ForcingBase(InheritGekkoContext):
     interpolated = xs.on_demand()
 
     # interface to other processes:
-    forcing = xs.any_object()
-    derivative = xs.any_object()
+    forcing = xs.variable(intent='out', groups='forcing_interpolated')
+    derivative = xs.variable(intent='out', groups='forcing_interpolated_deriv')
 
     def initialize(self):
         """ basic initialisation of forcing """
+        self.fxindex = getattr(self, '__xsimlab_name__')
+
+        print(f"ForcingBase is initialized: {self.fxindex}")
+
         self.forcing = self.m.Param(self.interpolated(self.time))
         self.derivative = self.m.Param(self.interpolated(self.time, deriv=True))
 
@@ -32,7 +37,97 @@ class ForcingBase(InheritGekkoContext):
         """ returns interpolated scipy object, unit : {d^-1} """
         raise ValueError('interpolate function needs to be initialized in subclass of forcing')
 
+@xs.process
+class ConstantValue(ForcingBase):
+    """provides a constant value for N0 forcing"""
 
+    value = xs.variable(intent='in', description='value of the constant forcing')
+
+    interpolated = xs.on_demand()
+
+    @interpolated.compute
+    def constant_interpolated(self):
+        """ Function returns scipy.interpolate object"""
+        data_time = np.arange(365)
+        data = np.full(365, self.value,  dtype='float64')
+        interpolated_data = intrp.CubicSpline(data_time, data)
+        interpolated_data_deriv = interpolated_data.derivative()
+
+        def repeat_forcing_yearly(time, deriv=False):
+            if deriv == True:
+                return interpolated_data_deriv(np.mod(time, 365.))
+            return interpolated_data(np.mod(time, 365.))
+
+        return repeat_forcing_yearly
+
+@xs.process
+class SinusoidalValue(ForcingBase):
+    """provides a sinusoidal value for N0 forcing"""
+    interpolated = xs.on_demand()
+
+    getSinusoidal = xs.on_demand()
+
+    @getSinusoidal.compute
+    def getSinusoidalData(self):
+        raise Exception('Needs to be initialized in subclass')
+
+    @interpolated.compute
+    def sinusoidal_interpolated(self):
+        """ Function returns scipy.interpolate object"""
+
+        self.data_time = np.arange(365)
+        data = self.getSinusoidal
+
+        interpolated_data = intrp.CubicSpline(self.data_time, data)
+        interpolated_data_deriv = interpolated_data.derivative()
+
+        def repeat_forcing_yearly(time, deriv=False):
+            if deriv == True:
+                return interpolated_data_deriv(np.mod(time, 365.))
+            return interpolated_data(np.mod(time, 365.))
+
+        return repeat_forcing_yearly
+
+@xs.process
+class WOA2018(ForcingBase):
+    """ Provides MLD forcing from WOA 2018 data based on chosen location in Env """
+    interpolated = xs.on_demand()
+    getWOA2018 = xs.on_demand()
+
+    lat = xs.variable(intent='in')
+    lon = xs.variable(intent='in')
+    rbb = xs.variable(intent='in')
+    smooth = xs.variable(intent='in', description='smoothing factor used to choose number of knots')
+
+    @getWOA2018.compute
+    def getDatafromWOA2018(self):
+        raise Exception('Needs to be initialized in subclass')
+
+    @interpolated.compute
+    def WOA2018_interpolate(self):
+        """ Function returns scipy.interpolate object"""
+
+        data = self.getWOA2018
+
+        # to smooth out interpolated data, we append it by itself 3 times (over 3 years)
+        # and take the interpolated values from the middle year
+        dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        dpm = dayspermonth * 3
+        dpm_cumsum = np.cumsum(dpm) - np.array(dpm) / 2
+
+        # k=3 for cubic spline
+        interpolated_data = intrp.UnivariateSpline(dpm_cumsum, data.outForcing * 3, k=3, s=self.smooth)
+        interpolated_data_deriv = interpolated_data.derivative()
+
+        def repeat_forcing_yearly(time, deriv=False):
+            if deriv == True:
+                return interpolated_data_deriv(np.mod(time, 365.)+365)  # add 365 here to return 2nd year
+            return interpolated_data(np.mod(time, 365.)+365)
+
+        return repeat_forcing_yearly
+
+
+# NUTIENT FORCING
 @xs.process
 class NutrientForcing(ForcingBase):
     """ This is a basic interface for N0 forcing to be called in Environment """
@@ -43,52 +138,34 @@ class NutrientForcing(ForcingBase):
         """ returns interpolated scipy object, unit : {d^-1} """
         raise ValueError('interpolate function needs to be initialized in subclass of NutrientForcing')
 
-
 @xs.process
-class ConstantN0(NutrientForcing):
+class ConstantN0(ConstantValue, NutrientForcing):
     """provides a constant value for N0 forcing"""
-    constant_N0 = xs.variable(intent='in', description='value of the constant Nutrient forcing')
-
-    interpolated = xs.on_demand()
-
-    @interpolated.compute
-    def constantN0(self):
-        """ Function returns scipy.interpolate object"""
-        data_time = np.arange(365)
-        N0 = np.full(365, self.constant_N0,  dtype='float64')
-        interpolted_N0 = intrp.CubicSpline(data_time, N0)
-        interpolated_N0_deriv = interpolted_N0.derivative()
-
-        def repeat_forcing_yearly(time, deriv=False):
-            if deriv == True:
-                return interpolated_N0_deriv(np.mod(time, 365.))
-            return interpolted_N0(np.mod(time, 365.))
-
-        return repeat_forcing_yearly
-
+    value = xs.variable(intent='in', description='value of the constant forcing')
 
 @xs.process
-class SinuisoidalN0(NutrientForcing):
-    """provides a sinusoidal value for N0 forcing"""
-    interpolated = xs.on_demand()
+class SinusoidalN0(SinusoidalValue, NutrientForcing):
+    """ provides a sinusoidal value for N0 forcing
 
-    @interpolated.compute
+    TODO: add specific arguments defining sinusoidal forcing range/values """
+
+    getSinusoidal = xs.on_demand()
+
+    @getSinusoidal.compute
     def sinusoidalN0(self):
-        """ Function returns scipy.interpolate object"""
+        return np.cos(self.data_time / 365 * 2 * np.pi) + 1
 
-        data_time = np.arange(365)
-        N0 = np.cos(data_time / 365 * 2 * np.pi) + 1
-        interpolted_N0 = intrp.CubicSpline(data_time, N0)
-        interpolated_N0_deriv = interpolted_N0.derivative()
+@xs.process
+class WOA2018_N0(WOA2018, NutrientForcing):
+    """ Provides MLD forcing from WOA 2018 data based on chosen location in Env """
+    getWOA2018 = xs.on_demand()
 
-        def repeat_forcing_yearly(time, deriv=False):
-            if deriv == True:
-                return interpolated_N0_deriv(np.mod(time, 365.))
-            return interpolted_N0(np.mod(time, 365.))
-
-        return repeat_forcing_yearly
+    @getWOA2018.compute
+    def getN0fromWOA2018(self):
+        return WOAForcing(self.lat, self.lon, self.rbb, 'n0x')
 
 
+# MIXED LAYER DEPTH
 @xs.process
 class MLDForcing(ForcingBase):
     """ This is a basic interface for MLD forcing to be called in Environment """
@@ -99,52 +176,74 @@ class MLDForcing(ForcingBase):
         """ returns interpolated scipy object, unit : {d^-1} """
         raise ValueError('interpolate function needs to be initialized in subclass of NutrientForcing')
 
+@xs.process
+class SinusoidalMLD(SinusoidalValue, MLDForcing):
+    """ provides a sinusoidal value for N0 forcing
+    """
+    getSinusoidal = xs.on_demand()
+
+    @getSinusoidal.compute
+    def sinusoidalN0(self):
+        return (np.cos(self.data_time / 365 * 2 * np.pi) + 1) * 100 + 20
 
 @xs.process
-class SinusoidalMLD(MLDForcing):
-    """ Subclass of forcing of MLD forcing that defines the actual forcing supplied to the model"""
-    interpolated = xs.on_demand()
-
-    @interpolated.compute
-    def SinusoidalMLD(self):
-        """ Function returns scipy.interpolate object"""
-
-        data_time = np.arange(365)
-        MLD = (np.cos(data_time / 365 * 2 * np.pi) + 1) * 100 + 20
-        interpolted_MLD = intrp.CubicSpline(data_time, MLD)
-        interpolated_MLD_deriv = interpolted_MLD.derivative()
-
-        def repeat_forcing_yearly(time, deriv=False):
-            if deriv == True:
-                return interpolated_MLD_deriv(np.mod(time, 365.))
-            return interpolted_MLD(np.mod(time, 365.))
-
-        return repeat_forcing_yearly
-
-
-@xs.process
-class WOA2018_MLD(MLDForcing):
+class WOA2018_MLD(WOA2018, MLDForcing):
     """ Provides MLD forcing from WOA 2018 data based on chosen location in Env """
+    getWOA2018 = xs.on_demand()
+
+    @getWOA2018.compute
+    def getN0fromWOA2018(self):
+        return WOAForcing(self.lat, self.lon, self.rbb, 'mld')
+
+
+
+# IRRADIANCE
+@xs.process
+class IrradianceForcing(ForcingBase):
+    """ This is a basic interface for Irradiance forcing to be called in Environment """
     interpolated = xs.on_demand()
 
-    lat = xs.variable(intent='in')
-    lon = xs.variable(intent='in')
-    rbb = xs.variable(intent='in')
+    @interpolated.compute
+    def interpolate(self):
+        """ returns interpolated scipy object, unit : {d^-1} """
+        raise ValueError('interpolate function needs to be initialized in subclass of NutrientForcing')
+
+@xs.process
+class ConstantPAR(ConstantValue, IrradianceForcing):
+    """provides a constant value for N0 forcing"""
+    value = xs.variable(intent='in', description='value of the constant forcing')
+
+
+@xs.process
+class MODISaq_PAR(WOA2018, IrradianceForcing):
+    """ Provides PAR forcing from MODIS aqua climatology based on chosen location in Env """
+    getWOA2018 = xs.on_demand()
+
+    @getWOA2018.compute
+    def getPARfromWOA2018(self):
+        return WOAForcing(self.lat, self.lon, self.rbb, 'par')
+
+# TEMPERATURE
+@xs.process
+class TemperatureForcing(ForcingBase):
+    """ This is a basic interface for N0 forcing to be called in Environment """
+    interpolated = xs.on_demand()
 
     @interpolated.compute
-    def WOA2018_MLD(self):
-        """ Function returns scipy.interpolate object"""
+    def interpolate(self):
+        """ returns interpolated scipy object, unit : {d^-1} """
+        raise ValueError('interpolate function needs to be initialized in subclass of NutrientForcing')
 
-        MLD = WOAForcing(self.lat, self.lon, self.rbb, 'mld')
-        print(MLD)
-        #data_time = np.arange(365)
-        #MLD = (np.cos(data_time / 365 * 2 * np.pi) + 1) * 100 + 20
-        #interpolted_MLD = intrp.CubicSpline(data_time, MLD)
-        #interpolated_MLD_deriv = interpolted_MLD.derivative()
+@xs.process
+class ConstantTemp(ConstantValue, TemperatureForcing):
+    """provides a constant value for N0 forcing"""
+    value = xs.variable(intent='in', description='value of the constant forcing')
 
-        #def repeat_forcing_yearly(time, deriv=False):
-        #    if deriv == True:
-        #        return interpolated_MLD_deriv(np.mod(time, 365.))
-        #    return interpolted_MLD(np.mod(time, 365.))
+@xs.process
+class WOA2018_Tmld(WOA2018, TemperatureForcing):
+    """ Provides MLD forcing from WOA 2018 data based on chosen location in Env """
+    getWOA2018 = xs.on_demand()
 
-        #return repeat_forcing_yearly
+    @getWOA2018.compute
+    def getTempfromWOA2018(self):
+        return WOAForcing(self.lat, self.lon, self.rbb, 'tmld')
