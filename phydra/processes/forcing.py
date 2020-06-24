@@ -165,6 +165,23 @@ class WOA2018_N0(WOA2018, NutrientForcing):
         return WOAForcing(self.lat, self.lon, self.rbb, 'n0x')
 
 
+# FLOW
+@xs.process
+class FlowForcing(ForcingBase):
+    """ This is a basic interface for MLD forcing to be called in Environment """
+    interpolated = xs.on_demand()
+
+    @interpolated.compute
+    def interpolate(self):
+        """ returns interpolated scipy object, unit : {d^-1} """
+        raise ValueError('interpolate function needs to be initialized in subclass of NutrientForcing')
+
+@xs.process
+class ConstantFlow(ConstantValue, FlowForcing):
+    """provides a constant value for N0 forcing"""
+    value = xs.variable(intent='in', description='value of the constant forcing')
+
+
 # MIXED LAYER DEPTH
 @xs.process
 class MLDForcing(ForcingBase):

@@ -75,12 +75,14 @@ class ParameterDict:
         return f"{self.name} stores: {self.parameters.items()}"
 
     def setup_dims(self, key_label, par_label, dims):
+        print('setup_dims',dims, key_label, par_label)
         self.parameters[key_label].update({par_label: np.full(dims, object)})
         self.shapes[key_label].update({par_label: np.zeros(dims)})
 
     def init_param_across_dims(self, comp, param, newvalue, index=None):
         if index != None:
             self.parameters[comp][param][index] = newvalue
+
         else:
             if np.array(newvalue).size == 1:
                 it = np.nditer(self.shapes[comp][param], flags=['multi_index', 'refs_ok'])
@@ -102,6 +104,19 @@ class ParameterDict:
                 else:
                     raise BaseException(f"dimensions of supplied parameter do not match SV dims \n \
                           needs to be scalar or a numpy array of shape {self.shapes[comp][param].shape}")
+
+    def init_param_range(self, comp, param, minvalue, maxvalue, model):
+        size = self.shapes[comp][param].size
+        shape = self.shapes[comp][param].shape
+        parameter_range = np.linspace(minvalue, maxvalue, size)
+
+        parameter = np.full(shape, parameter_range)
+        print(parameter)
+
+        it = np.nditer(self.shapes[comp][param], flags=['multi_index', 'refs_ok'])
+        while not it.finished:
+            self.parameters[comp][param][it.multi_index] = model.Param(parameter[it.multi_index])
+            it.iternext()
 
 class SVDimFluxes:
     """ This is a more complex defaultdict, that handles dynamically assigned
@@ -128,7 +143,7 @@ class SVDimFluxes:
             self.fluxes[key][it.multi_index] = list()
             it.iternext()
 
-    def apply_across_dims(self, key, newvalue, index=None):
+    def apply_flux(self, key, newvalue, index=None):
         if index != None:
             self.fluxes[key][index].append(newvalue)
         else:

@@ -2,7 +2,7 @@ import numpy as np
 import xsimlab as xs
 
 from .gekkocontext import InheritGekkoContext
-from .forcing import MLDForcing, NutrientForcing, IrradianceForcing, TemperatureForcing
+from .forcing import MLDForcing, FlowForcing, NutrientForcing, IrradianceForcing, TemperatureForcing
 
 @xs.process
 class BaseEnvironment(InheritGekkoContext):
@@ -57,6 +57,27 @@ class BaseEnvironment(InheritGekkoContext):
         self.fxflux_output = [output for outputs in self.fxflux_outputs for output in outputs]
         self.forcing_output = [forcing for forcing in self.forcing_outputs]
 
+
+@xs.process
+class Chemostat(BaseEnvironment):
+    """ Physical Environment for Slab setting
+    requires Forcing for:
+        - Nutrient below the mixed layer (N0) - constant or variable
+        (hm, how to switch and point to correct FX file?)
+        -  Mixed Layer Depth (MLD)
+        - Irradiance at surface (Is)
+
+        optional (perhaps implement in subclass?):
+        - Temperature
+
+    also provides specific terms needed for Fluxes, i.e. K, integrated Light
+    """
+    Flow = xs.foreign(FlowForcing, 'forcing')  # m.Param()
+
+    N0_forcing = xs.foreign(NutrientForcing, 'forcing')
+
+    def initialize(self):
+        super(Chemostat, self).initialize()
 
 
 @xs.process

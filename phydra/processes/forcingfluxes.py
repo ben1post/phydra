@@ -2,7 +2,7 @@ import numpy as np
 import xsimlab as xs
 
 from .gekkocontext import InheritGekkoContext
-from .environments import BaseEnvironment, Slab
+from .environments import Slab, Chemostat
 
 
 def make_FX_flux(fxflux_cls, fxflux_name):
@@ -76,7 +76,7 @@ class BaseForcingFlux(InheritGekkoContext):
                 # this collects flux intermediates for output collection
                 self.gk_Flux_Int[self.fxflux_label] = self.fxflux
                 # define actual flux
-                self.gk_Fluxes.apply_across_dims(C_label, self.fxflux, it.multi_index)
+                self.gk_Fluxes.apply_flux(C_label, self.fxflux, it.multi_index)
                 it.iternext()
 
     def finalize_step(self):
@@ -112,6 +112,66 @@ class LinearMortalityClosure(BaseForcingFlux):
 
 
 @xs.process
+class Flow(BaseForcingFlux):
+    """ Mixing:
+    - this provides the mixing function to the environment that references it
+
+    the mixing function takes
+    - standard parameters, are passed along! as default args, right?
+    - can I use the contextdict feature somehow, for these pars.. hm.
+    - can so xs.group was the
+    """
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
+    C_labels = xs.variable(intent='in',
+                           dims='not_initialized',
+                           description='label of component(s) that grows')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
+
+    Flow_forcing = xs.foreign(Chemostat, 'Flow')  # m.Param()
+
+    flow = xs.on_demand(description='function to calculate mixing K')
+
+    @fxflux.compute
+    def fxflux_out(self):
+        return self.m.Intermediate(self.C * self.flow)
+
+    @flow.compute
+    def influx(self):
+        return self.m.Intermediate(self.Flow_forcing)
+
+class Outflow(Flow):
+    """negative mixing flux"""
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
+    C_labels = xs.variable(intent='in',
+                           dims='not_initialized',
+                           description='label of component(s) that grows',
+                           )
+    fxflux = xs.on_demand(description='function to calculate fluxes')
+
+    @fxflux.compute
+    def influx(self):
+        return self.m.Intermediate(- self.C * self.flow)
+
+class N0_inflow(Flow):
+    """negative mixing flux"""
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
+    C_labels = xs.variable(intent='in',
+                           dims='not_initialized',
+                           description='label of component(s) that grows',
+                           )
+    fxflux = xs.on_demand(description='function to calculate fluxes')
+
+    N0_forcing = xs.foreign(Chemostat, 'N0_forcing')
+
+    @fxflux.compute
+    def influx(self):
+        return self.m.Intermediate(self.N0_forcing * self.flow)
+
+
+@xs.process
 class Mixing(BaseForcingFlux):
     """ Mixing:
     - this provides the mixing function to the environment that references it
@@ -136,11 +196,11 @@ class Mixing(BaseForcingFlux):
     mixing = xs.on_demand(description='function to calculate mixing K')
 
     @fxflux.compute
-    def fxflux(self):
-        return self.m.Intermediate(- self.C * self.mixing())
+    def fxflux_out(self):
+        return self.m.Intermediate(- self.C * self.mixing)
 
     @mixing.compute
-    def mixing(self):
+    def mixing_out(self):
         h_pos = self.m.Intermediate(np.max(self.MLD_deriv, 0))
         H = self.MLD
         K = self.m.Intermediate((h_pos + self.kappa) / H)
@@ -159,7 +219,7 @@ class Sinking(Mixing):
 
     @fxflux.compute
     def sinking(self):
-        return self.m.Intermediate( - self.C * self.mixing())
+        return self.m.Intermediate( - self.C * self.mixing)
 
 
 class Upwelling(Mixing):
@@ -173,4 +233,4 @@ class Upwelling(Mixing):
 
     @fxflux.compute
     def upwelling(self):
-        return self.m.Intermediate((self.N0_forcing - self.C) * self.mixing())
+        return self.m.Intermediate((self.N0_forcing - self.C) * self.mixing)

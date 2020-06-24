@@ -49,7 +49,7 @@ def make_flux(flux_cls, flux_name):
         setattr(self, flux_name, fx_c_list)
 
         cls_here = getattr(self, '__class__')
-        super(cls_here, self).initialize_postdimsetup()
+        super(cls_here, self).initialize_parametersetup()
 
     setattr(new_cls, 'initialize', initialize_dim)
 
@@ -66,31 +66,38 @@ class BaseFlux(InheritGekkoContext):
     flux_label = xs.variable(intent='out', groups='flux_label')
     output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
 
-    R_label = xs.variable(intent='in', description='label of ressource that is consumed')
-    C_label = xs.variable(intent='in', description='label of component that grows')
+    #R_label = xs.variable(intent='in', description='label of ressource that is consumed')
+    #C_label = xs.variable(intent='in', description='label of component that grows')
 
     flux = xs.on_demand()
 
     def initialize_postdimsetup(self):
         self.flux_label = f"{self.cls_label}-{self.R_label}2{self.C_label}"
+
+
         print('Initializing flux:', self.flux_label)
 
         # apply growth of all subdimensions of the consumer on all subdimensions of the ressource
-        itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['multi_index'])
-        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index'])
 
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index'])
+        itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['multi_index'])
         self.R_sum = np.sum([self.gk_SVs[self.R_label][multi_index] for multi_index in itR.multi_index])
         self.C_sum = np.sum([self.gk_SVs[self.C_label][multi_index] for multi_index in itC.multi_index])
-        while not itR.finished:
-            self.R = self.gk_SVs[self.R_label][itR.multi_index]
-            while not itC.finished:
-                self.C = self.gk_SVs[self.C_label][itC.multi_index]
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['multi_index'])
+        while not itC.finished:
+            self.C_index = itC.multi_index
+            self.C = self.gk_SVs[self.C_label][itC.multi_index]
+            itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['multi_index'])
+            while not itR.finished:
+                self.R_index = itR.multi_index
+                self.R = self.gk_SVs[self.R_label][itR.multi_index]
 
                 self.gk_Fluxes.apply_exchange_flux(self.R_label, self.C_label, self.flux,
                                                    itR.multi_index, itC.multi_index)
                 self.gk_Flux_Int[self.flux_label] = self.flux
-                itC.iternext()
-            itR.iternext()
+                itR.iternext()
+            itC.iternext()
 
     @flux.compute
     def flux(self):
@@ -118,21 +125,30 @@ class LimitedGrowth_Monod(BaseFlux):
     R_label = xs.variable(intent='in', description='label of ressource component that is consumed')
     C_label = xs.variable(intent='in', description='label of component that grows')
 
-    mu = xs.variable(intent='in', description='Maximum growth rate of component')
-    halfsat = xs.variable(intent='in', description='half-saturation constant of nutrient uptake for component')
+    mu_min = xs.variable(intent='in', description='Maximum growth rate of component')
+    mu_max = xs.variable(intent='in', description='Maximum growth rate of component')
+    halfsat_min = xs.variable(intent='in', description='half-saturation constant of nutrient uptake for component')
+    halfsat_max = xs.variable(intent='in', description='half-saturation constant of nutrient uptake for component')
 
     flux = xs.on_demand()
 
     nutrient_limitation = xs.on_demand()
 
+    def initialize_parametersetup(self):
+        self.gk_Parameters.setup_dims(self.C_label, 'mu', self.gk_SVshapes[self.C_label].shape)
+        self.gk_Parameters.init_param_range(self.C_label, 'mu', self.mu_min, self.mu_max, self.m)
+
+        self.gk_Parameters.setup_dims(self.C_label, 'halfsat_Growth', self.gk_SVshapes[self.C_label].shape)
+        self.gk_Parameters.init_param_range(self.C_label, 'halfsat_Growth', self.halfsat_min, self.halfsat_max, self.m)
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
     @flux.compute
     def growth(self):
-        return self.m.Intermediate(self.mu * self.nutrient_limitation() * self.C)
+        return self.m.Intermediate(self.gk_Parameters[self.C_label]['mu'][self.C_index] * self.nutrient_limitation() * self.C)
 
     @nutrient_limitation.compute
     def nutrient_limitation(self):
-        self.halfsat_Par = self.m.Param(self.halfsat)
-        return self.m.Intermediate(self.R / (self.halfsat_Par + self.R))
+        return self.m.Intermediate(self.R / (self.gk_Parameters[self.C_label]['halfsat_Growth'][self.C_index] + self.R))
 
 
 class LimitedGrowth_MonodTempLight(BaseFlux):
@@ -163,6 +179,9 @@ class LimitedGrowth_MonodTempLight(BaseFlux):
     temp_dependence = xs.on_demand()
     light_limitation = xs.on_demand()
 
+    def initialize_parametersetup(self):
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
     @flux.compute
     def growth(self):
         return self.m.Intermediate(self.mu * self.nut_limitation *
@@ -191,7 +210,6 @@ class LimitedGrowth_MonodTempLight(BaseFlux):
 
 
 
-
 class LinearMortality(BaseFlux):
     """ Mortality of R_label feeding into C_label at a constant rate """
     flux_label = xs.variable(intent='out', groups='flux_label')
@@ -203,6 +221,9 @@ class LinearMortality(BaseFlux):
     mortality_rate = xs.variable(intent='in', description='mortality rate of component')
 
     flux = xs.on_demand()
+
+    def initialize_parametersetup(self):
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
 
     @flux.compute
     def mortality(self):
@@ -221,17 +242,19 @@ class Remineralization(BaseFlux):
 
     flux = xs.on_demand()
 
+    def initialize_parametersetup(self):
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
     @flux.compute
     def remineralisation(self):
         return self.m.Intermediate(self.remin_rate * self.R)
 
-
-class GrazingFlux(BaseFlux):
+class OldGrazingFlux(BaseFlux):
     """ Base Limited Growth, that inherits from BaseFlux and needs to be initialized from """
     flux_label = xs.variable(intent='out', groups='flux_label')
     output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
 
-    R_label = xs.variable(intent='in', description='label of component that is grazed upon')
+    R_label = xs.variable(intent='in', description='labels of components that is grazed upon')
     C_label = xs.variable(intent='in', description='label of component that grazes')
 
     grazing_rate = xs.variable(intent='in', description='maximum grazing rate')
@@ -240,10 +263,207 @@ class GrazingFlux(BaseFlux):
 
     flux = xs.on_demand()
 
+    def initialize_parametersetup(self):
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
     @flux.compute
     def grazing(self):
         return self.m.Intermediate(self.grazing_rate * (self.R / self.halfsat * self.R_sum) * self.C)
 
+
+class GrazingFlux(BaseFlux):
+    """ Base Limited Growth, that inherits from BaseFlux and needs to be initialized from """
+    flux_label = xs.variable(intent='out', groups='flux_label')
+    output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
+
+    R_label = xs.variable(intent='in', description='labels of components that is grazed upon')
+    #R_feed_prefs = xs.variable(intent='in',
+    #                       dims='not_initialized', description='feeding preferences, as list')
+
+    C_label = xs.variable(intent='in', description='label of component that grazes')
+
+    Imax = xs.variable(intent='in', description='maximum grazing rate')
+
+    halfsat = xs.variable(intent='in', description='half-saturation constant of grazing response')
+
+    flux = xs.on_demand()
+    PscaledAsFood = xs.on_demand()
+    FgrazP = xs.on_demand()
+
+    def initialize_postdimsetup(self):
+        self.flux_label = f"{self.cls_label}-{self.R_label}2{self.C_label}"
+
+        grazingmatrix = np.outer(self.gk_SVshapes[self.C_label], self.gk_SVshapes[self.R_label])
+        self.gk_Parameters.setup_dims(self.flux_label, 'PscaledAsFood', grazingmatrix.shape)
+        self.gk_Parameters.setup_dims(self.flux_label, 'FgrazP', grazingmatrix.shape)
+
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC.finished:
+            self.C = self.gk_SVs[self.C_label][itC.multi_index]
+            self.C_index = itC.multi_index
+            self.C_findex = itC.index
+
+            itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['f_index', 'multi_index'])
+            while not itR.finished:
+                self.R = self.gk_SVs[self.R_label][itR.multi_index]
+                self.R_index = itR.multi_index
+                self.R_findex = itR.index
+
+                self.gk_Parameters.init_param_across_dims(self.flux_label, 'PscaledAsFood',
+                                                          self.PscaledAsFood, (self.C_findex, self.R_findex))
+                itR.iternext()
+            itC.iternext()
+
+        print('Total Grazed full', self.gk_Parameters[self.flux_label]['PscaledAsFood'])
+
+        self.PscaledAsFood_Matrix = self.gk_Parameters[self.flux_label]['PscaledAsFood']
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC.finished:
+            self.C = self.gk_SVs[self.C_label][itC.multi_index]
+            self.C_index = itC.multi_index
+            self.C_findex = itC.index
+            print(self.C_index)
+
+            itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['f_index', 'multi_index'])
+            while not itR.finished:
+                self.R = self.gk_SVs[self.R_label][itR.multi_index]
+                self.R_index = itR.multi_index
+                self.R_findex = itR.index
+                print(self.R_index)
+
+                self.gk_Parameters.init_param_across_dims(self.flux_label, 'FgrazP',
+                                                          self.FgrazP, (itC.index, itR.index))
+                itR.iternext()
+            itC.iternext()
+
+        print('Total Grazed full', self.gk_Parameters[self.flux_label]['FgrazP'])
+
+        self.FractionGrazed_Matrix = self.gk_Parameters[self.flux_label]['FgrazP']
+
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC.finished:
+            self.C = self.gk_SVs[self.C_label][itC.multi_index]
+            self.C_index = itC.multi_index
+            self.C_findex = itC.index
+
+            itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['f_index', 'multi_index'])
+            while not itR.finished:
+                self.R = self.gk_SVs[self.R_label][itR.multi_index]
+                self.R_index = itR.multi_index
+                self.R_findex = itR.index
+
+                FLUX = self.flux
+
+                self.gk_Fluxes.apply_exchange_flux(self.R_label, self.C_label, FLUX,
+                                                   itR.multi_index, itC.multi_index)
+                self.gk_Flux_Int[self.flux_label] = FLUX
+
+                print('GRAZING-FLUX', FLUX)
+
+                itR.iternext()
+            itC.iternext()
+
+
+    def initialize_parametersetup(self):
+
+        #self.gk_Parameters.setup_dims(self.C_label, 'halfsat_Grazing', self.gk_SVshapes[self.C_label].shape)
+        #self.gk_Parameters.init_param_across_dims(self.C_label, 'halfsat_Grazing', self.m.Param(self.halfsat))
+
+        #self.gk_Parameters.setup_dims(self.C_label, 'Imax_Grazing', self.gk_SVshapes[self.C_label].shape)
+        #self.gk_Parameters.init_param_across_dims(self.C_label, 'Imax_Grazing', self.m.Param(self.Imax))
+
+        #print('HELLO', self.gk_Parameters)
+
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
+    @flux.compute
+    def grazing(self):
+        print('GRAZING_MATRIX', self.FractionGrazed_Matrix)
+        print('SUm C', self.FractionGrazed_Matrix[self.C_findex, :])
+
+        grazedbiomass = sum(self.FractionGrazed_Matrix[self.C_findex, :])
+
+        #Imax = self.gk_Parameters[self.C_label]['Imax_Grazing'][self.C_index]
+        #halfsat = self.gk_Parameters[self.C_label]['halfsat_Grazing'][self.C_index]
+        #feed_pref = self.gk_Parameters[self.C_label][self.R_label][self.R_index]
+        #Imax * (self.R ** 2 / (halfsat ** 2 + self.totalGrazed)) * self.C
+        return self.m.Intermediate( grazedbiomass )
+
+    @PscaledAsFood.compute
+    def grazingprobability(self):
+        # self.phiP[i, j] / self.KsZ * P[i]
+
+        return self.m.Intermediate(0.6 * self.R )  #** 2)  # feed_pref *
+
+    @FgrazP.compute
+    def FractionGrazed(self):
+        # FgrazP[i, j] = self.I0[j] * Z[j] * PscaledAsFood[i, j] / (1 + sum(PscaledAsFood[:, j]))
+        print('MATRIX', self.PscaledAsFood_Matrix)
+        print('SUm C', self.PscaledAsFood_Matrix[self.C_findex, :])
+
+        PasFoodSum = sum(self.PscaledAsFood_Matrix[self.C_findex, :])
+
+        FractionGrzd = self.m.Intermediate(0.6 * self.C *
+                                           self.PscaledAsFood_Matrix[self.C_findex, self.R_findex] /
+                                           (1 + PasFoodSum))
+
+        return FractionGrzd
+
+
+def make_multigrazing(flux_cls, flux_name):
+    """
+    This functions creates a properly labeled xs.process from class Component.
+
+    :args:
+        cls_name (cls): Class of forcing flux to be initialized
+        dim_name (str): Name of sub-dimension of returned process, UPPERCASE!
+
+    :returns:
+        xs.process of class Component
+    """
+    new_dim = xs.index(dims=(flux_name), groups='flux_index')
+    base_dict = dict(flux_cls.__dict__)
+    base_dict[flux_name] = new_dim
+
+    new_cls_name = flux_cls.__name__ + '_' + flux_name
+    new_cls = type(new_cls_name, flux_cls.__bases__, base_dict)
+
+    def initialize_dim(self):
+        r_label = getattr(self, 'R_label')
+        c_label = getattr(self, 'C_label')
+
+        cls_label = getattr(self, '__xsimlab_name__')
+        setattr(self, 'cls_label', cls_label)
+        print(f"flux {cls_label} is initialized for {r_label} --> {c_label}")
+
+        setattr(self, 'flux_label', str(cls_label))
+        fx_c_list = []
+        for r_lab, c_lab in zip(r_label, c_label):
+                if self.gk_SVshapes[r_lab].size == 1:
+                    fx_c_list.append(f"{cls_label}-{r_lab}-2-{c_label}")
+                else:
+                    for r in range(self.gk_SVshapes[r_lab].size):
+                            fx_c_list.append(f"{cls_label}-{r_lab}{r}-2-{c_label}")
+
+        setattr(self, flux_name, fx_c_list)
+
+        cls_here = getattr(self, '__class__')
+        super(cls_here, self).initialize_parametersetup()
+
+    setattr(new_cls, 'initialize', initialize_dim)
+
+    if flux_name.lower() == flux_name:
+        raise ValueError(f"dimension label ({flux_name}) supplied to multiflux {flux_cls} needs to be Upper Case")
+    # here the Component label affects all sub components, therefore C_labels dim != Forcingflux dims
+    #new_cls.R_label.metadata['dims'] = (flux_name + 'R')
+    #new_cls.R_feed_prefs.metadata['dims'] = (flux_name + 'R')
+    #new_cls.C_label.metadata['dims'] = (flux_name + 'C')
+
+    new_cls.output.metadata['dims'] = ((flux_name, 'time'),)
+    return xs.process(new_cls)
 
 
 def make_multiflux(flux_cls, flux_name):
@@ -319,7 +539,7 @@ class BaseMultiGrazingFlux(InheritGekkoContext):
 
     grazingsourceavailability = xs.on_demand()
     grazingprobality = xs.on_demand()
-    grazingmatrix = xs.on_demand()
+
     flux = xs.on_demand()
 
     def initialize_postdimsetup(self):
@@ -341,111 +561,61 @@ class BaseMultiGrazingFlux(InheritGekkoContext):
                     while not itR.finished:
                         self.R_index = itR.multi_index
                         self.R = self.gk_SVs[R_label][self.R_index]
-
                         self.GrazingPrefs[C_label].append(self.grazingsourceavailability)
 
-                        print(self.C_index, self.R_index)
                         itR.iternext()
                     itC.iternext()
 
-        print(self.GrazingPrefs)
+        print('GrazingPrefs', self.GrazingPrefs)
+
+        self.GrazingProbs = defaultdict(list)
+
+        print('GrazingPrefs values', self.GrazingPrefs.values())
 
         # 2. step calculates Grazing Probability
         # TODO: actually this should be a specific probability per Grazer, not just one
         #  this needs a different parameter setup though
         #  for now, let's continue
-        self.Frho = sum(*self.GrazingPrefs.values())
-        print(self.Frho)
-        self.GrazingProb = self.grazingprobality
+        for C_label in self.C_labels:
+            self.C_label = C_label
+            itC = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
+            while not itC.finished:
+                self.C_index = itC.multi_index
+                self.C = self.gk_SVs[C_label][self.C_index]
 
-        print('GrazingProb', self.GrazingProb)
+                self.Frho = sum(self.GrazingPrefs[C_label])
+                self.GrazingProbs[C_label].append(self.grazingprobality)
+
+                itC.iternext()
+
+        print('GrazingProbs', self.GrazingProbs)
 
         # 3. step calculates amount of ressource that is grazed (ADD FLUX)
-        Grazing = [Gj[j] * (self.grazepref[j] * P[self.num] ** 2) * Z[j] for j in range(self.zn)]
-        GrazingPerZ = sum(Grazing)
-        return GrazingPerZ
-
-
-
-        # 4th step calculates the total amount of biomass grazed per grazer!
-
-        # phytouptake + zooplankton per zooplankton for each phyto
-        IprobP = [Gj[self.num] * (self.feedpref[i] * P[i] ** 2) for i in range(self.pfn)]  # grazeprob per each PFT
-        IprobD = [Gj[self.num] * (self.detfeedpref[j] * D[j] ** 2) for j in range(self.dn)]
-        Iprob = IprobP + IprobD
-        # perhaps here = multiply by Z before summing Iprobs!
-        Itots = sum(Iprob)
-        Itot = Itots * Z[self.num]
-        # print('Itots', Itots,Z, 'IprobP', IprobP, P, 'IprobD', IprobD, D)
-        return Itot
-
-
-        # 5th step calculates the fraction of Itot that is assimilated or excreted, etc...
-
-
-
-        print(self.GrazingPrefs)
-
-        grazingmatrix = np.zeros((self.All_R_dims, self.All_C_dims))
-        print(grazingmatrix)
-
-        for R_label in self.R_labels:
-            self.R_label = R_label
-            for C_label in self.C_labels:
-                self.C_label = C_label
-                # apply growth of all subdimensions of the consumer on all subdimensions of the ressource
-                itR = np.nditer(self.gk_SVshapes[R_label], flags=['multi_index'])
+        for C_label in self.C_labels:
+            self.C_label = C_label
+            for R_label in self.R_labels:
+                self.R_label = R_label
                 itC = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
-
-                while not itR.finished:
-                    self.R_index = itR.multi_index
-                    self.R = self.gk_SVs[R_label][self.R_index]
-                    while not itC.finished:
-                        self.C_index = itC.multi_index
-                        self.C = self.gk_SVs[C_label][self.C_index]
-
-                        grazingmatrix[itR.multi_index, itC.multi_index] = 0.1
-
-                        itC.iternext()
-                    itR.iternext()
-        # now i have the dims, how do i properly iterate to get grazeprefs?
-
-
-        # TODO: so FIRST calculate matrix of feedpreference and biomass
-        # this needs to loop over every combination! and call a compute method.. e.g. phiP or graze prefs
-
-        # then sum everything together, for the total Frho
-
-        # to apply flux, second Full Loop
-
-        for R_label in self.R_labels:
-            self.R_label = R_label
-            for C_label in self.C_labels:
-                self.C_label = C_label
-                # apply growth of all subdimensions of the consumer on all subdimensions of the ressource
-                itR = np.nditer(self.gk_SVshapes[R_label], flags=['multi_index'])
-                itC = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
-
-                self.R_sum = np.sum([self.gk_SVs[R_label][multi_index] for multi_index in itR.multi_index])
-                self.C_sum = np.sum([self.gk_SVs[C_label][multi_index] for multi_index in itC.multi_index])
-                while not itR.finished:
-                    self.R_index = itR.multi_index
-                    self.R = self.gk_SVs[R_label][self.R_index]
-                    while not itC.finished:
-                        self.C_index = itC.multi_index
-                        self.C = self.gk_SVs[C_label][self.C_index]
+                while not itC.finished:
+                    self.C_index = itC.multi_index
+                    self.C = self.gk_SVs[C_label][self.C_index]
+                    itR = np.nditer(self.gk_SVshapes[R_label], flags=['multi_index'])
+                    while not itR.finished:
+                        self.R_index = itR.multi_index
+                        self.R = self.gk_SVs[R_label][self.R_index]
                         FLUX = self.flux
-                        self.gk_Fluxes.apply_exchange_flux(R_label, C_label, FLUX,
+                        self.gk_Fluxes.apply_exchange_flux(self.R_label, self.C_label, FLUX,
                                                            itR.multi_index, itC.multi_index)
                         self.gk_Flux_Int[self.flux_label] = FLUX
-                        itC.iternext()
-                    itR.iternext()
+                        itR.iternext()
+                    itC.iternext()
 
-    @grazingmatrix.compute
-    def initialize_grazingmatrix(self):
-        """ basic initialisation of forcing,
-        inherits SV for ressource self.R and for consumer self.C from context"""
-        raise ValueError('flux needs to be defined in BaseFlux subclass')
+        print(self.gk_Fluxes)
+        # 5th step calculates the fraction of Itot that is assimilated or excreted, etc...
+
+        print(self.GrazingPrefs)
+        # now i have the dims, how do i properly iterate to get grazeprefs?
+
 
     @grazingsourceavailability.compute
     def define_grazingavailability(self):
@@ -460,7 +630,7 @@ class BaseMultiGrazingFlux(InheritGekkoContext):
         raise ValueError('flux needs to be defined in BaseFlux subclass')
 
     @flux.compute
-    def flux(self):
+    def grazing(self):
         """ basic initialisation of forcing,
         inherits SV for ressource self.R and for consumer self.C from context"""
         raise ValueError('flux needs to be defined in BaseFlux subclass')
@@ -475,6 +645,8 @@ class BaseMultiGrazingFlux(InheritGekkoContext):
 
         self.output = np.array(self.out, dtype='float64')
 
+        print('Frho', self.Frho)
+
 
 class GrazingMultiFlux(BaseMultiGrazingFlux):
     """ Base Limited Growth, that inherits from BaseFlux and needs to be initialized from """
@@ -487,19 +659,22 @@ class GrazingMultiFlux(BaseMultiGrazingFlux):
     R_feed_prefs = xs.variable(intent='in', dims='not initialized',
                                description='list of same length as components containing feeding preference as float')
 
-    grazing_rate = xs.variable(intent='in', description='maximum grazing rate')
+    mu = xs.variable(intent='in', description='maximum grazing rate')
 
     halfsat = xs.variable(intent='in', description='half-saturation constant of grazing response')
 
     grazingsourceavailability = xs.on_demand()
     grazingprobality = xs.on_demand()
-    grazingmatrix = xs.on_demand()
+
     flux = xs.on_demand()
 
     def initialize_parametersetup(self):
-        for R_label in self.R_labels:
-            self.gk_Parameters.setup_dims(R_label, 'halfsat', self.gk_SVshapes[R_label].shape)
-            self.gk_Parameters.init_param_across_dims(R_label, 'halfsat', self.m.Param(self.halfsat))
+        for C_label in self.C_labels:
+            self.gk_Parameters.setup_dims(C_label, 'halfsat_Grazing', self.gk_SVshapes[C_label].shape)
+            self.gk_Parameters.init_param_across_dims(C_label, 'halfsat_Grazing', self.m.Param(self.halfsat))
+
+            self.gk_Parameters.setup_dims(C_label, 'mu_Grazing', self.gk_SVshapes[C_label].shape)
+            self.gk_Parameters.init_param_across_dims(C_label, 'mu_Grazing', self.m.Param(self.mu))
 
         for R_label, Feed_pref in zip(self.R_labels, self.R_feed_prefs):
             self.gk_Parameters.setup_dims(R_label, 'feed_pref', self.gk_SVshapes[R_label].shape)
@@ -509,24 +684,23 @@ class GrazingMultiFlux(BaseMultiGrazingFlux):
 
     @grazingsourceavailability.compute
     def define_grazingavailability(self):
-        return self.gk_Parameters[self.R_label]['feed_pref'][self.R_index] * self.R ** 2
+        print('GrazingAvailability', self.gk_Parameters[self.R_label]['feed_pref'][self.R_index])
+        return self.m.Intermediate(self.gk_Parameters[self.R_label]['feed_pref'][self.R_index] * self.R ** 2)
 
     @grazingprobality.compute
     def define_grazingprobability(self):
-        muZ = 1
-        return muZ / (self.halfsat ** 2 + self.Frho)
-
-    @grazingmatrix.compute
-    def initialize_grazingmatrix(self):
-        return self.gk_Parameters[self.C_label]['muZ'][self.C_index]
-
+        print('GrazingProbability', self.Frho, self.gk_Parameters[self.C_label]['mu_Grazing'][self.C_index],
+              self.gk_Parameters[self.C_label]['halfsat_Grazing'][self.C_index])
+        return self.m.Intermediate(self.gk_Parameters[self.C_label]['mu_Grazing'][self.C_index]
+                                   / (self.gk_Parameters[self.C_label]['halfsat_Grazing'][self.C_index] ** 2
+                                      + self.Frho))
 
     @flux.compute
     def grazing(self):
-        return self.m.Intermediate(self.grazing_rate *
-                                   (self.R * self.gk_Parameters[self.R_label]['feed_pref'][self.R_index]
-                                    / self.gk_Parameters[self.R_label]['halfsat'][self.R_index] *
-                                    self.All_R_sum) * self.C)
+        print('Grazing -- HERE IS THE ISSSUUUEE', type(self.GrazingProbs[self.C_label]))
+        return self.m.Intermediate(sum(self.GrazingProbs[self.C_label]) *
+                                   (self.gk_Parameters[self.R_label]['feed_pref'][self.R_index] *
+                                    self.R ** 2) * self.C)
 
 
 
