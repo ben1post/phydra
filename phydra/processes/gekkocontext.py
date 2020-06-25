@@ -65,7 +65,7 @@ class GekkoSolve:
     def run_step(self):
         print('SolveInit')
 
-        self.m.options.IMODE = 7
+        self.m.options.IMODE = 4
 
         self.m.options.MAX_MEMORY = 6
 

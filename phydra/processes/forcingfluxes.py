@@ -38,7 +38,7 @@ def make_FX_flux(fxflux_cls, fxflux_name):
         setattr(self, fxflux_name, fx_c_list)
 
         cls_here = getattr(self, '__class__')
-        super(cls_here, self).initialize_postdimsetup()
+        super(cls_here, self).initialize_parametersetup()
 
     setattr(new_cls, 'initialize', initialize_dim)
 
@@ -65,14 +65,20 @@ class BaseForcingFlux(InheritGekkoContext):
                            description='label of component(s) that grows')
     fxflux = xs.on_demand(description='function to calculate fluxes')
 
+    def initialize_parametersetup(self):
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
     def initialize_postdimsetup(self):
         print(f"Initializing forcing flux {self.fxflux_label} for components {self.C_labels}")
 
         for C_label in self.C_labels:
+            self.C_label = C_label
+            self.C_sum = self.m.sum(self.gk_SVs[C_label])
             # this supplies intermediate flux to specific component
             it = np.nditer(self.gk_SVshapes[C_label], flags=['multi_index'])
             while not it.finished:
                 self.C = self.gk_SVs[C_label][it.multi_index]
+                self.C_index = it.multi_index
                 # this collects flux intermediates for output collection
                 self.gk_Flux_Int[self.fxflux_label] = self.fxflux
                 # define actual flux
@@ -110,6 +116,54 @@ class LinearMortalityClosure(BaseForcingFlux):
     def linearmortality(self):
         return self.m.Intermediate(- self.mortality_rate * self.C)
 
+
+class SizeAllo_LinearMortalityClosure(BaseForcingFlux):
+    """Linear mortality"""
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
+    C_labels = xs.variable(intent='in',
+                           dims='not_initialized',
+                           description='label of component(s) that grows')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
+
+    mortality_rate = xs.variable(intent='in', description='mortality rate of component')
+
+    mu0_allometry = xs.on_demand()
+
+    def initialize_parametersetup(self):
+        self.C_label = self.C_labels[0]
+
+        print('INITIALIZING ALLO LIN MORT')
+        try:
+            self.C_Size = self.gk_Parameters[self.C_label]['Size']
+        except KeyError:
+            raise BaseException(
+                "the Size Grazing Kernel can not find 'Size' in gk_parameters, \n make sure to use SizeComponent")
+
+        self.gk_Parameters.setup_dims(self.C_label, 'mu0_Growth', self.gk_SVshapes[self.C_label].shape)
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC.finished:
+            self.C_index = itC.multi_index
+            self.C = self.gk_SVs[self.C_label][self.C_index]
+            self.C_findex = itC.index
+            self.gk_Parameters.init_param_across_dims(self.C_label, 'mu0_Growth',
+                                                      self.mu0_allometry, self.C_index)
+            itC.iternext()
+
+        self.mu0 = self.gk_Parameters[self.C_label]['mu0_Growth']
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
+    @fxflux.compute
+    def linearmortality(self):
+        return self.m.Intermediate(- self.mortality_rate * self.mu0[self.C_index] * self.C)
+
+    @mu0_allometry.compute
+    def return_mu0(self):
+        """ Iterates over self.C """
+        return self.m.Param(0.1 * self.C_Size[self.C_index])
+
+
 class QuadraticMortalityClosure(BaseForcingFlux):
     """Quadratic mortality"""
     fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
@@ -123,7 +177,7 @@ class QuadraticMortalityClosure(BaseForcingFlux):
 
     @fxflux.compute
     def linearmortality(self):
-        return self.m.Intermediate(- self.mortality_rate * self.C ** 2)
+        return self.m.Intermediate(- self.mortality_rate * self.C_sum * self.C)
 
 
 @xs.process

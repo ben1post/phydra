@@ -138,7 +138,7 @@ class LimitedGrowth_Monod(BaseFlux):
         self.gk_Parameters.init_param_range(self.C_label, 'mu', self.mu_min, self.mu_max, self.m)
 
         self.gk_Parameters.setup_dims(self.C_label, 'halfsat_Growth', self.gk_SVshapes[self.C_label].shape)
-        self.gk_Parameters.init_param_range(self.C_label, 'halfsat_Growth', self.halfsat_min, self.halfsat_max, self.m)
+        self.gk_Parameters.init_param_range(self.C_label, 'halfsat_Growth', self.halfsat_min, self.halfsat_max, spacing='linear')
         super(getattr(self, '__class__'), self).initialize_postdimsetup()
 
     @flux.compute
@@ -149,6 +149,75 @@ class LimitedGrowth_Monod(BaseFlux):
     @nutrient_limitation.compute
     def nutrient_limitation(self):
         return self.m.Intermediate(self.R / (self.gk_Parameters[self.C_label]['halfsat_Growth'][self.C_index] + self.R))
+
+
+class SizeAllo_LimitedGrowth_Monod(BaseFlux):
+    """ Limited growth of C_label consuming R_label at Michealis-Menten/Monod kinetics """
+
+    flux_label = xs.variable(intent='out', groups='flux_label')
+    output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
+
+    R_label = xs.variable(intent='in', description='label of ressource component that is consumed')
+    C_label = xs.variable(intent='in', description='label of component that grows')
+
+    # Alloparams
+    ks = xs.variable(intent='out', description='allometric half_saturation constant for uptake')
+    mu0 = xs.variable(intent='out', description='allometric max growth rate')
+
+    ks_allometry = xs.on_demand()
+    mu0_allometry = xs.on_demand()
+
+    flux = xs.on_demand()
+    nutrient_limitation = xs.on_demand()
+
+    def initialize_parametersetup(self):
+        try:
+            self.C_Size = self.gk_Parameters[self.C_label]['Size']
+        except KeyError:
+            raise BaseException(
+                "the Size Grazing Kernel can not find 'Size' in gk_parameters, \n make sure to use SizeComponent")
+
+        self.gk_Parameters.setup_dims(self.C_label, 'ks_Growth', self.gk_SVshapes[self.C_label].shape)
+
+        self.gk_Parameters.setup_dims(self.C_label, 'mu0_Growth', self.gk_SVshapes[self.C_label].shape)
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC.finished:
+            self.C_index = itC.multi_index
+            self.C = self.gk_SVs[self.C_label][self.C_index]
+            self.C_findex = itC.index
+            self.gk_Parameters.init_param_across_dims(self.C_label, 'ks_Growth',
+                                                      self.ks_allometry, self.C_index)
+            self.gk_Parameters.init_param_across_dims(self.C_label, 'mu0_Growth',
+                                                      self.mu0_allometry, self.C_index)
+            itC.iternext()
+
+        self.ks = self.gk_Parameters[self.C_label]['ks_Growth']
+        self.mu0 = self.gk_Parameters[self.C_label]['mu0_Growth']
+
+        #print('ks, mu0', self.ks, self.mu0)
+
+        super(getattr(self, '__class__'), self).initialize_postdimsetup()
+
+    @flux.compute
+    def growth(self):
+        return self.m.Intermediate(self.mu0[self.C_index] * self.nutrient_limitation() * self.C)
+
+    @nutrient_limitation.compute
+    def nutrient_limitation(self):
+        return self.m.Intermediate(self.R / (self.ks[self.C_index] + self.R))
+
+    # ALLOMETRY FUNCTIONS:
+    @ks_allometry.compute
+    def return_ks(self):
+        """ Iterates over self.C """
+        return self.m.Param(2.6 * self.C_Size[self.C_index] ** -0.45)
+
+    @mu0_allometry.compute
+    def return_mu0(self):
+        """ Iterates over self.C """
+        return self.m.Param(0.1 * self.C_Size[self.C_index])
+
 
 
 class LimitedGrowth_MonodTempLight(BaseFlux):
@@ -312,7 +381,6 @@ class BaseGrazingFlux(BaseFlux):
     output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
 
     R_label = xs.variable(intent='in', description='labels of components that is grazed upon')
-
     C_label = xs.variable(intent='in', description='label of component that grazes')
 
     # flux = xs.on_demand(description='returns total grazed flux of Ressource per Component')
@@ -336,14 +404,15 @@ class BaseGrazingFlux(BaseFlux):
 
         itC1 = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
         while not itC1.finished:
-            self.C = self.gk_SVs[self.C_label][itC1.multi_index]
             self.C_index = itC1.multi_index
+            self.C = self.gk_SVs[self.C_label][self.C_index]
             self.C_findex = itC1.index
 
             itR1 = np.nditer(self.gk_SVshapes[self.R_label], flags=['f_index', 'multi_index'])
             while not itR1.finished:
-                self.R1 = self.gk_SVs[self.R_label][itR1.multi_index]
                 self.R_index = itR1.multi_index
+                self.R = self.gk_SVs[self.R_label][self.R_index]
+
                 self.R_findex = itR1.index
 
                 self.gk_Parameters.init_param_across_dims(self.flux_label, 'GrazePreference',
@@ -370,8 +439,6 @@ class BaseGrazingFlux(BaseFlux):
                 itR2.iternext()
             itC2.iternext()
 
-        #print('Total Grazed full', self.gk_Parameters[self.flux_label]['FoodAvailability'])
-
         self.FoodAvailabilityMatrix = self.gk_Parameters[self.flux_label]['FoodAvailability']
 
         itC3 = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
@@ -391,11 +458,8 @@ class BaseGrazingFlux(BaseFlux):
                 itR3.iternext()
             itC3.iternext()
 
-        #print('Total Grazed full', self.gk_Parameters[self.flux_label]['BiomassGrazed'])
-
         self.BiomassGrazedMatrix = self.gk_Parameters[self.flux_label]['BiomassGrazed']
 
-        #print('PRE_Grazingapplyexchangeflux', self.gk_Fluxes)
         itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
         while not itC.finished:
             self.C_index = itC.multi_index
@@ -453,14 +517,6 @@ class HollingTypeIII(BaseGrazingFlux):
     BiomassGrazed = xs.on_demand()
 
     def initialize_parametersetup(self):
-        # self.gk_Parameters.setup_dims(self.C_label, 'halfsat_Grazing', self.gk_SVshapes[self.C_label].shape)
-        # self.gk_Parameters.init_param_across_dims(self.C_label, 'halfsat_Grazing', self.m.Param(self.halfsat))
-
-        # self.gk_Parameters.setup_dims(self.C_label, 'Imax_Grazing', self.gk_SVshapes[self.C_label].shape)
-        # self.gk_Parameters.init_param_across_dims(self.C_label, 'Imax_Grazing', self.m.Param(self.Imax))
-
-        # print('HELLO', self.gk_Parameters)
-
         super(getattr(self, '__class__'), self).initialize_postdimsetup()
 
     @GrazePreference.compute
@@ -487,13 +543,25 @@ class SizeBasedKernelGrazing(BaseGrazingFlux):
     output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='flux_output')
 
     R_label = xs.variable(intent='in', description='labels of components that is grazed upon')
-
     C_label = xs.variable(intent='in', description='label of component that grazes')
 
-    Imax = xs.variable(intent='in', description='maximum grazing rate for consumer')
+    # NEW PARAMS
+    deltaxprey = xs.variable(default=0.25, description='log10 prey size tolerance')
+    KsZ = xs.variable(default=3, description='razing half saturation constant')
 
-    halfsat = xs.variable(intent='in', description='label of component that grazes')
+    f_eg = xs.variable(default=.33)  # egested food
+    epsilon = xs.variable(default=.33)  # assimilated food
 
+    # Alloparams
+    I0 = xs.variable(intent='out')
+    xpreyopt = xs.variable(intent='out')
+    phiP = xs.variable(intent='out')
+
+    I0_allometry = xs.on_demand()
+    xpreyopt_allometry = xs.on_demand()
+    phiP_allometry = xs.on_demand()
+
+    # GRAZING MATRICES
     GrazePreferenceMatrix = xs.any_object(description='matrix that stores Ressources available to each Consumer')
     GrazePreference = xs.on_demand(description='returns grazingpreference of component to ressource')
 
@@ -504,30 +572,93 @@ class SizeBasedKernelGrazing(BaseGrazingFlux):
     BiomassGrazed = xs.on_demand()
 
     def initialize_parametersetup(self):
-        self.gk_Parameters.setup_dims(self.C_label, 'size', self.gk_SVshapes[self.C_label].shape)
-        self.gk_Parameters.setup_dims(self.C_label, 'size', self.gk_SVshapes[self.C_label].shape)
-        # self.gk_Parameters.init_param_across_dims(self.C_label, 'halfsat_Grazing', self.m.Param(self.halfsat))
+        try:
+            self.C_Size = self.gk_Parameters[self.C_label]['Size']
+            self.R_Size = self.gk_Parameters[self.R_label]['Size']
+        except KeyError:
+            raise BaseException(
+                "the Size Grazing Kernel can not find 'Size' in gk_parameters, \n make sure to use SizeComponent")
 
-        # self.gk_Parameters.setup_dims(self.C_label, 'Imax_Grazing', self.gk_SVshapes[self.C_label].shape)
-        # self.gk_Parameters.init_param_across_dims(self.C_label, 'Imax_Grazing', self.m.Param(self.Imax))
+        self.gk_Parameters.setup_dims(self.C_label, 'I0_Grazing', self.gk_SVshapes[self.C_label].shape)
 
-        # print('HELLO', self.gk_Parameters)
+        self.gk_Parameters.setup_dims(self.C_label, 'xpreyopt_Grazing', self.gk_SVshapes[self.C_label].shape)
+
+        grazingmatrix = np.outer(self.gk_SVshapes[self.C_label], self.gk_SVshapes[self.R_label])
+        self.gk_Parameters.setup_dims(self.flux_label, 'phiP_Grazing', grazingmatrix.shape)
+        itC1 = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC1.finished:
+            self.C_index = itC1.multi_index
+            self.C = self.gk_SVs[self.C_label][self.C_index]
+            self.C_findex = itC1.index
+            self.gk_Parameters.init_param_across_dims(self.C_label, 'I0_Grazing',
+                                                      self.I0_allometry, self.C_index)
+            self.gk_Parameters.init_param_across_dims(self.C_label, 'xpreyopt_Grazing',
+                                                      self.xpreyopt_allometry, self.C_index)
+
+            itC1.iternext()
+
+        self.I0 = self.gk_Parameters[self.C_label]['I0_Grazing']
+        self.xpreyopt = self.gk_Parameters[self.C_label]['xpreyopt_Grazing']
+
+        itC = np.nditer(self.gk_SVshapes[self.C_label], flags=['f_index', 'multi_index'])
+        while not itC.finished:
+            self.C_index = itC.multi_index
+            self.C = self.gk_SVs[self.C_label][self.C_index]
+            self.C_findex = itC.index
+
+            itR = np.nditer(self.gk_SVshapes[self.R_label], flags=['f_index', 'multi_index'])
+            while not itR.finished:
+                self.R_index = itR.multi_index
+                self.R = self.gk_SVs[self.R_label][self.R_index]
+                self.R_findex = itR.index
+
+                self.gk_Parameters.init_param_across_dims(self.flux_label, 'phiP_Grazing',
+                                                          self.phiP_allometry, (self.C_findex, self.R_findex))
+
+                itR.iternext()
+            itC.iternext()
+
+        self.phiP = self.gk_Parameters[self.flux_label]['phiP_Grazing']
+
+        #print('I0, xpreyopt, phiP', self.I0, self.xpreyopt, self.phiP)
 
         super(getattr(self, '__class__'), self).initialize_postdimsetup()
 
     @GrazePreference.compute
     def return_C2R_grazingpref(self):
-        return self.m.Param(1)
+        return self.phiP[self.C_findex, self.R_findex] * self.R
 
     @FoodAvailability.compute
     def return_available_food(self):
-        grazepref = self.GrazePreferenceMatrix[self.C_findex, self.R_findex]
-        return self.m.Intermediate(grazepref * self.R ** 2)  # feed_pref *
+        # self.I0[j] * Z[j] * PscaledAsFood[i,j] / (1 + sum(PscaledAsFood[:,j]))
+        # self.phiP[self.C_findex, self.R_findex] * self.R
+        grazedbiomass = self.GrazePreferenceMatrix[self.C_findex, self.R_findex]
+        grazedbiomass_total = sum(self.GrazePreferenceMatrix[self.C_findex, :])
+        return self.I0[self.C_index] * grazedbiomass / (self.KsZ + grazedbiomass_total) * self.C
 
     @BiomassGrazed.compute
     def return_grazed_biomass(self):
-        grazedbiomass = self.FoodAvailabilityMatrix[self.C_findex, self.R_findex]
-        grazedbiomass_total = self.m.sum(self.FoodAvailabilityMatrix[self.C_findex, :])
+        #grazedbiomass = self.FoodAvailabilityMatrix[self.C_findex, self.R_findex]
+        return self.m.Intermediate(self.FoodAvailabilityMatrix[self.C_findex, self.R_findex])
 
-        grazing = self.Imax * (grazedbiomass / (self.halfsat ** 2 + grazedbiomass_total)) * self.C
-        return self.m.Intermediate(grazing)
+    # ALLOMETRY FUNCTIONS:
+    @I0_allometry.compute
+    def return_I0(self):
+        """ Iterates over self.C """
+        return self.m.Constant(26 * self.C_Size[self.C_index] ** -0.4)
+
+    @xpreyopt_allometry.compute
+    def return_xpreyopt(self):
+        """ Iterates over self.C """
+        #print(self.C_Size[self.C_index], self.R_Size[self.C_index])
+        # 0.65 * self.C_Size[self.C_index] ** .56
+        return self.m.Constant(self.R_Size[self.C_index])
+
+    @phiP_allometry.compute
+    def return_phiP(self):
+        """ Iterates over GRAZINGMATRIX, self.C, self.N """
+
+        phiP_out = self.m.exp(-((self.m.log10(self.R_Size[self.R_index]) -
+                             self.m.log10(self.xpreyopt[self.C_index])) / self.deltaxprey) ** 2)
+
+        return self.m.Constant(phiP_out)

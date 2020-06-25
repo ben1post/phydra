@@ -82,8 +82,8 @@ class ParameterDict:
     def init_param_across_dims(self, comp, param, newvalue, index=None):
         if index != None:
             self.parameters[comp][param][index] = newvalue
-
         else:
+            print('PARAMETER NOT INITIALIZED WITH INDEX')
             if np.array(newvalue).size == 1:
                 it = np.nditer(self.shapes[comp][param], flags=['multi_index', 'refs_ok'])
                 while not it.finished:
@@ -105,18 +105,25 @@ class ParameterDict:
                     raise BaseException(f"dimensions of supplied parameter do not match SV dims \n \
                           needs to be scalar or a numpy array of shape {self.shapes[comp][param].shape}")
 
-    def init_param_range(self, comp, param, minvalue, maxvalue, model):
+    def init_param_range(self, comp, param, minvalue, maxvalue, spacing='linear'):
         size = self.shapes[comp][param].size
         shape = self.shapes[comp][param].shape
-        parameter_range = np.linspace(minvalue, maxvalue, size)
+        if spacing == 'linear':
+            parameter_range = np.linspace(minvalue, maxvalue, size)
+        elif spacing == 'log':
+            parameter_range = np.logspace(np.log10(minvalue), np.log10(maxvalue), size)
+        else:
+            raise ValueError("spacing argument needs to be 'linear' or 'log'")
 
         parameter = np.full(shape, parameter_range)
         print(parameter)
 
         it = np.nditer(self.shapes[comp][param], flags=['multi_index', 'refs_ok'])
         while not it.finished:
-            self.parameters[comp][param][it.multi_index] = model.Param(parameter[it.multi_index])
+            self.parameters[comp][param][it.multi_index] = parameter[it.multi_index]
             it.iternext()
+
+
 
 class SVDimFluxes:
     """ This is a more complex defaultdict, that handles dynamically assigned

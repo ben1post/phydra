@@ -2,6 +2,7 @@ import numpy as np
 import xsimlab as xs
 
 from .gekkocontext import InheritGekkoContext
+from time import process_time
 
 @xs.process
 class Time(InheritGekkoContext):
@@ -20,7 +21,7 @@ class Time(InheritGekkoContext):
         self.m.Equation(self.gk_SVs['time'].dt() == 1)
 
 
-def make_Component(cls_name, dim_name):
+def make_Component(cls_name, dim_name, comp_type):
     """
     This functions creates a properly labeled xs.process from class Component.
 
@@ -33,12 +34,11 @@ def make_Component(cls_name, dim_name):
         an additional initialize_dim() function,
         and a new xs.index variable, as attribute 'dim_name'
     """
-
     new_dim = xs.index(dims=dim_name, groups='comp_index')
-    base_dict = dict(Component.__dict__)
+    base_dict = dict(comp_type.__dict__)
     base_dict[dim_name] = new_dim
 
-    new_cls = type(cls_name, Component.__bases__, base_dict)
+    new_cls = type(cls_name, comp_type.__bases__, base_dict)
     new_cls.dim_labels.metadata['dims'] = dim_name
 
     def initialize_dim(self):
@@ -62,7 +62,8 @@ def make_Component(cls_name, dim_name):
     return xs.process(new_cls)
 
 
-class Component(InheritGekkoContext):
+@xs.process
+class BaseComponent(InheritGekkoContext):
     """The summary line for a class docstring should fit on one line.
 
     If the class has public attributes, they may be documented here
@@ -97,6 +98,9 @@ class Component(InheritGekkoContext):
     init = xs.variable(intent='in')
     dim = xs.variable(intent='in', groups='comp_dim')
 
+    def initialize_parametersetup(self):
+        pass
+
     def initialize_postdimsetup(self):
         print('Initializing component ', self.comp_label, self.dim_labels)
         # add label to gk_context - components list:
@@ -114,10 +118,12 @@ class Component(InheritGekkoContext):
         it = np.nditer(self.FullDims, flags=['multi_index'])
         while not it.finished:
             self.gk_SVs[self.comp_label][it.multi_index].value = self.init
-            #self.gk_SVs[self.comp_label][it.multi_index].lower = 0
+            # self.gk_SVs[self.comp_label][it.multi_index].lower = 0
             it.iternext()
 
         self.gk_Fluxes.setup_dims(self.comp_label, self.FullDims)
+
+        super(getattr(self, '__class__'), self).initialize_parametersetup()
 
     def run_step(self):
         """Assemble component equations from initialized fluxes"""
@@ -135,7 +141,7 @@ class Component(InheritGekkoContext):
         """Store component output to array here!"""
         print('Storing output for component ', self.comp_label)
         out = []
-
+        save_start = process_time()
         # initialize SV m.Array with self.init val through FullDims multi_index
         it = np.nditer(self.FullDims, flags=['multi_index'])
         while not it.finished:
@@ -143,3 +149,38 @@ class Component(InheritGekkoContext):
             it.iternext()
 
         self.output = np.array(out, dtype='float64')
+
+        save_end = process_time()
+
+        print(f"storing component done in {round(save_end - save_start, 2)} seconds")
+
+
+class Component(BaseComponent):
+    """ Basic Component that can be initialized with make_Component """
+    output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='comp_output')
+    dim_labels = xs.variable(intent='out', groups='comp_label')
+
+    # Necessary Input:
+    init = xs.variable(intent='in')
+    dim = xs.variable(intent='in', groups='comp_dim')
+
+
+
+class SizeComponent(BaseComponent):
+    """Component that stores an array of initialized sizes """
+    output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='comp_output')
+    dim_labels = xs.variable(intent='out', groups='comp_label')
+
+    # Necessary Input:
+    init = xs.variable(intent='in')
+    dim = xs.variable(intent='in', groups='comp_dim')
+
+    size_min = xs.variable(intent='in')
+    size_max = xs.variable(intent='in')
+
+    def initialize_parametersetup(self):
+        self.gk_Parameters.setup_dims(self.comp_label, 'Size', self.gk_SVshapes[self.comp_label].shape)
+        self.gk_Parameters.init_param_range(self.comp_label, 'Size', self.size_min,
+                                            self.size_max, spacing='log')
+
+        print(f"Size Range Initialized for {self.comp_label} with sizes {self.gk_Parameters[self.comp_label]['Size']}")
