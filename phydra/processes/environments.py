@@ -53,6 +53,7 @@ class BaseEnvironment(InheritGekkoContext):
     def finalize_step(self):
         """ Step collects outputs generated in Components, Fluxes and ForcingFluxes"""
         self.comp_output = [output for outputs in self.comp_outputs for output in outputs]
+
         self.flux_output = [output for outputs in self.flux_outputs for output in outputs]
         self.fxflux_output = [output for outputs in self.fxflux_outputs for output in outputs]
         self.forcing_output = [forcing for forcing in self.forcing_outputs]

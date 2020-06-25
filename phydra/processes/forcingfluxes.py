@@ -96,7 +96,7 @@ class BaseForcingFlux(InheritGekkoContext):
 
 
 class LinearMortalityClosure(BaseForcingFlux):
-    """negative mixing flux"""
+    """Linear mortality"""
     fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
     fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
     C_labels = xs.variable(intent='in',
@@ -109,6 +109,21 @@ class LinearMortalityClosure(BaseForcingFlux):
     @fxflux.compute
     def linearmortality(self):
         return self.m.Intermediate(- self.mortality_rate * self.C)
+
+class QuadraticMortalityClosure(BaseForcingFlux):
+    """Quadratic mortality"""
+    fxflux_label = xs.variable(intent='out', groups='fx_flux_label')
+    fx_output = xs.variable(intent='out', dims=('not_initialized', 'time'), groups='fxflux_output')
+    C_labels = xs.variable(intent='in',
+                           dims='not_initialized',
+                           description='label of component(s) that grows')
+    fxflux = xs.on_demand(description='function to calculate fluxes')
+
+    mortality_rate = xs.variable(intent='in', description='mortality rate of component')
+
+    @fxflux.compute
+    def linearmortality(self):
+        return self.m.Intermediate(- self.mortality_rate * self.C ** 2)
 
 
 @xs.process
