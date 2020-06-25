@@ -96,10 +96,6 @@ class Component(InheritGekkoContext):
     # Necessary Input:
     init = xs.variable(intent='in')
     dim = xs.variable(intent='in', groups='comp_dim')
-    # TODO: get a parameter dict for each component, containing array of same dims
-    # goal: multiindex can be passed to compute methods, and parameters automatically match
-    # TODO: 2. I need to compute the grazingmatrix, before passing this on to calculate fluxes
-    # in grazing matrix I store the grazed biomass per sub.ressource per sub.consumer
 
     def initialize_postdimsetup(self):
         print('Initializing component ', self.comp_label, self.dim_labels)
@@ -118,6 +114,7 @@ class Component(InheritGekkoContext):
         it = np.nditer(self.FullDims, flags=['multi_index'])
         while not it.finished:
             self.gk_SVs[self.comp_label][it.multi_index].value = self.init
+            #self.gk_SVs[self.comp_label][it.multi_index].lower = 0
             it.iternext()
 
         self.gk_Fluxes.setup_dims(self.comp_label, self.FullDims)

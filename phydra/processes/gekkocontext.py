@@ -67,6 +67,8 @@ class GekkoSolve:
 
         self.m.options.IMODE = 7
 
+        self.m.options.MAX_MEMORY = 6
+
         solve_start = process_time()
         self.m.solve(disp=False)  # disp=True) # to print gekko output
         solve_end = process_time()
