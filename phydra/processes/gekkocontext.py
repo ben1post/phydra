@@ -52,6 +52,34 @@ class InheritGekkoContext:
     gk_Flux_Int = xs.foreign(GekkoContext, 'Flux_Intermediates')
     gridshape = xs.foreign(GekkoContext, 'shape')
 
+#TODO: I have THE idea for a slim functional core using Gekko, so instead of
+# tasking storing all my weird model parameter dicts, instead, keep all of that inside a
+# wrapped class of GEKKO, so that each model instance corresponds to one m = GEKKO()
+# and I can add (if necessary, on top of the lists already present) all comps as attributes of self.m
+# e.g. self.m.LightHarvesting = self.m.Intermediate(xxx)
+# now if I additionally want to integrate Gekko variables directly with xarray simlab variables
+# the first test I need to run is: Can I store a GK_variable within xarray structure from the start,
+# so that it automatically references the final values after m.solve() ?
+# this will need some trick, of assigning m.SV/m.Intermediate .VALUE before solve (if possible)...
+
+# Once that works, I could try and make it so that instead of having to initialize an xarray variable,
+# and then assigning it the respective Gekko var to pass on, that this happens in the same step!
+# so every xsimlab variable (or any_object) or whatever, corresponds directly to the Gekko var it references
+
+# And don't forget to allow solve mode 4, run_step, that functions fully with xarray simlab usability!
+# might be slow, but great for smaller models..
+
+#TODO Actually been thinking some more
+# and what I realised is that, if I really want it to be flexible, I need to create a class that wraps each variable,
+# and then this is passed to different "Solvers"-Processes, and that solver process only accesses the
+# correct sub-attribute, like for example, when it wants the function, it collects x.function
+# or if it wants the gekko attribs, it calls x.gekko_attribs... hm?
+
+# of o can get solve mode 4 to run, with the point above, of not having to unpack the vals, that would be powerful
+
+# also this is how it would be possible, to include some kind of visualisation or
+# print of model structure (perhaps even with latex/math?)
+
 
 @xs.process
 class GekkoSolve:
@@ -64,8 +92,11 @@ class GekkoSolve:
 
     def run_step(self):
         print('SolveInit')
-
-        self.m.options.IMODE = 4
+        #self.m.options.REDUCE = 3
+        #self.m.options.solver = 2
+        self.m.options.REDUCE = 3
+        self.m.options.NODES = 3
+        self.m.options.IMODE = 7
 
         self.m.options.MAX_MEMORY = 6
 

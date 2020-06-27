@@ -633,7 +633,7 @@ class SizeBasedKernelGrazing(BaseGrazingFlux):
         # self.I0[j] * Z[j] * PscaledAsFood[i,j] / (1 + sum(PscaledAsFood[:,j]))
         # self.phiP[self.C_findex, self.R_findex] * self.R
         grazedbiomass = self.GrazePreferenceMatrix[self.C_findex, self.R_findex]
-        grazedbiomass_total = sum(self.GrazePreferenceMatrix[self.C_findex, :])
+        grazedbiomass_total = self.m.sum(self.GrazePreferenceMatrix[self.C_findex, :])
         return self.I0[self.C_index] * grazedbiomass / (self.KsZ + grazedbiomass_total) * self.C
 
     @BiomassGrazed.compute
@@ -645,14 +645,14 @@ class SizeBasedKernelGrazing(BaseGrazingFlux):
     @I0_allometry.compute
     def return_I0(self):
         """ Iterates over self.C """
-        return self.m.Constant(26 * self.C_Size[self.C_index] ** -0.4)
+        return self.m.Param(26 * self.C_Size[self.C_index] ** -0.4)
 
     @xpreyopt_allometry.compute
     def return_xpreyopt(self):
         """ Iterates over self.C """
         #print(self.C_Size[self.C_index], self.R_Size[self.C_index])
         # 0.65 * self.C_Size[self.C_index] ** .56
-        return self.m.Constant(self.R_Size[self.C_index])
+        return self.m.Param(self.R_Size[self.C_index])
 
     @phiP_allometry.compute
     def return_phiP(self):
@@ -661,4 +661,4 @@ class SizeBasedKernelGrazing(BaseGrazingFlux):
         phiP_out = self.m.exp(-((self.m.log10(self.R_Size[self.R_index]) -
                              self.m.log10(self.xpreyopt[self.C_index])) / self.deltaxprey) ** 2)
 
-        return self.m.Constant(phiP_out)
+        return self.m.Param(phiP_out)
