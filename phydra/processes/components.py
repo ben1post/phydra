@@ -1,26 +1,32 @@
 import numpy as np
 import xsimlab as xs
 
-from .gekkocontext import InheritGekkoContext
+from .gekkocontext import InheritGekkoContext, GekkoContext
 from time import process_time
 
+
 @xs.process
-class Time(InheritGekkoContext):
-    days = xs.variable(dims='time', description='time in days')
-    # for indexing xarray IO objects
-    time = xs.index(dims='time', description='time in days')
+class StateVariable(GekkoContext):
+    """ TODO: allow modifying dims in environment, not here (?) """
+    label = xs.variable(intent='out')
+    value = xs.variable(intent='out', dims='time')
+    SV = xs.variable(intent='out')
 
     def initialize(self):
-        print('Initializing Model Time')
-        self.time = self.days
-
-        # ASSIGN MODEL SOLVING TIME HERE:
-        self.m.time = self.time
-        self.gk_SVs['time'] = self.m.Var(0, lb=0)
-        # add variable keeping track of time within model:
-        self.m.Equation(self.gk_SVs['time'].dt() == 1)
+        self.label = self.__xsimlab_name__
+        print('initializing SV')
+        self.SV = self.m.SV(name='Nutrient')
+        self.value = self.SV.value
 
 
+
+# So how about I pass dims to env, and this passes it to SVs, initializing at proper dims
+
+
+
+
+
+###############################################################################################
 def make_Component(cls_name, dim_name, comp_type):
     """
     This functions creates a properly labeled xs.process from class Component.

@@ -6,8 +6,49 @@ from time import process_time
 from .main import (Grid0D, Boundary0D)
 from ..utility.modelcontext import (ContextDict, GekkoMath, SVDimsDict, FluxesDict, SVDimFluxes, ParameterDict)
 
+
+@xs.process
+class GekkoCore:
+    """"""
+    m = xs.any_object(description='Gekko model instance')
+
+    def initialize(self):
+        print('Initializing Gekko Context')
+        self.m = GEKKO(remote=False, name='phydra')  # specific gekko model instance
+
 @xs.process
 class GekkoContext:
+    """ Inherited by all other model processes to access GekkoCore"""
+    m = xs.foreign(GekkoCore, 'm')
+
+
+@xs.process
+class GekkoSolve(GekkoContext):
+    """
+    SOLVER INTERFACE - for now no input args
+    """
+
+    def run_step(self):
+        print('SolveInit')
+        self.m.options.REDUCE = 3
+        self.m.options.NODES = 3
+        self.m.options.IMODE = 7
+
+        self.m.options.MAX_MEMORY = 6
+
+        solve_start = process_time()
+        self.m.solve(disp=False)  # disp=True) # to print gekko output
+        solve_end = process_time()
+
+        print(f"ModelSolve done in {round(solve_end-solve_start,2)} seconds")
+
+
+
+
+
+#############################################################################################
+@xs.process
+class OldGekkoContext:
     """This process takes care of proper initialization,
     update and clean-up of gekko PDE/ODE internal
     state.
@@ -79,6 +120,17 @@ class InheritGekkoContext:
 
 # also this is how it would be possible, to include some kind of visualisation or
 # print of model structure (perhaps even with latex/math?)
+
+# SO, i can make connections between variables..
+# this might be a good way to include the multiple env concept
+# like: I can instead of storing the entire model at self.m,
+# store it in sub-modules (attributes!), like
+# self.m.env1 = self.Slab
+# .. hm.. might do this later
+
+# m.options.DIAGLEVEL = 4 outputs LATEX FILE OF MODDEL!!!!!
+
+
 
 
 @xs.process
