@@ -181,3 +181,21 @@ class SVDimFluxes:
             self.fluxes[consumer][indexC].append(flux)
         else:
             raise AttributeError('index not passed to apply_exchange_flux function')
+
+
+class OldCodeSave:
+    pass
+    """# Necessary Input:
+    init = xs.variable(intent='in')
+    dim = xs.variable(intent='in', groups='comp_dim')
+
+    size_min = xs.variable(intent='in')
+    size_max = xs.variable(intent='in')
+
+    def initialize_parametersetup(self):
+        self.gk_Parameters.setup_dims(self.comp_label, 'Size', self.gk_SVshapes[self.comp_label].shape)
+        self.gk_Parameters.init_param_range(self.comp_label, 'Size', self.size_min,
+                                            self.size_max, spacing='log')
+
+        print(f"Size Range Initialized for {self.comp_label} with sizes {self.gk_Parameters[self.comp_label]['Size']}")
+    """

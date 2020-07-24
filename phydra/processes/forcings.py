@@ -2,13 +2,36 @@ import numpy as np
 import xsimlab as xs
 import scipy.interpolate as intrp
 
-from .gekkocontext import InheritGekkoContext
-from .components import Time
+from .main import GekkoContext, Time
+
 from ..utility.forcingdata import WOAForcing
+
+@xs.process
+class Forcing(GekkoContext):
+    label = xs.variable(intent='out')
+    value = xs.variable(intent='out', dims='time', groups='forcing_value')
+
+    initVal = xs.variable(intent='in')
+
+    def initialize(self):
+        raise ValueError('needs to be implemented in subclass')
 
 
 @xs.process
-class ForcingBase(InheritGekkoContext):
+class ConstantForcing(Forcing):
+
+    def initialize(self):
+        self.label = self.__xsimlab_name__
+        print(f"forcing {self.label} is initialized")
+
+        self.m.phydra_forcings[self.label] = self.m.Param(self.initVal, name=self.label)
+        self.value = self.m.phydra_forcings[self.label].value
+
+
+
+# OLD FORCINGS
+@xs.process
+class ForcingBase(GekkoContext):
     """Base class for forcing,
     - interpolated and derivative need to be calculated in subclass
     - and passed as m.Param discretized in model timesteps"""
