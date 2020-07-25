@@ -3,55 +3,6 @@ import xsimlab as xs
 
 from .main import GekkoContext
 
-# FORCING FLUXES
-@xs.process
-class Flux(GekkoContext):
-    """
-    Base class for a flux that defines an interaction between 2 state variables
-
-    Do not use this base class directly in a model! Use one of its
-    subclasses instead.
-    """
-    label = xs.variable(intent='out', groups='flux_label')
-    value = xs.variable(intent='out', dims='time')
-
-    SV_label = xs.variable(intent='in')
-
-    flux = xs.on_demand()
-
-    def initialize(self):
-        self.label = self.__xsimlab_name__
-        print(f"flux {self.label} acting on {self.SV_label} is initialized")
-
-        self.SV = self.m.phydra_SVs[self.SV_label]
-
-        flx = self.flux
-        self.m.phydra_fluxes[self.SV_label].append(flx)
-
-        self.value = self.m.Intermediate(flx, name=self.label).value
-
-    @flux.compute
-    def flux(self):
-        """ compute function of on_demand xarray variable
-         specific flux needs to be implemented in BaseFlux """
-        raise ValueError('flux needs to be defined in BaseFlux subclass')
-
-
-@xs.process
-class QuadraticLossFlux(Flux):
-    """ Base Growth Flux, Monod function """
-
-    flux = xs.on_demand()
-
-    rate = xs.variable(intent='in', description='quadratic loss rate')
-
-    @flux.compute
-    def growth(self):
-        """ compute function of on_demand xarray variable
-         specific flux needs to be implemented in BaseFlux """
-        return - self.SV**2 * self.rate
-
-
 @xs.process
 class InFlux(GekkoContext):
     label = xs.variable(intent='out')
@@ -74,6 +25,249 @@ class InFlux(GekkoContext):
 
         self.m.phydra_fluxes[self.SV_label].append(flux)
 
+
+# FORCING FLUXES
+@xs.process
+class InputFlux(GekkoContext):
+    """
+    Base class for a flux that defines an interaction between 2 state variables
+
+    Do not use this base class directly in a model! Use one of its
+    subclasses instead.
+    """
+    fx_values = xs.group('forcing_value')  # hack to force process ordering (Forcing before Fluxes)
+
+    label = xs.variable(intent='out', groups='flux_label')
+    value = xs.variable(intent='out', dims='time')
+
+    SV_label = xs.variable(intent='in')
+
+    flux = xs.on_demand()
+
+    def initialize(self):
+        self.label = self.__xsimlab_name__
+        print(f"flux {self.label} acting on {self.SV_label} is initialized")
+
+        self.SV = self.m.phydra_SVs[self.SV_label]
+
+        flx = self.flux
+        self.m.phydra_fluxes[self.SV_label].append(flx)
+
+        self.value = self.m.Intermediate(flx, name=self.label).value
+
+    @flux.compute
+    def flux_func(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        raise ValueError('flux needs to be defined in BaseFlux subclass')
+
+
+@xs.process
+class Upwelling(InputFlux):
+    """ Evan's and Parsley mixing LOSS flux (negative) """
+    FX_label_MLD = xs.variable(intent='in', description='MLD forcing label')
+    FX_label_N0 = xs.variable(intent='in', description='N0 forcing label')
+
+    flux = xs.on_demand()
+
+    kappa = xs.variable(intent='in', description='constant diffusive mixing rate')
+
+    def initialize(self):
+        self.N0 = self.m.phydra_forcings[self.FX_label_N0]
+
+        self.MLD = self.m.phydra_forcings[self.FX_label_MLD]
+        self.MLD_deriv = self.m.phydra_forcings[self.FX_label_MLD + '_deriv']
+
+        self.h_pos = self.m.Param(np.maximum(self.MLD_deriv, 0), name='hpos2')
+        super(Upwelling, self).initialize()
+
+    @flux.compute
+    def mixing(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        K = (self.h_pos + self.kappa) / self.MLD
+        print(self.N0.value)
+        return (self.N0 - self.SV) * K
+
+
+@xs.process
+class LossFlux(GekkoContext):
+    """
+    Base class for a flux that defines an interaction between 2 state variables
+
+    Do not use this base class directly in a model! Use one of its
+    subclasses instead.
+    """
+    label = xs.variable(intent='out', groups='flux_label')
+    value = xs.variable(intent='out', dims='time')
+
+    SV_label = xs.variable(intent='in')
+
+    flux = xs.on_demand()
+
+    def initialize(self):
+        self.label = self.__xsimlab_name__
+        print(f"flux {self.label} acting on {self.SV_label} is initialized")
+
+        self.SV = self.m.phydra_SVs[self.SV_label]
+
+        flx = self.flux
+        self.m.phydra_fluxes[self.SV_label].append(-flx)
+
+        self.value = self.m.Intermediate(flx, name=self.label).value
+
+    @flux.compute
+    def flux_func(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        raise ValueError('flux needs to be defined in BaseFlux subclass')
+
+@xs.process
+class LinearLossFlux(LossFlux):
+    """ Base Growth Flux, Monod function """
+
+    flux = xs.on_demand()
+
+    rate = xs.variable(intent='in', description='quadratic loss rate')
+
+    @flux.compute
+    def growth(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        return self.SV * self.rate
+
+@xs.process
+class QuadraticLossFlux(LossFlux):
+    """ Base Growth Flux, Monod function """
+
+    flux = xs.on_demand()
+
+    rate = xs.variable(intent='in', description='quadratic loss rate')
+
+    @flux.compute
+    def growth(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        return self.SV**2 * self.rate
+
+
+#############################################################################
+
+
+@xs.process
+class LossMultiFlux(GekkoContext):
+    """
+    Base class for a flux that defines an interaction between 2 state variables
+
+    Do not use this base class directly in a model! Use one of its
+    subclasses instead.
+    """
+
+    label = xs.variable(intent='out', groups='flux_label')
+    values = xs.variable(intent='out', dims=('loss_index', 'time'))
+
+    SV_labels = xs.variable(intent='in', dims='loss_index')
+
+    flux = xs.on_demand()
+
+    def initialize(self):
+        self.label = self.__xsimlab_name__
+        print(f"flux {self.label} acting on {self.SV_labels} is initialized")
+
+        self.SV = [self.m.phydra_SVs[label] for label in self.SV_labels]
+        self.SV_index = [label for label in self.SV_labels]
+        print(self.SV_index)
+
+        fluxes = []
+        i = 0
+        for label in self.SV_labels:
+            self.SV = self.m.phydra_SVs[label]
+
+            flx = self.flux
+
+            self.m.phydra_fluxes[label].append(-flx)
+            fluxes.append(flx)
+            i += 1
+
+        print(fluxes)
+        self.values = [self.m.Intermediate(flx, name=self.label+lab).value for flx, lab in zip(fluxes, self.SV_labels)]
+
+    @flux.compute
+    def flux_func(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        raise ValueError('flux needs to be defined in BaseFlux subclass')
+
+
+@xs.process
+class Mixing(LossMultiFlux):
+    """ Evan's and Parsley mixing LOSS flux (negative) """
+    FX_label_MLD = xs.variable(intent='in', description='MLD forcing label')
+
+    flux = xs.on_demand()
+
+    kappa = xs.variable(intent='in', description='constant diffusive mixing rate')
+
+    def initialize(self):
+        self.MLD = self.m.phydra_forcings[self.FX_label_MLD]
+        self.MLD_deriv = self.m.phydra_forcings[self.FX_label_MLD + '_deriv']
+
+        self.h_pos = self.m.Intermediate(np.max(self.MLD_deriv, 0), name='hpos')
+        super(Mixing, self).initialize()
+
+    @flux.compute
+    def mixing(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+
+        K = (self.h_pos + self.kappa) / self.MLD
+        return self.SV * K
+
+@xs.process
+class InputMultiFlux(GekkoContext):
+    """
+    Base class for a flux that defines an interaction between 2 state variables
+
+    Do not use this base class directly in a model! Use one of its
+    subclasses instead.
+    """
+
+    label = xs.variable(intent='out', groups='flux_label')
+    values = xs.variable(intent='out', dims=('loss_index', 'time'))
+
+    SV_labels = xs.variable(intent='in', dims='loss_index')
+
+    flux = xs.on_demand()
+
+    def initialize(self):
+        self.label = self.__xsimlab_name__
+        print(f"flux {self.label} acting on {self.SV_labels} is initialized")
+
+        self.SV = [self.m.phydra_SVs[label] for label in self.SV_labels]
+        self.SV_index = [label for label in self.SV_labels]
+        print(self.SV_index)
+
+        fluxes = []
+        i = 0
+        for label in self.SV_labels:
+            self.SV = self.m.phydra_SVs[label]
+
+            flx = self.flux
+
+            self.m.phydra_fluxes[label].append(flx)
+            fluxes.append(flx)
+            i += 1
+
+        print(fluxes)
+        self.values = [self.m.Intermediate(flx, name=self.label+lab).value for flx, lab in zip(fluxes, self.SV_labels)]
+
+    @flux.compute
+    def flux_func(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        raise ValueError('flux needs to be defined in BaseFlux subclass')
+
+
 #########################################################
 
 # EXCHANGE FLUXES
@@ -89,21 +283,21 @@ class ExchangeFlux(GekkoContext):
     label = xs.variable(intent='out', groups='flux_label')
     value = xs.variable(intent='out', dims='time')
 
-    resource_label = xs.variable(intent='in')
-    consumer_label = xs.variable(intent='in')
+    source_label = xs.variable(intent='in')
+    sink_label = xs.variable(intent='in')
 
     flux = xs.on_demand()
 
     def initialize(self):
         self.label = self.__xsimlab_name__
-        print(f"flux {self.label} of {self.consumer_label} consuming {self.resource_label} is initialized")
+        print(f"flux {self.label} of {self.sink_label} consuming {self.source_label} is initialized")
 
-        self.resource = self.m.phydra_SVs[self.resource_label]
-        self.consumer = self.m.phydra_SVs[self.consumer_label]
+        self.source = self.m.phydra_SVs[self.source_label]
+        self.sink = self.m.phydra_SVs[self.sink_label]
 
         flx = self.flux
-        self.m.phydra_fluxes[self.resource_label].append(-flx)
-        self.m.phydra_fluxes[self.consumer_label].append(flx)
+        self.m.phydra_fluxes[self.source_label].append(-flx)
+        self.m.phydra_fluxes[self.sink_label].append(flx)
 
         self.value = self.m.Intermediate(flx, name=self.label).value
 
@@ -125,7 +319,21 @@ class LinearExchangeFlux(ExchangeFlux):
     def growth(self):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        return self.resource * self.rate
+        return self.source * self.rate
+
+@xs.process
+class QuadraticExchangeFlux(ExchangeFlux):
+    """ Base Growth Flux, Monod function """
+
+    flux = xs.on_demand()
+
+    rate = xs.variable(intent='in', description='quadratic loss rate')
+
+    @flux.compute
+    def growth(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        return self.source**2 * self.rate
 
 @xs.process
 class MonodUptake(ExchangeFlux):
@@ -142,7 +350,7 @@ class MonodUptake(ExchangeFlux):
     def growth(self):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        return self.resource / (self.halfsat + self.resource) * self.consumer
+        return self.source / (self.halfsat + self.source) * self.sink
 
 
 ##################
@@ -169,7 +377,7 @@ class Growth_MultiLim(ExchangeFlux):
     def growth(self):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        return self.mumax * np.product([lim_fact(self) for lim_fact in self.limiting_factors]) * self.consumer
+        return self.mumax * np.product([lim_fact(self) for lim_fact in self.limiting_factors]) * self.sink
 
     @classmethod
     def setup(cls, dim_label):
@@ -198,7 +406,7 @@ class GML_BaseFlux(GekkoContext):
          specific flux needs to be implemented in BaseFlux
 
           to access state variables, use cls argument
-          e.g. cls.resource / (self.halfsat + cls.resource)
+          e.g. cls.source / (self.halfsat + cls.source)
           """
         raise ValueError('flux needs to be defined in GML_BaseFlux subclass')
 
@@ -226,7 +434,7 @@ class GML_MonodUptake(GML_BaseFlux):
     def monod(self, cls):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        return cls.resource / (self.halfsat + cls.resource)
+        return cls.source / (self.halfsat + cls.source)
 
 
 class GML_EppleyTempLim(GML_BaseFlux):
@@ -255,7 +463,7 @@ class GML_SteeleLightLim(GML_BaseFlux):
         self.limiting_factor = self.steele
 
     def steele(self, cls):
-        kPAR = self.m.Intermediate(self.kw + self.kc * cls.consumer, name='kPAR')
+        kPAR = self.m.Intermediate(self.kw + self.kc * cls.sink, name='kPAR')
         I0 = self.m.phydra_forcings[self.FX_label_I0]
         MLD = self.m.phydra_forcings[self.FX_label_MLD]
 
@@ -285,8 +493,8 @@ class GrazingFlux(GekkoContext):
     label = xs.variable(intent='out', groups='flux_label')
     value = xs.variable(intent='out', dims='time')
 
-    resource_label = xs.variable(intent='in')
-    consumer_label = xs.variable(intent='in')
+    source_label = xs.variable(intent='in')
+    sink_label = xs.variable(intent='in')
     egested2_label = xs.variable(intent='in')
     excreted2_label = xs.variable(intent='in')
 
@@ -299,11 +507,11 @@ class GrazingFlux(GekkoContext):
 
     def initialize(self):
         self.label = self.__xsimlab_name__
-        print(f"flux {self.label} of {self.consumer_label} consuming {self.resource_label} is initialized \n",
+        print(f"flux {self.label} of {self.sink_label} consuming {self.source_label} is initialized \n",
               f"egesting to {self.egested2_label} and excreting to {self.excreted2_label}")
 
-        self.resource = self.m.phydra_SVs[self.resource_label]
-        self.consumer = self.m.phydra_SVs[self.consumer_label]
+        self.source = self.m.phydra_SVs[self.source_label]
+        self.sink = self.m.phydra_SVs[self.sink_label]
         self.egested2 = self.m.phydra_SVs[self.egested2_label]
         self.excreted2 = self.m.phydra_SVs[self.excreted2_label]
 
@@ -313,12 +521,12 @@ class GrazingFlux(GekkoContext):
         assimilation = flx * self.beta * self.epsilon
         excretion = flx * self.beta * (1 - self.epsilon)
 
-        self.m.phydra_fluxes[self.consumer_label].append(assimilation)
+        self.m.phydra_fluxes[self.sink_label].append(assimilation)
         self.m.phydra_fluxes[self.egested2_label].append(egestion)
         self.m.phydra_fluxes[self.excreted2_label].append(excretion)
 
         # biomass grazed
-        self.m.phydra_fluxes[self.resource_label].append(-flx)
+        self.m.phydra_fluxes[self.source_label].append(-flx)
 
         self.value = self.m.Intermediate(flx, name=self.label).value
 
@@ -326,7 +534,7 @@ class GrazingFlux(GekkoContext):
     def growth(self):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        return self.Imax * self.resource / (0.5 + self.resource) * self.consumer
+        return self.Imax * self.source / (0.5 + self.source) * self.sink
 
 
 
@@ -341,12 +549,12 @@ class GrazingFlux_MultiRessource(GekkoContext):
     subclasses instead.
     """
     label = xs.variable(intent='out', groups='flux_label')
-    values = xs.variable(intent='out', dims=('resource_index', 'time'))
+    values = xs.variable(intent='out', dims=('source_index', 'time'))
 
-    resource_index = xs.index(dims='resource_index')
+    source_index = xs.index(dims='source_index')
 
-    resource_labels = xs.variable(intent='in', dims='resource_index')
-    consumer_label = xs.variable(intent='in')
+    source_labels = xs.variable(intent='in', dims='source_index')
+    sink_label = xs.variable(intent='in')
     egested2_label = xs.variable(intent='in')
     excreted2_label = xs.variable(intent='in')
 
@@ -356,28 +564,28 @@ class GrazingFlux_MultiRessource(GekkoContext):
     Imax = xs.variable(intent='in', description='maximum grazing rate')
     kZ = xs.variable(intent='in', description='half saturation constant of grazing')
 
-    feed_prefs = xs.variable(intent='in', dims='resource_index',
-                             description='preference of feeding, supply as list of same dims as resource_labels')
+    feed_prefs = xs.variable(intent='in', dims='source_index',
+                             description='preference of feeding, supply as list of same dims as source_labels')
 
     flux = xs.on_demand()
 
     def initialize(self):
         self.label = self.__xsimlab_name__
-        print(f"flux {self.label} of {self.consumer_label} consuming {self.resource_labels} is initialized \n",
+        print(f"flux {self.label} of {self.sink_label} consuming {self.source_labels} is initialized \n",
               f"egesting to {self.egested2_label} and excreting to {self.excreted2_label}")
 
-        self.consumer = self.m.phydra_SVs[self.consumer_label]
+        self.sink = self.m.phydra_SVs[self.sink_label]
         self.egested2 = self.m.phydra_SVs[self.egested2_label]
         self.excreted2 = self.m.phydra_SVs[self.excreted2_label]
 
-        self.resources = [self.m.phydra_SVs[label] for label in self.resource_labels]
-        self.resource_index = [label for label in self.resource_labels]
-        print(self.resource_index)
+        self.sources = [self.m.phydra_SVs[label] for label in self.source_labels]
+        self.source_index = [label for label in self.source_labels]
+        print(self.source_index)
 
         fluxes = []
         i = 0
-        for label in self.resource_labels:
-            self.resource = self.m.phydra_SVs[label]
+        for label in self.source_labels:
+            self.source = self.m.phydra_SVs[label]
 
             self.feed_pref = self.feed_prefs[i]
 
@@ -392,15 +600,15 @@ class GrazingFlux_MultiRessource(GekkoContext):
         assimilation = sum(fluxes) * self.beta * self.epsilon
         excretion = sum(fluxes) * self.beta * (1 - self.epsilon)
 
-        self.m.phydra_fluxes[self.consumer_label].append(assimilation)
+        self.m.phydra_fluxes[self.sink_label].append(assimilation)
         self.m.phydra_fluxes[self.egested2_label].append(egestion)
         self.m.phydra_fluxes[self.excreted2_label].append(excretion)
 
-        self.values = [self.m.Intermediate(flx, name=self.label+lab).value for flx, lab in zip(fluxes, self.resource_labels)]
+        self.values = [self.m.Intermediate(flx, name=self.label+lab).value for flx, lab in zip(fluxes, self.source_labels)]
 
     @flux.compute
     def growth(self):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        TotalGrazing = sum(np.array(self.resources)**2 * np.array(self.feed_prefs))
-        return self.Imax * self.resource**2 * self.feed_pref / (self.kZ**2 + TotalGrazing) * self.consumer
+        TotalGrazing = sum(np.array(self.sources)**2 * np.array(self.feed_prefs))
+        return self.Imax * self.source**2 * self.feed_pref / (self.kZ**2 + TotalGrazing) * self.sink

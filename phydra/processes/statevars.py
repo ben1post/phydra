@@ -24,7 +24,7 @@ class StateVariable(GekkoContext):
 
     def run_step(self):
         print(f"assembling equations for state variable {self.label}")
-        #print(self.m.phydra_fluxes)
+        print(self.m.phydra_fluxes)
         self.m.Equation(
             self.m.phydra_SVs[self.label].dt() == sum([flux for flux in self.m.phydra_fluxes[self.label]])
         )
