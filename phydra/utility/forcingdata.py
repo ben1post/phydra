@@ -8,7 +8,7 @@ from pathlib import Path
 # TODO: Get this data in smaller files on server to query as described in:
 # https://zonca.dev/2019/08/large-files-python-packages.html
 
-class WOAForcing:
+class ClimatologyForcing:
     """
     initializes and reads forcing from a certain location in the WOA 2009 data, contained in ncdf files
 

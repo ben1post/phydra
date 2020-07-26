@@ -2,9 +2,41 @@ import numpy as np
 import xsimlab as xs
 import scipy.interpolate as intrp
 
+import matplotlib.pyplot as plt
+
 from .main import GekkoContext, Time
 
-from ..utility.forcingdata import WOAForcing
+from ..utility.forcingdata import ClimatologyForcing
+
+def interpolate_monthly_climatology(data, show_plot=False):
+    """ Function that returns periodic smoothed forcing from monthly climatology data
+
+    returns interpolated spline object
+
+    TODO in another function add return forcing for time.. etc.
+    """
+    dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    dpm = dayspermonth  # * 3
+    dpm_cumsum = np.cumsum(dpm) - np.array(dpm) / 2
+
+    time = np.concatenate([[0], dpm_cumsum, [365]], axis=None)
+
+    boundary_int = [(data.outForcing[0] + data.outForcing[-1]) / 2]
+    dat = np.concatenate([boundary_int, data.outForcing, boundary_int], axis=None)
+
+    spl = intrp.splrep(time, dat, per=True, k=3, s=40)
+    time_2int = np.linspace(0, 365, 1000)
+
+    dat_int = intrp.splev(time_2int, spl)
+    dat_int_deriv = intrp.splev(time_2int, spl, der=1)
+
+    if show_plot is True:
+        plt.plot(time, dat, 'o', time_2int, dat_int)
+        plt.show()
+
+    return dat_int
+
+
 
 @xs.process
 class Forcing(GekkoContext):
@@ -95,7 +127,7 @@ class GlobalSlabClimatologyForcing(InterpolatedForcing):
 
     @getWOA2018.compute
     def getDatafromWOA2018(self):
-        return WOAForcing(self.lat, self.lon, self.rbb, self.dataset)
+        return ClimatologyForcing(self.lat, self.lon, self.rbb, self.dataset)
 
     @interpolated.compute
     def WOA2018_interpolate(self):
@@ -108,6 +140,17 @@ class GlobalSlabClimatologyForcing(InterpolatedForcing):
         dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
         dpm = dayspermonth * 3
         dpm_cumsum = np.cumsum(dpm) - np.array(dpm) / 2
+
+        x = np.r_[dayspermonth, dayspermonth[0]]
+        y = np.r_[data.outForcing, data.outForcing[0]]
+
+        tck, _ = intrp.splprep([x, y], s=0, per=True)
+
+        xi, yi = intrp.splev(np.arange(30, 300), tck)
+
+        print(xi)
+
+        print(yi)
 
         # k=3 for cubic spline
         self.interpolated_data = intrp.UnivariateSpline(dpm_cumsum, data.outForcing * 3, k=3, s=self.smooth)
