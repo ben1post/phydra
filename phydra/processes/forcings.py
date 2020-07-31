@@ -8,35 +8,6 @@ from .main import GekkoContext, Time
 
 from ..utility.forcingdata import ClimatologyForcing
 
-def interpolate_monthly_climatology(data, show_plot=False):
-    """ Function that returns periodic smoothed forcing from monthly climatology data
-
-    returns interpolated spline object
-
-    TODO in another function add return forcing for time.. etc.
-    """
-    dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    dpm = dayspermonth  # * 3
-    dpm_cumsum = np.cumsum(dpm) - np.array(dpm) / 2
-
-    time = np.concatenate([[0], dpm_cumsum, [365]], axis=None)
-
-    boundary_int = [(data.outForcing[0] + data.outForcing[-1]) / 2]
-    dat = np.concatenate([boundary_int, data.outForcing, boundary_int], axis=None)
-
-    spl = intrp.splrep(time, dat, per=True, k=3, s=40)
-    time_2int = np.linspace(0, 365, 1000)
-
-    dat_int = intrp.splev(time_2int, spl)
-    dat_int_deriv = intrp.splev(time_2int, spl, der=1)
-
-    if show_plot is True:
-        plt.plot(time, dat, 'o', time_2int, dat_int)
-        plt.show()
-
-    return dat_int
-
-
 
 @xs.process
 class Forcing(GekkoContext):
@@ -71,17 +42,13 @@ class InterpolatedForcing(Forcing):
         self.label = self.__xsimlab_name__
         print(f"forcing {self.label} is initialized")
 
+        # (self, spline, time, loop=365, derivative=0):
         self.m.phydra_forcings[self.label] = self.m.Param(self.interpolated(self.time), name=self.label)
-        self.m.phydra_forcings[self.label+'_deriv'] = self.m.Param(self.interpolated(self.time, deriv=True),
+        self.m.phydra_forcings[self.label+'_deriv'] = self.m.Param(self.interpolated(self.time, derivative=1),
                                                                    name=self.label+'_deriv')
 
         self.value = self.m.phydra_forcings[self.label].value
         self.deriv = self.m.phydra_forcings[self.label+'_deriv'].value
-
-    def repeat_forcing_yearly(self, time, deriv=False):
-        if deriv == True:
-            return self.interpolated_data_deriv(np.mod(time, 365.) + 365)  # add 365 here to return 2nd year
-        return self.interpolated_data(np.mod(time, 365.) + 365)
 
 
 @xs.process
@@ -108,6 +75,11 @@ class SinusoidalForcing(InterpolatedForcing):
         # N0 forcing params here
         return np.cos(self.data_time / 365 * 2 * np.pi) + 1
 
+    def repeat_forcing_yearly(self, time, derivative=0):
+        if derivative == 1:
+            return self.interpolated_data.derivative(np.mod(time, 365.) + 365)  # add 365 here to return 2nd year
+        return self.interpolated_data(np.mod(time, 365.) + 365)
+
 
 @xs.process
 class GlobalSlabClimatologyForcing(InterpolatedForcing):
@@ -123,7 +95,10 @@ class GlobalSlabClimatologyForcing(InterpolatedForcing):
     lat = xs.variable(intent='in')
     lon = xs.variable(intent='in')
     rbb = xs.variable(intent='in')
-    smooth = xs.variable(intent='in', description='smoothing factor used to choose number of knots')
+    smooth = xs.variable(intent='in', description='smoothing conditions, larger values = stronger smoothing')
+    k = xs.variable(intent='in', description='The degree of the spline fit')
+
+    show_plot = xs.variable(default=False, description='show plot of interpolated data and interpolated forcing')
 
     @getWOA2018.compute
     def getDatafromWOA2018(self):
@@ -135,26 +110,40 @@ class GlobalSlabClimatologyForcing(InterpolatedForcing):
 
         data = self.getWOA2018
 
-        # to smooth out interpolated data, we append it by itself 3 times (over 3 years)
-        # and take the interpolated values from the middle year
+        # k=3 for cubic spline
+        self.interpolated_data = self.interpolate_monthly_climatology(data.outForcing)
+
+        return self.return_discretized_forcing
+
+
+    def interpolate_monthly_climatology(self, data):
+        """ Function that returns periodic smoothed forcing from monthly climatology data
+        returns interpolated spline object
+        """
         dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        dpm = dayspermonth * 3
+        dpm = dayspermonth
         dpm_cumsum = np.cumsum(dpm) - np.array(dpm) / 2
 
-        x = np.r_[dayspermonth, dayspermonth[0]]
-        y = np.r_[data.outForcing, data.outForcing[0]]
+        time = np.concatenate([[0], dpm_cumsum, [365]], axis=None)
 
-        tck, _ = intrp.splprep([x, y], s=0, per=True)
+        boundary_int = [(data[0] + data[-1]) / 2]
+        dat = np.concatenate([boundary_int, data, boundary_int], axis=None)
+        print(dat, time)
+        spl = intrp.splrep(time, dat, per=True, k=self.k, s=self.smooth)
 
-        xi, yi = intrp.splev(np.arange(30, 300), tck)
+        if self.show_plot is True:
+            time_2int = np.arange(0, 365)
+            dat_int = intrp.splev(time_2int, spl)
 
-        print(xi)
+            plt.plot(time, dat, 'o', time_2int, dat_int)
+            plt.ylim(bottom=0)
+            plt.ylabel('Data')
+            plt.xlabel('Time in days')
+            plt.show()
 
-        print(yi)
+        return spl
 
-        # k=3 for cubic spline
-        self.interpolated_data = intrp.UnivariateSpline(dpm_cumsum, data.outForcing * 3, k=3, s=self.smooth)
-        self.interpolated_data_deriv = self.interpolated_data.derivative()
 
-        return self.repeat_forcing_yearly
-
+    def return_discretized_forcing(self, time, loop=365, derivative=0):
+        """ Function returns discretized interpolated forcing, for use in the model """
+        return intrp.splev(np.mod(time, loop), self.interpolated_data, der=derivative)

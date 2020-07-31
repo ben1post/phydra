@@ -8,22 +8,28 @@ class InFlux(GekkoContext):
     label = xs.variable(intent='out')
     value = xs.variable(intent='out', dims='time')
 
-    forcing_label = xs.variable(intent='in')
+    FX_label = xs.variable(intent='in')
     SV_label = xs.variable(intent='in')
 
-    flowrate = xs.variable(intent='in', description='half saturation constant')
+    rate = xs.variable(intent='in', description='half saturation constant')
 
     def initialize(self):
         self.label = self.__xsimlab_name__
-        print(f"flux {self.label} of {self.forcing_label} flowing to {self.SV_label} is initialized")
+        print(f"flux {self.label} of {self.FX_label} flowing to {self.SV_label} is initialized")
 
-        self.forcing = self.m.phydra_forcings[self.forcing_label]
-        self.flowrate_par = self.m.Param(self.flowrate, name='flowrate')
+        self.forcing = self.m.phydra_forcings[self.FX_label]
+        self.flowrate_par = self.m.Param(self.rate, name='rate')
 
-        flux = self.flowrate * self.forcing
+        flux = self.rate * self.forcing
         self.value = self.m.Intermediate(flux, name='influx').value
 
         self.m.phydra_fluxes[self.SV_label].append(flux)
+
+
+@xs.process
+class EvansParslow_SlabPhysics(GekkoContext):
+    """"""
+    pass
 
 
 # FORCING FLUXES
@@ -63,6 +69,21 @@ class InputFlux(GekkoContext):
 
 
 @xs.process
+class LinearInputFlux(InputFlux):
+    """ Base Growth Flux, Monod function """
+
+    flux = xs.on_demand()
+
+    rate = xs.variable(intent='in', description='linear input rate')
+
+    @flux.compute
+    def growth(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+        return self.SV * self.rate
+
+
+@xs.process
 class Upwelling(InputFlux):
     """ Evan's and Parsley mixing LOSS flux (negative) """
     FX_label_MLD = xs.variable(intent='in', description='MLD forcing label')
@@ -86,7 +107,7 @@ class Upwelling(InputFlux):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
         K = (self.h_pos + self.kappa) / self.MLD
-        print(self.N0.value)
+
         return (self.N0 - self.SV) * K
 
 
@@ -128,7 +149,7 @@ class LinearLossFlux(LossFlux):
 
     flux = xs.on_demand()
 
-    rate = xs.variable(intent='in', description='quadratic loss rate')
+    rate = xs.variable(intent='in', description='linear loss rate')
 
     @flux.compute
     def growth(self):
@@ -198,6 +219,29 @@ class LossMultiFlux(GekkoContext):
          specific flux needs to be implemented in BaseFlux """
         raise ValueError('flux needs to be defined in BaseFlux subclass')
 
+@xs.process
+class Sinking(LossMultiFlux):
+    """ Evan's and Parsley mixing LOSS flux (negative) """
+    FX_label_MLD = xs.variable(intent='in', description='MLD forcing label')
+
+    flux = xs.on_demand()
+
+    sinking_rate = xs.variable(intent='in', description='constant diffusive mixing rate')
+
+    values = xs.variable(intent='out', dims=('loss_index2', 'time'))
+
+    SV_labels = xs.variable(intent='in', dims='loss_index2')
+
+    def initialize(self):
+        self.MLD = self.m.phydra_forcings[self.FX_label_MLD]
+        super(Sinking, self).initialize()
+
+    @flux.compute
+    def sinking(self):
+        """ compute function of on_demand xarray variable
+         specific flux needs to be implemented in BaseFlux """
+
+        return self.SV * self.sinking_rate / self.MLD
 
 @xs.process
 class Mixing(LossMultiFlux):
@@ -338,6 +382,7 @@ class QuadraticExchangeFlux(ExchangeFlux):
 @xs.process
 class MonodUptake(ExchangeFlux):
     """ Base Growth Flux, Monod function """
+    fx_values = xs.group('forcing_value')  # hack to force process ordering (Forcing before Fluxes)
 
     flux = xs.on_demand()
 
@@ -596,9 +641,9 @@ class GrazingFlux_MultiRessource(GekkoContext):
 
         print(fluxes)
 
-        egestion = sum(fluxes) * (1 - self.beta)
-        assimilation = sum(fluxes) * self.beta * self.epsilon
-        excretion = sum(fluxes) * self.beta * (1 - self.epsilon)
+        egestion = self.m.sum(fluxes) * (1 - self.beta)
+        assimilation = self.m.sum(fluxes) * self.beta * self.epsilon
+        excretion = self.m.sum(fluxes) * self.beta * (1 - self.epsilon)
 
         self.m.phydra_fluxes[self.sink_label].append(assimilation)
         self.m.phydra_fluxes[self.egested2_label].append(egestion)
@@ -610,5 +655,5 @@ class GrazingFlux_MultiRessource(GekkoContext):
     def growth(self):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        TotalGrazing = sum(np.array(self.sources)**2 * np.array(self.feed_prefs))
+        TotalGrazing = self.m.sum(np.array(self.sources)**2 * np.array(self.feed_prefs))
         return self.Imax * self.source**2 * self.feed_pref / (self.kZ**2 + TotalGrazing) * self.sink
