@@ -1,7 +1,7 @@
 import xsimlab as xs
 import numpy as np
 
-from .main import GekkoContext
+from phydra.processes.main import ModelContext
 #from .fluxes import GrowthMultiFlux
 
 # TODO: \
@@ -12,7 +12,7 @@ from .main import GekkoContext
 
 
 @xs.process
-class GrowthParameterSetup(GekkoContext):
+class GrowthParameterSetup(ModelContext):
     label = xs.variable(intent='out')
     parameter = 1 # xs.foreign(GrowthMultiFlux, 'halfsat', intent='out')
 

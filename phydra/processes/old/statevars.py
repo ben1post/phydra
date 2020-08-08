@@ -1,11 +1,11 @@
 import numpy as np
 import xsimlab as xs
 
-from .main import GekkoContext
+from phydra.processes.main import ModelContext
 
 
 @xs.process
-class StateVariable(GekkoContext):
+class StateVariable(ModelContext):
     """ this process creates a single state variable with user specified label in our model """
     label = xs.variable(intent='out')
 
@@ -30,7 +30,7 @@ class StateVariable(GekkoContext):
         )
 
 
-class FunctionalGroup(GekkoContext):
+class FunctionalGroup(ModelContext):
     """ creates array of state variables """
 
     label = xs.variable(intent='out', description='the label supplied at model initialisation')

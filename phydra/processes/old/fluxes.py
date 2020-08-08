@@ -1,10 +1,10 @@
 import numpy as np
 import xsimlab as xs
 
-from .main import GekkoContext
+from phydra.processes.main import ModelContext
 
 @xs.process
-class InFlux(GekkoContext):
+class InFlux(ModelContext):
     label = xs.variable(intent='out')
     value = xs.variable(intent='out', dims='time')
 
@@ -27,14 +27,14 @@ class InFlux(GekkoContext):
 
 
 @xs.process
-class EvansParslow_SlabPhysics(GekkoContext):
+class EvansParslow_SlabPhysics(ModelContext):
     """"""
     pass
 
 
 # FORCING FLUXES
 @xs.process
-class InputFlux(GekkoContext):
+class InputFlux(ModelContext):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -112,7 +112,7 @@ class Upwelling(InputFlux):
 
 
 @xs.process
-class LossFlux(GekkoContext):
+class LossFlux(ModelContext):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -176,7 +176,7 @@ class QuadraticLossFlux(LossFlux):
 
 
 @xs.process
-class LossMultiFlux(GekkoContext):
+class LossMultiFlux(ModelContext):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -268,7 +268,7 @@ class Mixing(LossMultiFlux):
         return self.SV * K
 
 @xs.process
-class InputMultiFlux(GekkoContext):
+class InputMultiFlux(ModelContext):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -317,7 +317,7 @@ class InputMultiFlux(GekkoContext):
 # EXCHANGE FLUXES
 
 @xs.process
-class ExchangeFlux(GekkoContext):
+class ExchangeFlux(ModelContext):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -437,7 +437,7 @@ class Growth_MultiLim(ExchangeFlux):
         return xs.process(new_cls)
 
 
-class GML_BaseFlux(GekkoContext):
+class GML_BaseFlux(ModelContext):
     """ Base Flux for multi-limitation Growth """
 
     limiting_factor = xs.variable(intent='out', groups='not_initialized')
@@ -526,7 +526,7 @@ class GML_SteeleLightLim(GML_BaseFlux):
 #########################################################
 
 @xs.process
-class GrazingFlux(GekkoContext):
+class GrazingFlux(ModelContext):
     """
     Base class for a flux that defines an interaction between 1 state variables and multiple others
     (i.e. grazing to SV + fraction egested to another SV + fraction excreted to another SV)
@@ -584,7 +584,7 @@ class GrazingFlux(GekkoContext):
 
 
 @xs.process
-class GrazingFlux_MultiRessource(GekkoContext):
+class GrazingFlux_MultiRessource(ModelContext):
     """
     Base class for a flux that defines an interaction between 1 state variables and multiple others
     (i.e. grazing to SV + fraction egested to another SV + fraction excreted to another SV)

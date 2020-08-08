@@ -1,6 +1,6 @@
 from gekko import GEKKO
 
-from .core import StateVariable, Forcing, Flux, Parameter
+from .parts import StateVariable, Forcing, Flux, Parameter
 
 # Utilizing a visitor pattern
 # to allow seamless switching between solver methods
@@ -47,14 +47,11 @@ def convertor(arg_type):
 
 
 
-import xsimlab as xs
-
-
 class OdeintConverter:
 
     @convertor(StateVariable)
     def convert(self, obj):
-        return obj.initial_value
+        return obj
 
     @convertor(Parameter)
     def convert(self, obj):
@@ -62,7 +59,7 @@ class OdeintConverter:
 
     @convertor(Forcing)
     def convert(self, obj):
-        # this should return m.Param, discretized
+        # this should return function of t
         return obj.value, obj.name
 
     @convertor(Flux)

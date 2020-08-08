@@ -1,7 +1,7 @@
 import xsimlab as xs
 
 import phydra
-from phydra.processes.main import GekkoCore, GekkoSequentialSolve
+from phydra.processes.main import ModelCore
 
 
 
@@ -9,7 +9,7 @@ from phydra.processes.main import GekkoCore, GekkoSequentialSolve
 # simulate a
 
 Bootstrap_model = xs.Model({
-    'Grid': GekkoCore
+    'Grid': ModelCore
 })
 
 
@@ -17,7 +17,7 @@ Bootstrap_model = xs.Model({
 # simulate a
 
 ZeroD_NPZD_Slab_model = xs.Model({
-    'Grid': GekkoCore
+    'Grid': ModelCore
 })
 
 
@@ -25,7 +25,7 @@ ZeroD_NPZD_Slab_model = xs.Model({
 # simulate a
 
 ZeroD_NPxZx_Chemostat_model = xs.Model({
-    'Grid': GekkoCore
+    'Grid': ModelCore
 })
 
 
@@ -33,7 +33,7 @@ ZeroD_NPxZx_Chemostat_model = xs.Model({
 # simulate a
 
 ZeroD_NPxZx_Slab_model = xs.Model({
-    'Grid': GekkoCore
+    'Grid': ModelCore
 })
 
 
@@ -42,17 +42,17 @@ ZeroD_NPxZx_Slab_model = xs.Model({
 
 
 GridXY_NP_Chemostat_model = xs.Model({
-    'Grid': GekkoCore,
+    'Grid': ModelCore,
 
-    'Env': GekkoCore,
+    'Env': ModelCore,
 
-    'N': GekkoCore, 'P': GekkoCore,
+    'N': ModelCore, 'P': ModelCore,
 
-    'NP_uptake': GekkoCore, 'P_Mortality': GekkoCore,
+    'NP_uptake': ModelCore, 'P_Mortality': ModelCore,
 
-    'FX': GekkoCore, 'Mix': GekkoCore,
+    'FX': ModelCore, 'Mix': ModelCore,
 
-    'GX': GekkoCore,
+    'GX': ModelCore,
 
-    'MS': GekkoCore
+    'MS': ModelCore
 })
