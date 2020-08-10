@@ -8,6 +8,9 @@ def create(*args):
 def setup(solver, model, input_vars, output_vars, time=None):
     """ This function wraps create_setup and adds a dummy clock parameter
     necessary for model execution """
+
+    input_vars.update({'core__solver_type': solver})
+
     if solver == "odeint" or solver == "gekko":
         return xs.create_setup(model=model,
                             # supply a single time step to xsimlab model setup
