@@ -12,16 +12,11 @@ class ModelCore:
     solver_type = xs.variable(intent='in')
     m = xs.any_object(description='model core instance is stored here')
 
-    y_init = xs.variable(intent='in')
-    y = xs.variable(intent='out', dims='time')
-
     def initialize(self):
         print('initializing model core')
         self.m = ModelBackend(self.solver_type)
 
         self.m.time = np.arange(1, 20, 0.1) #TODO: This currently needs to happen before SV setup!
-
-        self.y = self.m.setup_SV('y', StateVariable(name='y', initial_value=self.y_init))
 
         self.m.Parameters['k'] = Parameter(name='k', value=0.5)
 
@@ -49,8 +44,6 @@ class ModelCore:
         self.m.cleanup() #for now only affects gekko solve
 
 
-
-
 @xs.process
 class ModelContext:
     """ Inherited by all other model processes to access GekkoCore"""
@@ -59,6 +52,8 @@ class ModelContext:
 
 @xs.process
 class Solver(ModelContext):
+
+    delay = xs.group('pre_model_assembly')
 
     def initialize(self):
         """TODO: assemble model + equations here"""
