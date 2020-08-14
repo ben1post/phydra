@@ -6,7 +6,6 @@ import numpy as np
 import time as tm
 
 from .converters import BaseConverter, GekkoConverter
-from .parts import StateVariable
 
 class ModelBackend:
     def __init__(self, solver_type):
@@ -39,8 +38,6 @@ class ModelBackend:
         and returns the storage values
         and adds state variable to SVs defaultdict in the background
         """
-        print("SV_SETUP", label)
-
         # the following step registers the values with gekko, but simply returns SV for odeint
         self.SVs[label] = self.core.convert(SV)
 
@@ -49,7 +46,6 @@ class ModelBackend:
             return self.SVs[label].value
         elif self.solver == "odeint":
             # return view on empty numpy array of zeroes, that is filled after solve
-            print(np.shape(self.time))
             self.SVs[label].value = np.zeros(np.shape(self.time))
             return self.SVs[label].value
         elif self.solver == "stepwise":
@@ -65,18 +61,8 @@ class ModelBackend:
             pass
 
     def assemble(self):
-        if self.solver == "stepwise":
-            print("STEPWISE Model Assembly")
-            self.step_assemble()
-        elif self.solver == "odeint":
-            print("ODEINT Model Assembly")
-            self.step_assemble()
-        else:
-            pass
-
-    def step_assemble(self):
+        """Assembles model for all solver types"""
         self.sv_labels = [label for label in self.SVs.keys()]
-
         self.sv_values = [SV for SV in self.SVs.values()]
 
         self.parameters = {Param.name: Param.value for Param in self.Parameters.values()}
@@ -89,14 +75,12 @@ class ModelBackend:
 
     def solve(self, time_step):
         if self.solver == "gekko":
-            print("GEKKO SOLVER")
             self.core.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
             self.core.gekko.options.NODES = 3  # improves solution accuracy
-            self.core.gekko.options.IMODE = 7  # sequential dynamic solver
+            self.core.gekko.options.IMODE = 5  # 7  # sequential dynamic solver
             self.gekko_solve()  # use option disp=True to print gekko output
 
         elif self.solver == "odeint":
-            print("ODEINT SOLVER")
             self.odeint_solve()
 
         elif self.solver == "stepwise":
@@ -106,34 +90,26 @@ class ModelBackend:
             raise Exception("Please provide solver type to core, can be 'gekko', 'odeint' or 'stepwise")
 
     def step_solve(self, time_step):
-        # here create function def model(y,t)
-        #print("STEP SOLVER RUNNING")
-        y_labels = [label for label in self.SVs.keys()]
-        y_values = [SV for SV in self.SVs.values()]
+        """XXX"""
+        sv_state = [SV.value[-1] for SV in self.SVs.values()]
 
-        y_state = [SV.value[-1] for SV in self.SVs.values()]
+        c_out = self.model(sv_state, self.time)
 
-        c_out = self.model(y_state, self.time)
+        c_dict = {sv_label: vals for sv_label, vals in zip(self.sv_labels, c_out)}
 
-        c_dict = {y_label: vals for y_label, vals in zip(y_labels, c_out)}
-
-        for y_val in y_values:
+        for sv_val in self.sv_values:
             # model calculates derivative, so needs to be computed to value with previous value
-            state = y_val.value[-1] + c_dict[y_val.name] * time_step
-            y_val.value.append(state)
+            state = sv_val.value[-1] + c_dict[sv_val.name] * time_step
+            sv_val.value.append(state)
 
     def odeint_solve(self):
-        print("ODEINT SOLVER RUNNING")
-
+        """XXX"""
         y_init = [SV.initial_value for SV in self.SVs.values()]
 
         if self.time is None:
             raise Exception('time needs to be supplied before solve')
 
-        print("YINIT", y_init)
-
         print("start solve now")
-
         solve_start = tm.time()
         c_out = odeint(self.model, y_init, self.time)
         solve_end = tm.time()
@@ -145,31 +121,18 @@ class ModelBackend:
         c_dict = {y_label: vals for y_label, vals in zip(self.sv_labels, c_rows)}
 
         for y_val in self.sv_values:
-            #if y_val.name == 'time':
-            #    pass
-            #else:
             print('here unpacking values', y_val.name)
-            print(y_val.value)
-            print(c_dict[y_val.name])
             y_val.value[:] = c_dict[y_val.name]
 
     def gekko_solve(self, disp=False):
-        # here create function def model(y,t)
-
-        y_labels = [label for label in self.SVs.keys()]
-        y_values = [SV for SV in self.SVs.values()]
-
-        print(self.Parameters)
-
-        parameters = {Param.name: Param.value for Param in self.Parameters.values()}
-
+        """XXX"""
         fluxes = {label: flux
-                  for label, flux in zip(y_labels, self.Fluxes.values())}
+                  for label, flux in zip(self.sv_labels, self.Fluxes.values())}
 
-        state = {label: val for label, val in zip(y_labels, y_values)}
+        state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
 
         self.core.gekko.Equations(
-            [SV.dt() == sum([flux(state, parameters) for flux in fluxes[SV.name]]) for SV in y_values]
+            [SV.dt() == sum([flux(state, self.parameters) for flux in fluxes[SV.name]]) for SV in self.sv_values]
         )
 
         if self.time is None:
@@ -177,16 +140,8 @@ class ModelBackend:
 
         self.core.gekko.time = self.time
 
-        self.core.gekko.options.IMODE = 7  # sequential dynamic solver
-
-        print(self.core.gekko.__dict__)
-
         solve_start = tm.time()
         self.core.gekko.solve(disp=disp)  # use option disp=True to print gekko output
         solve_end = tm.time()
 
         print(f"Model was solved in {round(solve_end - solve_start, 2)} seconds")
-
-        #return state
-
-
