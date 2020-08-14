@@ -12,6 +12,7 @@ def setup(solver, model, input_vars, output_vars, time=None):
     input_vars.update({'core__solver_type': solver})
 
     if solver == "odeint" or solver == "gekko":
+        input_vars.update({'time__days': time})
         return xs.create_setup(model=model,
                             # supply a single time step to xsimlab model setup
                             clocks={'clock': [0, 1]},
@@ -21,6 +22,7 @@ def setup(solver, model, input_vars, output_vars, time=None):
         print(input_vars, type(input_vars))
         if time is None:
             raise Exception("Please supply (numpy) array of explicit timesteps to time keyword argument")
+        input_vars.update({'time__days': [0]})
         return xs.create_setup(model=model,
                             clocks={'time': time},
                             input_vars=input_vars,
