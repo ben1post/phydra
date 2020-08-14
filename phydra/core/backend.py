@@ -5,7 +5,7 @@ import numpy as np
 # to measure process time
 import time as tm
 
-from .converters import OdeintConverter, GekkoConverter
+from .converters import BaseConverter, GekkoConverter
 from .parts import StateVariable
 
 class ModelBackend:
@@ -22,11 +22,11 @@ class ModelBackend:
         self.sv_values = None
 
         if self.solver == "odeint":
-            self.core = OdeintConverter()
+            self.core = BaseConverter()
         elif self.solver == "gekko":
             self.core = GekkoConverter()
         elif self.solver == "stepwise":
-            self.core = OdeintConverter()
+            self.core = BaseConverter()
         else:
             raise Exception("Please provide solver type to core, can be 'gekko', 'odeint' or 'stepwise")
 
@@ -49,6 +49,7 @@ class ModelBackend:
             return self.SVs[label].value
         elif self.solver == "odeint":
             # return view on empty numpy array of zeroes, that is filled after solve
+            print(np.shape(self.time))
             self.SVs[label].value = np.zeros(np.shape(self.time))
             return self.SVs[label].value
         elif self.solver == "stepwise":
@@ -129,7 +130,7 @@ class ModelBackend:
         if self.time is None:
             raise Exception('time needs to be supplied before solve')
 
-        print(self.model)
+        print("YINIT", y_init)
 
         print("start solve now")
 
@@ -144,11 +145,13 @@ class ModelBackend:
         c_dict = {y_label: vals for y_label, vals in zip(self.sv_labels, c_rows)}
 
         for y_val in self.sv_values:
-            if y_val.name == 'time':
-                pass
-            else:
-                print('here unpacking values', y_val.name)
-                y_val.value[:] = c_dict[y_val.name]
+            #if y_val.name == 'time':
+            #    pass
+            #else:
+            print('here unpacking values', y_val.name)
+            print(y_val.value)
+            print(c_dict[y_val.name])
+            y_val.value[:] = c_dict[y_val.name]
 
     def gekko_solve(self, disp=False):
         # here create function def model(y,t)
@@ -166,7 +169,7 @@ class ModelBackend:
         state = {label: val for label, val in zip(y_labels, y_values)}
 
         self.core.gekko.Equations(
-            [SV.dt() == self.core.gekko.sum([flux(state, parameters) for flux in fluxes[SV.name]]) for SV in y_values]
+            [SV.dt() == sum([flux(state, parameters) for flux in fluxes[SV.name]]) for SV in y_values]
         )
 
         if self.time is None:

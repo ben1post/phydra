@@ -19,7 +19,6 @@ def setup(solver, model, input_vars, output_vars, time=None):
                             input_vars=input_vars,
                             output_vars=output_vars)
     elif solver == "stepwise":
-        print(input_vars, type(input_vars))
         if time is None:
             raise Exception("Please supply (numpy) array of explicit timesteps to time keyword argument")
         input_vars.update({'time__days': [0]})

@@ -16,12 +16,6 @@ class Flux(ThirdInit):
 
         self.m.Parameters['k'] = Parameter(name='k', value=self.k)
 
-        def linear_loss(state, parameters):
-            # print("LINEAR", state, parameters)
-            y = state['y']
-            k = parameters['k']
-            dydt = -k * y
-            return dydt
 
         def linear_growth(state, parameters):
             # print("LINEAR", state, parameters)
@@ -30,5 +24,12 @@ class Flux(ThirdInit):
             dydt = k * y
             return dydt
 
-        self.m.Fluxes['y'].append(linear_loss)
-        self.m.Fluxes['y'].append(linear_growth)
+        self.m.Fluxes['y'].append(self.linear_loss)
+        #self.m.Fluxes['y'].append(linear_growth)
+
+    def linear_loss(self, state, parameters):
+        # print("LINEAR", state, parameters)
+        y = state['y']
+        k = parameters['k']
+        dydt = -k * y
+        return dydt

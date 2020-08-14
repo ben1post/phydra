@@ -16,7 +16,7 @@ def _qualname(obj):
 def _declaring_class(obj):
     """Get the name of the class that declared an object."""
     name = _qualname(obj)
-    print(name)
+    #print(name)
     return name[:name.rfind('.')]
 
 
@@ -47,7 +47,7 @@ def convertor(arg_type):
 
 
 
-class OdeintConverter:
+class BaseConverter:
 
     @convertor(StateVariable)
     def convert(self, obj):

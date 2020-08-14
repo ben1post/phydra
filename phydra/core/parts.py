@@ -4,7 +4,7 @@ import numpy as np
 @attr.s
 class StateVariable:
     name = attr.ib()
-    initial_value = attr.ib()
+    initial_value = attr.ib(default=0.)
     value = attr.ib(default=None)
     lb = attr.ib(default=0)
 
