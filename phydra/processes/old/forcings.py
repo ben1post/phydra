@@ -12,8 +12,8 @@ from phydra.utility.forcingdata import ClimatologyForcing
 @xs.process
 class Forcing(ModelContext):
     label = xs.variable(intent='out')
-    value = xs.variable(intent='out', dims='time', groups='forcing_value')
-    deriv = xs.variable(intent='out', dims='time', groups='forcing_deriv')
+    value = xs.variable(intent='out', dims='Time', groups='forcing_value')
+    deriv = xs.variable(intent='out', dims='Time', groups='forcing_deriv')
 
     def initialize(self):
         raise ValueError('needs to be implemented in subclass')
@@ -36,13 +36,13 @@ class ConstantForcing(Forcing):
 @xs.process
 class InterpolatedForcing(Forcing):
     """"""
-    time = xs.foreign(Time, 'time')
+    time = xs.foreign(Time, 'Time')
 
     def initialize(self):
         self.label = self.__xsimlab_name__
         print(f"forcing {self.label} is initialized")
 
-        # (self, spline, time, loop=365, derivative=0):
+        # (self, spline, Time, loop=365, derivative=0):
         self.m.phydra_forcings[self.label] = self.m.Param(self.interpolated(self.time), name=self.label)
         self.m.phydra_forcings[self.label+'_deriv'] = self.m.Param(self.interpolated(self.time, derivative=1),
                                                                    name=self.label+'_deriv')

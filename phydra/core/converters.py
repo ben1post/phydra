@@ -3,7 +3,7 @@ from gekko import GEKKO
 from .parts import StateVariable, Forcing, Flux, Parameter
 
 # Utilizing a visitor pattern
-# to allow seamless switching between solver methods
+# to allow seamless switching between Solver methods
 
 # code copied and modified from Joren Van Severen:
 # https://stackoverflow.com/questions/25891637/visitor-pattern-in-python

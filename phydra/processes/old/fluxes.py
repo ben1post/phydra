@@ -6,7 +6,7 @@ from phydra.processes.main import ModelContext
 @xs.process
 class InFlux(ModelContext):
     label = xs.variable(intent='out')
-    value = xs.variable(intent='out', dims='time')
+    value = xs.variable(intent='out', dims='Time')
 
     FX_label = xs.variable(intent='in')
     SV_label = xs.variable(intent='in')
@@ -44,7 +44,7 @@ class InputFlux(ModelContext):
     fx_values = xs.group('forcing_value')  # hack to force process ordering (Forcing before Fluxes)
 
     label = xs.variable(intent='out', groups='flux_label')
-    value = xs.variable(intent='out', dims='time')
+    value = xs.variable(intent='out', dims='Time')
 
     SV_label = xs.variable(intent='in')
 
@@ -120,7 +120,7 @@ class LossFlux(ModelContext):
     subclasses instead.
     """
     label = xs.variable(intent='out', groups='flux_label')
-    value = xs.variable(intent='out', dims='time')
+    value = xs.variable(intent='out', dims='Time')
 
     SV_label = xs.variable(intent='in')
 
@@ -185,7 +185,7 @@ class LossMultiFlux(ModelContext):
     """
 
     label = xs.variable(intent='out', groups='flux_label')
-    values = xs.variable(intent='out', dims=('loss_index', 'time'))
+    values = xs.variable(intent='out', dims=('loss_index', 'Time'))
 
     SV_labels = xs.variable(intent='in', dims='loss_index')
 
@@ -228,7 +228,7 @@ class Sinking(LossMultiFlux):
 
     sinking_rate = xs.variable(intent='in', description='constant diffusive mixing rate')
 
-    values = xs.variable(intent='out', dims=('loss_index2', 'time'))
+    values = xs.variable(intent='out', dims=('loss_index2', 'Time'))
 
     SV_labels = xs.variable(intent='in', dims='loss_index2')
 
@@ -277,7 +277,7 @@ class InputMultiFlux(ModelContext):
     """
 
     label = xs.variable(intent='out', groups='flux_label')
-    values = xs.variable(intent='out', dims=('loss_index', 'time'))
+    values = xs.variable(intent='out', dims=('loss_index', 'Time'))
 
     SV_labels = xs.variable(intent='in', dims='loss_index')
 
@@ -325,7 +325,7 @@ class ExchangeFlux(ModelContext):
     subclasses instead.
     """
     label = xs.variable(intent='out', groups='flux_label')
-    value = xs.variable(intent='out', dims='time')
+    value = xs.variable(intent='out', dims='Time')
 
     source_label = xs.variable(intent='in')
     sink_label = xs.variable(intent='in')
@@ -410,7 +410,7 @@ class Growth_MultiLim(ExchangeFlux):
     """
     fx_values = xs.group('forcing_value')  # hack to force process ordering (Forcing before Fluxes)
 
-    value = xs.variable(intent='out', dims='time')
+    value = xs.variable(intent='out', dims='Time')
 
     flux = xs.on_demand()
 
@@ -432,7 +432,7 @@ class Growth_MultiLim(ExchangeFlux):
         new_group = xs.group(dim_label)
         setattr(new_cls, 'limiting_factors', new_group)
         # modify dimensions
-        #new_cls.value.metadata['dims'] = ((dim_label, 'time'),)
+        #new_cls.value.metadata['dims'] = ((dim_label, 'Time'),)
         # return intialized xsimlab process
         return xs.process(new_cls)
 
@@ -463,7 +463,7 @@ class GML_BaseFlux(ModelContext):
         new_flux = xs.variable(intent='out', groups=dim_label)
         setattr(new_cls, 'limiting_factor', new_flux)
         # modify dimensions
-        # new_cls.value.metadata['dims'] = ((dim_label, 'time'),)
+        # new_cls.value.metadata['dims'] = ((dim_label, 'Time'),)
         # return intialized xsimlab process
         return xs.process(new_cls)
 
@@ -536,7 +536,7 @@ class GrazingFlux(ModelContext):
     subclasses instead.
     """
     label = xs.variable(intent='out', groups='flux_label')
-    value = xs.variable(intent='out', dims='time')
+    value = xs.variable(intent='out', dims='Time')
 
     source_label = xs.variable(intent='in')
     sink_label = xs.variable(intent='in')
@@ -594,7 +594,7 @@ class GrazingFlux_MultiRessource(ModelContext):
     subclasses instead.
     """
     label = xs.variable(intent='out', groups='flux_label')
-    values = xs.variable(intent='out', dims=('source_index', 'time'))
+    values = xs.variable(intent='out', dims=('source_index', 'Time'))
 
     source_index = xs.index(dims='source_index')
 

@@ -5,7 +5,7 @@ import numpy as np
 
 @xs.process
 class ModelCore:
-    """this object contains the backend GEKKO solver and is modified or read by all other processes"""
+    """this object contains the backend GEKKO Solver and is modified or read by all other processes"""
 
     solver_type = xs.variable(intent='in')
     m = xs.any_object(description='model core instance is stored here')
@@ -62,8 +62,6 @@ class ThirdInit(ModelContext):
         self.group = 3
 
 
-
-
 @xs.process
 class Solver(ModelContext):
 
@@ -74,12 +72,11 @@ class Solver(ModelContext):
     def initialize(self):
         """TODO: assemble model + equations here"""
         print("assembling model")
-        print("SOLVER :", self.m.solver)
-
+        print("SOLVER :", self.m.Solver)
         self.m.assemble()
 
     @xs.runtime(args="step_delta")
     def run_step(self, dt):
-        # print("pre-solve:", self.m.time, self.m)
+        # print("pre-solve:", self.m.Time, self.m)
         self.m.solve(dt)
 

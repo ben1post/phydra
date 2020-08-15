@@ -18,7 +18,7 @@ class Parameter:
 
 @attr.s
 class Forcing:
-    # usually changes over time
+    # usually changes over Time
     name = attr.ib()
     value = attr.ib()
 

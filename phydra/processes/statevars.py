@@ -20,19 +20,19 @@ class SV(SecondInit):
 
 @xs.process
 class Time(FirstInit):
+    """Time is represented as a state variable"""
 
-    days = xs.variable(intent='in', dims='days', description='time in days')
+    time = xs.variable(intent='in', dims='TIME', description='A sequence of Time points for which to solve for y.')
     value = xs.variable(intent='out', dims='time')
 
     def initialize(self):
         print('Initializing Model Time')
-        self.m.time = self.days
+        self.m.Time = self.time
 
         self.value = self.m.setup_SV('time', StateVariable(name='time'))
 
         self.m.Fluxes['time'].append(self.timefunc)
 
-
-    def timefunc(self, state, parameters):
+    def timefunc(self, state, parameters, forcings):
         dydt = 1
         return dydt

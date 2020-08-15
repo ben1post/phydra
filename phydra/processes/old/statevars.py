@@ -9,7 +9,7 @@ class StateVariable(ModelContext):
     """ this process creates a single state variable with user specified label in our model """
     label = xs.variable(intent='out')
 
-    value = xs.variable(intent='out', dims='time', description='stores the value of component state variable')
+    value = xs.variable(intent='out', dims='Time', description='stores the value of component state variable')
     SV = xs.any_object(description='stores the gekko variable')
 
     initVal = xs.variable(intent='in', description='initial value of component')
@@ -34,7 +34,7 @@ class FunctionalGroup(ModelContext):
     """ creates array of state variables """
 
     label = xs.variable(intent='out', description='the label supplied at model initialisation')
-    value = xs.variable(intent='out', dims=('not_initalized', 'time'),
+    value = xs.variable(intent='out', dims=('not_initalized', 'Time'),
                         description='stores output in dimensions supplied to process_setup')
 
     num = xs.variable(intent='in', description='number of state variables within group')
@@ -78,6 +78,6 @@ class FunctionalGroup(ModelContext):
         new_dim = xs.index(dims=dim_label, groups='comp_index')
         setattr(new_cls, dim_label, new_dim)
         # modify dimensions
-        new_cls.value.metadata['dims'] = ((dim_label, 'time'),)
+        new_cls.value.metadata['dims'] = ((dim_label, 'Time'),)
         # return intialized xsimlab process
         return xs.process(new_cls)

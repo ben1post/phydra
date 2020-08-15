@@ -1,4 +1,4 @@
-from phydra.core.parts import Parameter
+from phydra.core.parts import Parameter, Forcing
 from .main import ThirdInit
 
 import xsimlab as xs
@@ -8,28 +8,49 @@ import numpy as np
 class Flux(ThirdInit):
     """represents a flux in the model"""
 
-    k = xs.variable(intent='in', groups='pre_model_assembly')
+    sv_label = xs.variable(intent='in')
+    k = xs.variable(intent='in')
 
     def initialize(self):
         super(Flux, self).initialize()  # handles initialization stages
         print(f"initializing state variable {self.label}")
 
-        self.m.Parameters['k'] = Parameter(name='k', value=self.k)
+        # setup parameter
+        self.m.Parameters[self.label + 'k'] = Parameter(name=self.label + 'k', value=self.k)
+        # create flux
+        self.m.Fluxes[self.sv_label].append(self.linear_loss)
+
+    def linear_loss(self, state, parameters, forcings):
+        """FLUXXX"""
+        y = state[self.sv_label]
+        k = parameters[self.label + 'k']
+        dydt = -k * y
+        return dydt
 
 
-        def linear_growth(state, parameters):
-            # print("LINEAR", state, parameters)
-            y = state['y']
-            k = parameters['k']
-            dydt = k * y
-            return dydt
+@xs.process
+class ForcingFlux(ThirdInit):
+    """represents a flux in the model"""
 
-        self.m.Fluxes['y'].append(self.linear_loss)
-        #self.m.Fluxes['y'].append(linear_growth)
+    fx_label = xs.variable(intent='in')
 
-    def linear_loss(self, state, parameters):
-        # print("LINEAR", state, parameters)
-        y = state['y']
-        k = parameters['k']
+    sv_label = xs.variable(intent='in')
+    rate = xs.variable(intent='in')
+
+    def initialize(self):
+        super(ForcingFlux, self).initialize()  # handles initialization stages
+        print(f"initializing state variable {self.label}")
+
+        # setup forcing
+        self.m.Forcings[self.fx_label] = Forcing(name=self.fx_label, value=0.1)
+        # setup parameter
+        self.m.Parameters[self.label + 'rate'] = Parameter(name=self.label + 'rate', value=self.rate)
+        # create flux
+        self.m.Fluxes[self.sv_label].append(self.linear_loss)
+
+    def linear_loss(self, state, parameters, forcings):
+        """FLUXXX"""
+        y = state[self.sv_label]
+        k = parameters[self.label + 'rate']
         dydt = -k * y
         return dydt
