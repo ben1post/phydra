@@ -1,12 +1,12 @@
-import numpy as np
 import xsimlab as xs
-import xarray as xr
 
 from ..processes.main import ModelCore, Solver
 from ..processes.statevars import Time
 
 
 def create(model_dict):
+    """Function creates xsimlab Model instance,
+    automatically adding the necessary model core, solver and time processes"""
     model_dict.update({'Core': ModelCore, 'Solver': Solver, 'Time': Time})
     return xs.Model(model_dict)
 
@@ -35,26 +35,25 @@ def setup(solver, model, input_vars, output_vars, time=None):
         raise Exception("Please supply one of the available solvers: 'odeint', 'gekko' or 'stepwise'")
 
 
-def update_setup(model, setup, new_solver, new_time=None):
+def update_setup(model, old_setup, new_solver, new_time=None):
     """Change instantiated model setup to another solver type,
     with the possibility to update solver time"""
 
     if new_time is None:
-        time = setup.Time__time.values
+        time = old_setup.Time__time.values
     else:
         time = new_time
 
     if new_solver == "odeint" or new_solver == "gekko":
         with model:
-            setup1 = setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver,
+            setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver,
                                                            'Time__time': time})
             setup2 = setup1.xsimlab.update_clocks(clocks={'clock': [0, 1]},
                                                   master_clock='clock')
 
     elif new_solver == "stepwise":
         with model:
-            setup1 = setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver})#,
-                                                           #'Time__time': [0]})
+            setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver})#,
             setup2 = setup1.xsimlab.update_clocks(clocks={'clock': time},
                                                   master_clock='clock')
 

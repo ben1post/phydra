@@ -1,4 +1,4 @@
-from phydra.core.parts import Parameter, Forcing
+from phydra.core.parts import Parameter
 from .main import ThirdInit
 
 import xsimlab as xs
@@ -40,9 +40,6 @@ class ForcingFlux(ThirdInit):
     def initialize(self):
         super(ForcingFlux, self).initialize()  # handles initialization stages
         print(f"initializing flux {self.label}")
-
-        # setup forcing
-        self.m.Forcings[self.fx_label] = Forcing(name=self.fx_label, value=0.1)
         # setup parameter
         self.m.Parameters[self.label + '_rate'] = Parameter(name=self.label + '_rate', value=self.rate)
         # create flux
