@@ -130,9 +130,6 @@ class ModelBackend:
 
         state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
 
-        print("VALS", self.sv_values)
-        print(self.core.gekko.__dict__)
-
         self.core.gekko.Equations(
             [SV.dt() == sum([flux(state, self.parameters, self.forcings) for flux in fluxes[SV.name]]) for SV in self.sv_values]
         )
@@ -140,7 +137,8 @@ class ModelBackend:
         if self.Time is None:
             raise Exception('Time needs to be supplied before solve')
 
-        self.core.gekko.Time = self.Time
+        self.core.gekko.time = self.Time
+
 
         solve_start = tm.time()
         self.core.gekko.solve(disp=disp)  # use option disp=True to print gekko output

@@ -70,7 +70,7 @@ class BaseConverter:
 
 class GekkoContext:
     def __init__(self):
-        self.gekko = GEKKO()
+        self.gekko = GEKKO(remote=False)
 
 
 class GekkoConverter(GekkoContext):

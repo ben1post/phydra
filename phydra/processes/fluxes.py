@@ -13,7 +13,7 @@ class Flux(ThirdInit):
 
     def initialize(self):
         super(Flux, self).initialize()  # handles initialization stages
-        print(f"initializing state variable {self.label}")
+        print(f"initializing flux {self.label}")
 
         # setup parameter
         self.m.Parameters[self.label + 'k'] = Parameter(name=self.label + 'k', value=self.k)
@@ -39,7 +39,7 @@ class ForcingFlux(ThirdInit):
 
     def initialize(self):
         super(ForcingFlux, self).initialize()  # handles initialization stages
-        print(f"initializing state variable {self.label}")
+        print(f"initializing flux {self.label}")
 
         # setup forcing
         self.m.Forcings[self.fx_label] = Forcing(name=self.fx_label, value=0.1)
