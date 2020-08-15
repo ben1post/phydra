@@ -6,4 +6,4 @@ del get_versions
 from . import processes
 from . import models
 
-from .utility.xsimlabwrappers import setup, create
+from .utility.xsimlabwrappers import setup, create, update_setup

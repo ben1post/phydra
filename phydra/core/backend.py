@@ -70,7 +70,7 @@ class ModelBackend:
         self.sv_values = [SV for SV in self.SVs.values()]
 
         self.parameters = {Param.name: Param.value for Param in self.Parameters.values()}
-        self.forcings = {Param.name: Param.value for Param in self.Parameters.values()}
+        self.forcings = {Param.name: Param.value for Param in self.Forcings.values()}
 
     def solve(self, time_step):
         if self.Solver == "gekko":
@@ -91,14 +91,12 @@ class ModelBackend:
     def step_solve(self, time_step):
         """XXX"""
         sv_state = [SV.value[-1] for SV in self.SVs.values()]
-
-        c_out = self.model(sv_state, self.Time)
-
-        c_dict = {sv_label: vals for sv_label, vals in zip(self.sv_labels, c_out)}
+        state_out = self.model(sv_state, self.Time)
+        state_dict = {sv_label: vals for sv_label, vals in zip(self.sv_labels, state_out)}
 
         for sv_val in self.sv_values:
             # model calculates derivative, so needs to be computed to value with previous value
-            state = sv_val.value[-1] + c_dict[sv_val.name] * time_step
+            state = sv_val.value[-1] + state_dict[sv_val.name] * time_step
             sv_val.value.append(state)
 
     def odeint_solve(self):
@@ -110,18 +108,18 @@ class ModelBackend:
 
         print("start solve now")
         solve_start = tm.time()
-        c_out = odeint(self.model, y_init, self.Time)
+        state_out = odeint(self.model, y_init, self.Time)
         solve_end = tm.time()
         print(f"Model was solved in {round(solve_end - solve_start, 5)} seconds")
 
         # print(c_out)
-        c_rows = (row for row in c_out.T)
+        state_rows = (row for row in state_out.T)
         # print(c_rows)
-        c_dict = {y_label: vals for y_label, vals in zip(self.sv_labels, c_rows)}
+        state_dict = {y_label: vals for y_label, vals in zip(self.sv_labels, state_rows)}
 
-        for y_val in self.sv_values:
-            print('here unpacking values', y_val.name)
-            y_val.value[:] = c_dict[y_val.name]
+        for sv_val in self.sv_values:
+            print('here unpacking values', sv_val.name)
+            sv_val.value[:] = state_dict[sv_val.name]
 
     def gekko_solve(self, disp=False):
         """XXX"""

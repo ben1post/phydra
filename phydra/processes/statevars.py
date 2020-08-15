@@ -22,7 +22,7 @@ class SV(SecondInit):
 class Time(FirstInit):
     """Time is represented as a state variable"""
 
-    time = xs.variable(intent='in', dims='TIME', description='A sequence of Time points for which to solve for y.')
+    time = xs.variable(intent='in', dims='input_time', description='A sequence of Time points for which to solve for y.')
     value = xs.variable(intent='out', dims='time')
 
     def initialize(self):

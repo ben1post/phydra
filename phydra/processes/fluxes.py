@@ -44,13 +44,13 @@ class ForcingFlux(ThirdInit):
         # setup forcing
         self.m.Forcings[self.fx_label] = Forcing(name=self.fx_label, value=0.1)
         # setup parameter
-        self.m.Parameters[self.label + 'rate'] = Parameter(name=self.label + 'rate', value=self.rate)
+        self.m.Parameters[self.label + '_rate'] = Parameter(name=self.label + '_rate', value=self.rate)
         # create flux
         self.m.Fluxes[self.sv_label].append(self.linear_loss)
 
     def linear_loss(self, state, parameters, forcings):
         """FLUXXX"""
-        y = state[self.sv_label]
-        k = parameters[self.label + 'rate']
-        dydt = -k * y
-        return dydt
+        fx = forcings[self.fx_label]
+        rate = parameters[self.label + '_rate']
+        dsvdt = fx * rate
+        return dsvdt
