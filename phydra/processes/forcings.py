@@ -5,7 +5,7 @@ import xsimlab as xs
 
 @xs.process
 class ConstantForcing(SecondInit):
-    """represents a flux in the model"""
+    """represents a forcing in the model with constant value"""
 
     value = xs.variable(intent='in')
 

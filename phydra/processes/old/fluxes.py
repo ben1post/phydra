@@ -70,7 +70,7 @@ class InputFlux(ModelContext):
 
 @xs.process
 class LinearInputFlux(InputFlux):
-    """ Base Growth Flux, Monod function """
+    """ Base Growth LinearFlux, Monod function """
 
     flux = xs.on_demand()
 
@@ -145,7 +145,7 @@ class LossFlux(ModelContext):
 
 @xs.process
 class LinearLossFlux(LossFlux):
-    """ Base Growth Flux, Monod function """
+    """ Base Growth LinearFlux, Monod function """
 
     flux = xs.on_demand()
 
@@ -159,7 +159,7 @@ class LinearLossFlux(LossFlux):
 
 @xs.process
 class QuadraticLossFlux(LossFlux):
-    """ Base Growth Flux, Monod function """
+    """ Base Growth LinearFlux, Monod function """
 
     flux = xs.on_demand()
 
@@ -353,7 +353,7 @@ class ExchangeFlux(ModelContext):
 
 @xs.process
 class LinearExchangeFlux(ExchangeFlux):
-    """ Base Growth Flux, Monod function """
+    """ Base Growth LinearFlux, Monod function """
 
     flux = xs.on_demand()
 
@@ -367,7 +367,7 @@ class LinearExchangeFlux(ExchangeFlux):
 
 @xs.process
 class QuadraticExchangeFlux(ExchangeFlux):
-    """ Base Growth Flux, Monod function """
+    """ Base Growth LinearFlux, Monod function """
 
     flux = xs.on_demand()
 
@@ -381,7 +381,7 @@ class QuadraticExchangeFlux(ExchangeFlux):
 
 @xs.process
 class MonodUptake(ExchangeFlux):
-    """ Base Growth Flux, Monod function """
+    """ Base Growth LinearFlux, Monod function """
     fx_values = xs.group('forcing_value')  # hack to force process ordering (Forcing before Fluxes)
 
     flux = xs.on_demand()
@@ -402,7 +402,7 @@ class MonodUptake(ExchangeFlux):
 # GROWTH MULTI LIMITATION
 
 class Growth_MultiLim(ExchangeFlux):
-    """ Base Growth Flux, aggregates multiple growth limiting terms
+    """ Base Growth LinearFlux, aggregates multiple growth limiting terms
     - nutrient Monod    { needs external nut conc + halfsat param
     - light lim         { needs light available + I opt
     - temp              { needs temp
@@ -438,7 +438,7 @@ class Growth_MultiLim(ExchangeFlux):
 
 
 class GML_BaseFlux(ModelContext):
-    """ Base Flux for multi-limitation Growth """
+    """ Base LinearFlux for multi-limitation Growth """
 
     limiting_factor = xs.variable(intent='out', groups='not_initialized')
 
@@ -469,7 +469,7 @@ class GML_BaseFlux(ModelContext):
 
 
 class GML_MonodUptake(GML_BaseFlux):
-    """ Adding to Multi Growth Limitation Flux, Monod function """
+    """ Adding to Multi Growth Limitation LinearFlux, Monod function """
 
     halfsat = xs.variable(intent='in', description='half saturation constant for Monod growth')
 
@@ -483,7 +483,7 @@ class GML_MonodUptake(GML_BaseFlux):
 
 
 class GML_EppleyTempLim(GML_BaseFlux):
-    """ Adding to Multi Growth Limitation Flux, Monod function """
+    """ Adding to Multi Growth Limitation LinearFlux, Monod function """
     exponent = xs.variable(intent='in', description='exponent for Eppley Temperature dependency of growth')
     FX_label = xs.variable(intent='in')
 
@@ -495,7 +495,7 @@ class GML_EppleyTempLim(GML_BaseFlux):
 
 
 class GML_SteeleLightLim(GML_BaseFlux):
-    """ Adding to Multi Growth Limitation Flux, Monod function """
+    """ Adding to Multi Growth Limitation LinearFlux, Monod function """
     IOpt = xs.variable(intent='in', description='optimal integrated irradiance')
 
     kw = xs.variable(intent='in', description='light attenuation coefficient of sea water')

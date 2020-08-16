@@ -22,10 +22,10 @@ class ModelBackend:
 
         if self.Solver == "odeint":
             self.core = BaseConverter()
-        elif self.Solver == "gekko":
-            self.core = GekkoConverter()
         elif self.Solver == "stepwise":
             self.core = BaseConverter()
+        elif self.Solver == "gekko":
+            self.core = GekkoConverter()
         else:
             raise Exception("Please provide Solver type to core, can be 'gekko', 'odeint' or 'stepwise")
 
@@ -62,7 +62,7 @@ class ModelBackend:
 
     def model(self, current_state, time):
         state = {label: val for label, val in zip(self.sv_labels, current_state)}
-        return [sum(flux(state, self.parameters, self.forcings) for flux in self.Fluxes[label]) for label in self.sv_labels]
+        return [sum(flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in self.Fluxes[label]) for label in self.sv_labels]
 
     def assemble(self):
         """Assembles model for all Solver types"""
@@ -129,7 +129,7 @@ class ModelBackend:
         state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
 
         self.core.gekko.Equations(
-            [SV.dt() == sum([flux(state, self.parameters, self.forcings) for flux in fluxes[SV.name]]) for SV in self.sv_values]
+            [SV.dt() == sum([flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[SV.name]]) for SV in self.sv_values]
         )
 
         if self.Time is None:
