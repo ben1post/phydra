@@ -2,7 +2,13 @@ from phydra.core.parts import Parameter
 from .main import ThirdInit
 
 import xsimlab as xs
-import numpy as np
+
+#TODO: for fluxes, use this basic structure, but
+# but keep extending basic flux, adding new variables only as absolutely necessary
+
+# 1. write basic flux, no input output
+# only dependent on one SV
+# 2. write extended flux with rate parameter
 
 @xs.process
 class LinearFlux(ThirdInit):
@@ -24,7 +30,6 @@ class LinearFlux(ThirdInit):
 @xs.process
 class LossLinearFlux(LinearFlux):
     """loss flux subclass of LinearFlux"""
-
 
     def flux(self, **kwargs):
         """linear loss flux of state variable"""
