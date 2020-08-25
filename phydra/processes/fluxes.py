@@ -1,14 +1,20 @@
 from phydra.core.parts import Parameter
+
+from phydra.core.flux import flux_decorator, flux_sv, flux_param
+
 from .main import ThirdInit
 
 import xsimlab as xs
 
-#TODO: for fluxes, use this basic structure, but
-# but keep extending basic flux, adding new variables only as absolutely necessary
 
-# 1. write basic flux, no input output
-# only dependent on one SV
-# 2. write extended flux with rate parameter
+@flux_decorator
+class FluxOne:
+    sv = flux_sv(flow='output')
+    rate = flux_param(description='flowing rate')
+
+    def flux(sv, rate):
+        return sv * rate
+
 
 @xs.process
 class LinearFlux(ThirdInit):
