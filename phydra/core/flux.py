@@ -27,7 +27,7 @@ class FluxVarIntent(Enum):
     OUT = "out"
 
 
-def flux_sv(
+def sv(
     flow='input',
     intent='in',
     default=attr.NOTHING,
@@ -62,7 +62,34 @@ def flux_sv(
     )
 
 
-def flux_param(
+def fx(
+    intent='in',
+    default=attr.NOTHING,
+    validator=None,
+    converter=None,
+    description='',
+    attrs=None,
+):
+    metadata = {
+        "var_type": FluxVarType.FORCING,
+        "intent": FluxVarIntent(intent),
+        "flow": None,
+        "attrs": attrs or {},
+        "description": description,
+    }
+
+    return attr.attrib(
+        metadata=metadata,
+        default=default,
+        validator=validator,
+        converter=converter,
+        init=True,
+        repr=True,
+        kw_only=True,
+    )
+
+
+def param(
     intent='in',
     default=attr.NOTHING,
     validator=None,
@@ -94,7 +121,7 @@ def _convert_2_xsimlabvar(var):
     return xs.variable(intent='in', description=var_description)
 
 
-def flux_decorator(cls):
+def flux(cls):
     """ flux decorator
     that converts simplified flux class into fully functional
     xarray simlab process
@@ -125,6 +152,8 @@ def flux_decorator(cls):
         input_args = {}
         for name in self.states:
             input_args[name['name']] = state[name['value']]
+        for name in self.forcings:
+            input_args[name['name']] = forcings[name['value']]
         for name in self.pars:
             input_args[name] = parameters[self.label + '_' + name]
 
@@ -160,6 +189,9 @@ def flux_decorator(cls):
                         self.m.Fluxes[var_value].append(self.negative_flux)
                     elif var['metadata']['flow'] is FluxVarFlow.INPUT:
                         self.m.Fluxes[var_value].append(self.flux)
+                elif key is FluxVarType.FORCING:
+                    self.forcings.append({'value': var_value, 'name': var['var_name']})
+
         # TODO: add handling of forcing!
 
     setattr(new_cls, 'initialize', initialize_flux)

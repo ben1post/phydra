@@ -1,65 +1,29 @@
-from phydra.core.parts import Parameter
-
-from phydra.core.flux import flux_decorator, flux_sv, flux_param
-
-from .main import ThirdInit
-
-import xsimlab as xs
+import phydra
 
 
-@flux_decorator
-class FluxOne:
-    sv = flux_sv(flow='output')
-    rate = flux_param(description='flowing rate')
+@phydra.flux
+class LinearOutputFlux:
+    sv = phydra.sv(flow='output', description='state variable affected by flux')
+    rate = phydra.param(description='flowing rate')
 
     def flux(sv, rate):
         return sv * rate
 
 
-@xs.process
-class LinearFlux(ThirdInit):
-    """represents a flux in the model"""
+@phydra.flux
+class LinearInputFlux:
+    sv = phydra.sv(flow='input', description='state variable affected by flux')
+    rate = phydra.param(description='flowing rate')
 
-    sv_label = xs.variable(intent='in')
-    rate = xs.variable(intent='in')
-
-    def initialize(self):
-        super(LinearFlux, self).initialize()  # handles initialization stages
-        print(f"initializing flux {self.label}")
-
-        # setup parameter
-        self.m.Parameters[self.label + '_rate'] = Parameter(name=self.label + '_rate', value=self.rate)
-        # create flux
-        self.m.Fluxes[self.sv_label].append(self.flux)
+    def flux(sv, rate):
+        return sv * rate
 
 
-@xs.process
-class LossLinearFlux(LinearFlux):
-    """loss flux subclass of LinearFlux"""
+@phydra.flux
+class ForcingLinearInputFlux:
+    sv = phydra.sv(flow='input', description='state variable affected by forcing flux')
+    fx = phydra.fx(description='forcing linearly affecting rate')
+    rate = phydra.param(description='flowing rate')
 
-    def flux(self, **kwargs):
-        """linear loss flux of state variable"""
-        state = kwargs.get('state')
-        parameters = kwargs.get('parameters')
-
-        sv = state[self.sv_label]
-        rate = parameters[self.label + '_rate']
-        delta = -rate * sv
-        return delta
-
-
-@xs.process
-class ForcingInputLinearFlux(LinearFlux):
-    """forcing flux subclass of LinearFlux"""
-
-    fx_label = xs.variable(intent='in')
-
-    def flux(self, **kwargs):
-        """linear flux from forcing to state variable"""
-        forcings = kwargs.get('forcings')
-        parameters = kwargs.get('parameters')
-
-        fx = forcings[self.fx_label]
-        rate = parameters[self.label + '_rate']
-        delta = fx * rate
-        return delta
+    def flux(sv, fx, rate):
+        return fx * rate
