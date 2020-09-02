@@ -20,6 +20,10 @@ def setup(solver, model, input_vars, output_vars, time=None):
     input_vars.update({'Core__solver_type': solver,
                        'Time__time': time})
 
+    # for simpler initialisation of output vars as set, that don't require dimensions
+    if isinstance(output_vars, set):
+        output_vars = {var: None for var in output_vars}
+
     if solver == "odeint" or solver == "gekko":
         return xs.create_setup(model=model,
                                # supply a single Time step to xsimlab model setup
@@ -47,13 +51,13 @@ def update_setup(model, old_setup, new_solver, new_time=None):
     if new_solver == "odeint" or new_solver == "gekko":
         with model:
             setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver,
-                                                           'Time__time': time})
+                                                               'Time__time': time})
             setup2 = setup1.xsimlab.update_clocks(clocks={'clock': [0, 1]},
                                                   master_clock='clock')
 
     elif new_solver == "stepwise":
         with model:
-            setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver})#,
+            setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver})  # ,
             setup2 = setup1.xsimlab.update_clocks(clocks={'clock': time},
                                                   master_clock='clock')
 

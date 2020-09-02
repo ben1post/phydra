@@ -77,17 +77,21 @@ class GekkoConverter(GekkoContext):
 
     @convertor(StateVariable)
     def convert(self, obj):
+        print("creating new SV", obj)
         return self.gekko.SV(obj.initial_value, name=obj.name, lb=obj.lb)
 
     @convertor(Parameter)
     def convert(self, obj):
+        print("creating new Parameter", obj)
         return self.gekko.Param(obj.value, name=obj.name)
 
     @convertor(Forcing)
     def convert(self, obj):
+        print("creating new Forcing", obj)
         # this should return m.Param, discretized
         return self.gekko.Param(obj.value, name=obj.name)
 
     @convertor(Flux)
     def convert(self, obj):
+        print("creating new Flux", obj)
         return self.gekko.Intermediate(obj.equation, name=obj.name)

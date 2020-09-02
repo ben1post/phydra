@@ -76,7 +76,8 @@ class ModelBackend:
         if self.Solver == "gekko":
             self.core.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
             self.core.gekko.options.NODES = 3  # improves solution accuracy
-            self.core.gekko.options.IMODE = 5  # 7  # sequential dynamic Solver
+            self.core.gekko.options.IMODE = 7  # 7  # sequential dynamic Solver
+
             self.gekko_solve()  # use option disp=True to print gekko output
 
         elif self.Solver == "odeint":
@@ -129,7 +130,9 @@ class ModelBackend:
         state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
 
         self.core.gekko.Equations(
-            [SV.dt() == sum([flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[SV.name]]) for SV in self.sv_values]
+            [SV.dt() == sum(
+                [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]])
+                for SV, label in zip(self.sv_values, self.sv_labels)]
         )
 
         if self.Time is None:

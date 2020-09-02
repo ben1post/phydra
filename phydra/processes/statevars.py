@@ -34,5 +34,5 @@ class Time(FirstInit):
         self.m.Fluxes['time'].append(self.timefunc)
 
     def timefunc(self, state, parameters, forcings):
-        dydt = 1
-        return dydt
+        dtdt = 1
+        return dtdt
