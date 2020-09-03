@@ -38,3 +38,24 @@ class MonodUptake:
 
     def flux(resource, consumer, halfsat):
         return resource / (resource + halfsat) * consumer
+
+
+# Multi limitation flux (wrap as phydra.multiflux)
+#@phydra.multiflux(group='growth')
+#class MonodUptake:
+#    flux = xs.variable(intent='out', groups=group)
+
+# Grazing Flux
+@phydra.flux
+class HollingTypeIIIGrazing:
+    resource = phydra.sv(flow='output')
+    consumer = phydra.sv(flow='input')
+    feed_pref = phydra.param(description='feeding preferences') # add arg: units = ['micromolar'], add conversion to Latex
+    Imax = phydra.param(description='maximum ingestion rate')
+    kZ = phydra.param(description='feeding preferences')
+
+    def flux(resource, consumer, feed_pref, Imax, kZ):
+        return Imax * resource ** 2 \
+               * feed_pref / (kZ ** 2 + sum([resource ** 2 * feed_pref])) * consumer
+
+    # 2nd resource should be calculated for every resource

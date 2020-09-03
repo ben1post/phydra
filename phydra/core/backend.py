@@ -129,11 +129,31 @@ class ModelBackend:
 
         state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
 
-        self.core.gekko.Equations(
-            [SV.dt() == sum(
-                [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]])
-                for SV, label in zip(self.sv_values, self.sv_labels)]
-        )
+        equations = []
+
+        for SV, label in zip(self.sv_values, self.sv_labels):
+
+            # check if there are fluxes defined for state variable
+            try: 
+                fluxes[label]
+            except KeyError:
+                # if not, define derivative as 0
+                equations.append(SV.dt() == 0)
+            else:
+                # add sum of all part fluxes as derivative
+                equations.append(SV.dt() == sum(
+                    [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]]
+                 ))
+
+        # create Equations
+        self.core.gekko.Equations(equations)
+
+
+        #self.core.gekko.Equations(
+        #    [SV.dt() == sum(
+        #        [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]])
+        #     for SV, label in zip(self.sv_values, self.sv_labels)]
+        #)
 
         if self.Time is None:
             raise Exception('Time needs to be supplied before solve')
