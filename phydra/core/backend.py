@@ -30,7 +30,11 @@ class ModelBackend:
             raise Exception("Please provide Solver type to core, can be 'gekko', 'odeint' or 'stepwise")
 
     def __repr__(self):
-        return f"Model contains: \n SVs:{self.SVs} \n Params:{self.Parameters}\n Forcings:{self.Forcings}\n Fluxes:{self.Fluxes}"
+        return (f"Model contains: \n"
+                    f"SVs:{self.SVs} \n"
+                    f"Params:{self.Parameters} \n"
+                    f"Forcings:{self.Forcings} \n"
+                    f"Fluxes:{self.Fluxes}")
 
     def setup_SV(self, label, SV):
         """
@@ -76,7 +80,7 @@ class ModelBackend:
         if self.Solver == "gekko":
             self.core.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
             self.core.gekko.options.NODES = 3  # improves solution accuracy
-            self.core.gekko.options.IMODE = 7  # 7  # sequential dynamic Solver
+            self.core.gekko.options.IMODE = 5  # 7  # sequential dynamic Solver
 
             self.gekko_solve()  # use option disp=True to print gekko output
 
@@ -124,15 +128,15 @@ class ModelBackend:
 
     def gekko_solve(self, disp=False):
         """XXX"""
+
         fluxes = {label: flux
-                  for label, flux in zip(self.sv_labels, self.Fluxes.values())}
+                  for label, flux in zip(self.Fluxes.keys(), self.Fluxes.values())}
 
         state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
 
         equations = []
 
         for SV, label in zip(self.sv_values, self.sv_labels):
-
             # check if there are fluxes defined for state variable
             try: 
                 fluxes[label]
@@ -160,6 +164,8 @@ class ModelBackend:
 
         self.core.gekko.time = self.Time
 
+        print(self.core.gekko.__dict__)
+        print([val.value for val in self.core.gekko.__dict__['_equations']])
 
         solve_start = tm.time()
         self.core.gekko.solve(disp=disp)  # use option disp=True to print gekko output
