@@ -8,4 +8,4 @@ from . import models
 
 from .utility.xsimlabwrappers import setup, create, update_setup
 
-from .core.flux import flux, sv, param, fx
+from .core.flux import sv, param, fx, flux, multiflux
