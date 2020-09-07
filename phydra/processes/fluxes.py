@@ -83,14 +83,50 @@ class HollingTypeIIIGrazing:
 
 import numpy as np
 
+# TODO: How to make vectorization explicit here,
+#   and simplify the routing of output?
+
+
 @phydra.multiflux
 class MultiLossTest:
-    svs = phydra.sv(flow='output', dims='MultiLoss', sub_label='sv')
+    sources = phydra.sv(flow='output', dims='MultiLoss')
+
     rate = phydra.param()
 
-    def flux(sv, svs, rate):
-        return sv * rate
+    def flux(sources, rate):
+        return sources * rate
 
+
+
+
+
+@phydra.multiflux
+class MultiTest2:
+    svs_input = phydra.sv(flow='output', dims='Multi_input')
+    svs_output = phydra.sv(flow='output', dims='Multi_output')
+    rate = phydra.param()
+
+    def flux(svs_input, svs_output, rate):
+        # TODO: SO I WANT THIS FUNCTION TO BE ONLY CALLED ONCE at each step
+        #   and it should take inputs as arrays and return an array
+        # but then somehow that array needs to be "re-routed" according to the arguments above
+        return svs_input * rate
+
+    def output(label, ):
+        # here input dict that allows rerouting of output
+        return out[label]
+
+
+
+    # flux always needs to return a single value in the current framework
+    #
+    # this is the problem..
+    #
+    #
+
+
+    def output(out):
+        return()
 
 
 

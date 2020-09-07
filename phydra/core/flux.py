@@ -213,8 +213,6 @@ def flux(cls):
                 elif key is FluxVarType.FORCING:
                     self.forcings.append({'value': var_value, 'name': var['var_name']})
 
-        # TODO: add handling of forcing!
-
     setattr(new_cls, 'initialize', initialize_flux)
 
     return xs.process(new_cls)
@@ -243,13 +241,14 @@ def multiflux(cls):
     new_cls = type(cls.__name__, (ThirdInit,), new_cls_dict)
 
     # convert flux function into functional xarray-simlab flux
+
+    # so the flux below should actually return the bespoke flux, but how?
+
     def flux(self, **kwargs):
         """linear loss flux of state variable"""
         state = kwargs.get('state')
         parameters = kwargs.get('parameters')
         forcings = kwargs.get('forcings')
-
-        # TODO: THIS NEEDS TO KNOW WHICH STATE IT CURRENTLY GET'S APPLIED TO
 
         # print("self.states", self.states)
         # print("self.forcings", self.forcings)
@@ -258,12 +257,6 @@ def multiflux(cls):
         input_args = {}
 
         for var in self.states:
-            # TODO: retrieve array if necessary
-            #   q: do i need dict mapping to label (to clearly specify flux) ?
-            sub_label = kwargs.get(var['sub_label'])
-            sub_arg = var['sub_label']
-            input_args.update({sub_arg: state[sub_label]})
-
             if isinstance(var['value'], np.ndarray):
                 input_args[var['keyword']] = np.array([state[value] for value in var['value']])
             else:
@@ -272,8 +265,6 @@ def multiflux(cls):
             input_args[var['keyword']] = forcings[var['value']]
         for var in self.pars:
             input_args[var] = parameters[self.label + '_' + var]
-
-        # TODO: handle vectorization of function, input and output!
 
         return cls.flux(**input_args)
 
@@ -302,6 +293,7 @@ def multiflux(cls):
         self.label = self.__xsimlab_name__
         self.group = 3  # handles initialisation stages
         print(f"initializing flux {self.label}")
+        print(" ")
         print("flux_dict: ")
 
         print(flux_dict)
@@ -311,18 +303,21 @@ def multiflux(cls):
         self.pars = []
         self.forcings = []
 
-        self.flux_routing = []
         # somehow the sub_flux needs to have a label for
         # a) which SV it is applied to
         # b) the actual flux function / fraction that is applied to the SV
         # this either means vectorisation, or subfunctions or both
+
+        # TODO:
+        #   so:
+        #   For val in input_list:
+        #   so like a loop through inputs, co-assigning the flux function output array
 
         for key, varlist in flux_dict.items():
             print(key)
 
             for var in varlist:
                 print("var_dims", var['metadata']['dims'])
-                print("sub_label", var['metadata']['sub_label'])
                 var_value = getattr(self, var['var_name'])
                 print("var_value", var_value)
 
@@ -332,27 +327,23 @@ def multiflux(cls):
                         Parameter(name=self.label + '_' + var['var_name'], value=var_value)
 
                 elif key is FluxVarType.STATEVARIABLE:
-                    self.states.append({'value': var_value, 'keyword': var['var_name'],
-                                        'sub_label': var['metadata']['sub_label']}, )
-                    if isinstance(var_value, np.ndarray):
-                        for val in var_value:
-                            sub_label_args = {var['metadata']['sub_label']: val}
-                            print("sub", " . ", sub_label_args)
-                            if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                                self.m.Fluxes[val].append(functools.partial(self.negative_partial_flux,
-                                                                            **sub_label_args))
-                            elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                                self.m.Fluxes[val].append(functools.partial(self.partial_flux,
-                                                                            **sub_label_args))
-                    else:
-                        if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                            self.m.Fluxes[var_value].append(self.negative_flux)
-                        elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                            self.m.Fluxes[var_value].append(self.flux)
+                    self.states.append({'value': var_value, 'keyword': var['var_name'], })
+                    # if isinstance(var_value, np.ndarray):
+                    #    for val in var_value:
+                    #        if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
+                    #            self.m.Fluxes[val].append(functools.partial(self.negative_partial_flux))
+                    #        elif var['metadata']['flow'] is FluxVarFlow.INPUT:
+                    #            self.m.Fluxes[val].append(functools.partial(self.partial_flux))
+                    # else:
+                    #    if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
+                    #        self.m.Fluxes[var_value].append(self.negative_flux)
+                    #    elif var['metadata']['flow'] is FluxVarFlow.INPUT:
+                    #        self.m.Fluxes[var_value].append(self.flux)
 
                 elif key is FluxVarType.FORCING:
                     self.forcings.append({'value': var_value, 'keyword': var['var_name']})
 
+                self.m.MultiFluxes[self.label] = self.negative_partial_flux
                 # SO the problem is:
                 # if xs.variable input has dims
                 # I need to:
@@ -361,6 +352,10 @@ def multiflux(cls):
 
                 # so it is svs in the flux func, that means the array goes in there
                 # and it only has one output.. can I loop through LOSS
+
+                #########################################################################
+                # if the function returns an array (this is easy!) how to do the routing?
+                #
 
         # TODO: add handling of forcing!
 

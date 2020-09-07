@@ -16,6 +16,7 @@ class ModelBackend:
         self.Parameters = defaultdict()
         self.Forcings = defaultdict()
         self.Fluxes = defaultdict(list)
+        self.MultiFluxes = defaultdict()
 
         self.sv_labels = None
         self.sv_values = None
@@ -31,10 +32,10 @@ class ModelBackend:
 
     def __repr__(self):
         return (f"Model contains: \n"
-                    f"SVs:{self.SVs} \n"
-                    f"Params:{self.Parameters} \n"
-                    f"Forcings:{self.Forcings} \n"
-                    f"Fluxes:{self.Fluxes}")
+                f"SVs:{self.SVs} \n"
+                f"Params:{self.Parameters} \n"
+                f"Forcings:{self.Forcings} \n"
+                f"Fluxes:{self.Fluxes}")
 
     def setup_SV(self, label, SV):
         """
@@ -66,7 +67,36 @@ class ModelBackend:
 
     def model(self, current_state, time):
         state = {label: val for label, val in zip(self.sv_labels, current_state)}
-        return [sum(flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in self.Fluxes[label]) for label in self.sv_labels]
+        print("STATE", state)
+
+        flux_out = []
+
+        print("MULTIFLUXXXX")
+        for label, flux in self.MultiFluxes.items():
+            #print(label)
+            # TODO here I can do the ROUTING
+            # pass with function, a dict of inputs/outputs + partial funcs, etc...
+            # but ideally this complexity is wrapped below..
+            # as in, I assign the multiflux to the svs below actually!
+            # hm
+            print("MULTIFLUX_CALC", flux(state=state, parameters=self.parameters, forcings=self.forcings))
+            print(" ")
+
+        print(" ")
+        print(" ")
+
+        for label in self.sv_labels:
+            sv_fluxes = []
+            for flux in self.Fluxes[label]:
+                sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
+
+            flux_out.append(sum(sv_fluxes))
+            print(label, "sv_fluxes", sv_fluxes)
+
+
+        print("flux_out", flux_out)
+
+        return flux_out
 
     def assemble(self):
         """Assembles model for all Solver types"""
@@ -138,7 +168,7 @@ class ModelBackend:
 
         for SV, label in zip(self.sv_values, self.sv_labels):
             # check if there are fluxes defined for state variable
-            try: 
+            try:
                 fluxes[label]
             except KeyError:
                 # if not, define derivative as 0
@@ -147,17 +177,16 @@ class ModelBackend:
                 # add sum of all part fluxes as derivative
                 equations.append(SV.dt() == sum(
                     [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]]
-                 ))
+                ))
 
         # create Equations
         self.core.gekko.Equations(equations)
 
-
-        #self.core.gekko.Equations(
+        # self.core.gekko.Equations(
         #    [SV.dt() == sum(
         #        [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]])
         #     for SV, label in zip(self.sv_values, self.sv_labels)]
-        #)
+        # )
 
         if self.Time is None:
             raise Exception('Time needs to be supplied before solve')
