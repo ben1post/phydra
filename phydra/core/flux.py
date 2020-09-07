@@ -13,6 +13,8 @@ from enum import Enum
 
 import numpy as np
 
+import functools
+
 
 class FluxVarType(Enum):
     STATEVARIABLE = "statevariable"
@@ -34,6 +36,7 @@ def sv(
         flow='input',
         intent='in',
         dims=[()],
+        sub_label=None,
         default=attr.NOTHING,
         validator=None,
         converter=None,
@@ -45,6 +48,7 @@ def sv(
         "intent": FluxVarIntent(intent),
         "flow": FluxVarFlow(flow),
         "dims": dims,
+        "sub_label": sub_label,
         "attrs": attrs or {},
         "description": description,
     }
@@ -70,6 +74,7 @@ def sv(
 def fx(
         intent='in',
         dims=[()],
+        sub_label=None,
         default=attr.NOTHING,
         validator=None,
         converter=None,
@@ -80,6 +85,7 @@ def fx(
         "var_type": FluxVarType.FORCING,
         "intent": FluxVarIntent(intent),
         "dims": dims,
+        "sub_label": sub_label,
         "flow": None,
         "attrs": attrs or {},
         "description": description,
@@ -99,6 +105,7 @@ def fx(
 def param(
         intent='in',
         dims=[()],
+        sub_label=None,
         default=attr.NOTHING,
         validator=None,
         converter=None,
@@ -109,6 +116,7 @@ def param(
         "var_type": FluxVarType.PARAMETER,
         "intent": FluxVarIntent(intent),
         "dims": dims,
+        "sub_label": sub_label,
         "flow": None,
         "attrs": attrs or {},
         "description": description,
@@ -136,7 +144,6 @@ def flux(cls):
     that converts simplified flux class into fully functional
     xarray simlab process
     """
-    print("In da FLUX")
     new_cls_dict = defaultdict()
     flux_dict = defaultdict(list)
 
@@ -145,7 +152,6 @@ def flux(cls):
         if isinstance(var, _CountingAttr):
 
             var_dims = var.metadata.get('dims')
-            print(var_dims)
 
             var_type = var.metadata.get('var_type')
             if var_type is not None:
@@ -219,7 +225,6 @@ def multiflux(cls):
     that converts simplified flux class into fully functional
     xarray simlab process
     """
-    print("we Here IN MULTIFLUX")
     new_cls_dict = defaultdict()
     flux_dict = defaultdict(list)
 
@@ -228,7 +233,6 @@ def multiflux(cls):
         if isinstance(var, _CountingAttr):
             var_type = var.metadata.get('var_type')
             var_dims = var.metadata.get('dims')
-            print(var_dims)
 
             if var_type is not None:
                 new_cls_dict[var_name] = _convert_2_xsimlabvar(var)
@@ -245,31 +249,54 @@ def multiflux(cls):
         parameters = kwargs.get('parameters')
         forcings = kwargs.get('forcings')
 
-        print("self.states", self.states)
-        print("self.forcings", self.forcings)
-        print("self.pars", self.pars)
+        # TODO: THIS NEEDS TO KNOW WHICH STATE IT CURRENTLY GET'S APPLIED TO
+
+        # print("self.states", self.states)
+        # print("self.forcings", self.forcings)
+        # print("self.pars", self.pars)
 
         input_args = {}
+
         for var in self.states:
             # TODO: retrieve array if necessary
-            input_args[var['keyword']] = state[var['value']]
+            #   q: do i need dict mapping to label (to clearly specify flux) ?
+            sub_label = kwargs.get(var['sub_label'])
+            sub_arg = var['sub_label']
+            input_args.update({sub_arg: state[sub_label]})
+
+            if isinstance(var['value'], np.ndarray):
+                input_args[var['keyword']] = np.array([state[value] for value in var['value']])
+            else:
+                input_args[var['keyword']] = state[var['value']]
         for var in self.forcings:
             input_args[var['keyword']] = forcings[var['value']]
         for var in self.pars:
             input_args[var] = parameters[self.label + '_' + var]
 
-        print("INPUT_ARGS", input_args)
-
         # TODO: handle vectorization of function, input and output!
+
         return cls.flux(**input_args)
+
+    # TODO: IDEA: maybe i can simply use a wrapper like negative flux
+    #   BUT, still the question remains , how to use labels in order to make this completely safe?
+
+    def partial_flux(self, **kwargs):
+        out = flux(self, **kwargs)
+        return out
+
+    def negative_partial_flux(self, **kwargs):
+        out = negative_flux(self, **kwargs)
+        return out
 
     def negative_flux(self, **kwargs):
         """simple wrapper function to return negative flux to output flow"""
         out = flux(self, **kwargs)
-        return - out
+        return -out
 
     setattr(new_cls, 'flux', flux)
     setattr(new_cls, 'negative_flux', negative_flux)
+    setattr(new_cls, 'partial_flux', partial_flux)
+    setattr(new_cls, 'negative_partial_flux', negative_partial_flux)
 
     def initialize_flux(self):
         self.label = self.__xsimlab_name__
@@ -283,10 +310,19 @@ def multiflux(cls):
         self.states = []
         self.pars = []
         self.forcings = []
+
+        self.flux_routing = []
+        # somehow the sub_flux needs to have a label for
+        # a) which SV it is applied to
+        # b) the actual flux function / fraction that is applied to the SV
+        # this either means vectorisation, or subfunctions or both
+
         for key, varlist in flux_dict.items():
             print(key)
+
             for var in varlist:
                 print("var_dims", var['metadata']['dims'])
+                print("sub_label", var['metadata']['sub_label'])
                 var_value = getattr(self, var['var_name'])
                 print("var_value", var_value)
 
@@ -294,17 +330,20 @@ def multiflux(cls):
                     self.pars.append(var['var_name'])
                     self.m.Parameters[self.label + '_' + var['var_name']] = \
                         Parameter(name=self.label + '_' + var['var_name'], value=var_value)
+
                 elif key is FluxVarType.STATEVARIABLE:
-                    self.states.append({'value': var_value, 'keyword': var['var_name']})
+                    self.states.append({'value': var_value, 'keyword': var['var_name'],
+                                        'sub_label': var['metadata']['sub_label']}, )
                     if isinstance(var_value, np.ndarray):
-                        # TODO: This needs to handle assigning fluxes based on metadata of variable!
-                        #   also, it should be able to assign partial fluxes & do the routing necessary!
                         for val in var_value:
-                            if key is FluxVarType.STATEVARIABLE:
-                                if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                                    self.m.Fluxes[val].append(self.negative_flux)
-                                elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                                    self.m.Fluxes[val].append(self.flux)
+                            sub_label_args = {var['metadata']['sub_label']: val}
+                            print("sub", " . ", sub_label_args)
+                            if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
+                                self.m.Fluxes[val].append(functools.partial(self.negative_partial_flux,
+                                                                            **sub_label_args))
+                            elif var['metadata']['flow'] is FluxVarFlow.INPUT:
+                                self.m.Fluxes[val].append(functools.partial(self.partial_flux,
+                                                                            **sub_label_args))
                     else:
                         if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
                             self.m.Fluxes[var_value].append(self.negative_flux)

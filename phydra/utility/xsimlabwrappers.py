@@ -7,6 +7,11 @@ from ..processes.statevars import Time
 def create(model_dict):
     """Function creates xsimlab Model instance,
     automatically adding the necessary model core, solver and time processes"""
+
+    # TODO: is there any way to check if dims already exists in model?
+    #   I think that happens in xs.model.. so perhaps I can include it in the wrappper?
+    #   Idea: I can simply check if there are two multifluxes of the same name in the model..
+
     model_dict.update({'Core': ModelCore, 'Solver': Solver, 'Time': Time})
     return xs.Model(model_dict)
 

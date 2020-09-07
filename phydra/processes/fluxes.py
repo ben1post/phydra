@@ -81,13 +81,17 @@ class HollingTypeIIIGrazing:
 
 # - so the flux,
 
+import numpy as np
+
 @phydra.multiflux
 class MultiLossTest:
-    svs = phydra.sv(flow='output', dims='MultiLoss')
-    rate = phydra.param(dims=[(), 'MultiLoss'])
+    svs = phydra.sv(flow='output', dims='MultiLoss', sub_label='sv')
+    rate = phydra.param()
 
-    def flux(svs, rate):
-        return svs * rate
+    def flux(sv, svs, rate):
+        return sv * rate
+
+
 
 
 #### different take:
