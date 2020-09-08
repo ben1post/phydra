@@ -36,6 +36,7 @@ def sv(
         flow='input',
         intent='in',
         dims=[()],
+        partial_out=None,
         sub_label=None,
         default=attr.NOTHING,
         validator=None,
@@ -48,6 +49,7 @@ def sv(
         "intent": FluxVarIntent(intent),
         "flow": FluxVarFlow(flow),
         "dims": dims,
+        "partial_out": partial_out,
         "sub_label": sub_label,
         "attrs": attrs or {},
         "description": description,
@@ -298,7 +300,7 @@ def multiflux(cls):
         self.pars = []
         self.forcings = []
 
-        self.multiflux_routing = {}
+        self.multiflux_routing = defaultdict()
 
         for key, varlist in flux_dict.items():
             for var in varlist:
@@ -311,16 +313,26 @@ def multiflux(cls):
 
                 elif key is FluxVarType.STATEVARIABLE:
                     self.states.append({'value': var_value, 'keyword': var['var_name']})
+                    # TODO: add this as a list for different keys in defaultdict
+
+                    if var['metadata']['partial_out'] is not None:
+                        partial_out_func = getattr(cls, var['metadata']['partial_out'])
+                    else:
+                        partial_out_func = None
+
                     if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                        self.multiflux_routing.update({val: 'OUTPUT' for val in var_value})
+                        self.multiflux_routing['OUTPUT'] = {'labels': [val for val in var_value],
+                                                            'partial_out': partial_out_func}
                     elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                        self.multiflux_routing.update({val: 'INPUT' for val in var_value})
+                        self.multiflux_routing['INPUT'] = {'labels': [val for val in var_value],
+                                                           'partial_out': partial_out_func}
 
                 elif key is FluxVarType.FORCING:
                     self.forcings.append({'value': var_value, 'keyword': var['var_name']})
 
+        print("Routing Setup: ", self.multiflux_routing)
         # add all necessary info to do multiflux routing in backend.model:
-        self.m.MultiFluxes[self.label] = {'flux': self.negative_flux,
+        self.m.MultiFluxes[self.label] = {'flux': self.flux,
                                           'routing': self.multiflux_routing}
 
         # TODO: add handling of forcing!

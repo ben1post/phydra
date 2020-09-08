@@ -74,12 +74,29 @@ class ModelBackend:
         for label, multiflx in self.MultiFluxes.items():
             flx = multiflx['flux'](state=state, parameters=self.parameters, forcings=self.forcings)
 
-            if len(multiflx['routing'].keys()) != len(flx):
-                raise Exception("Damn! better check your MultiFlux routing, "
-                                "dimensions of func output do not match.")
+            input = multiflx['routing']['INPUT']['labels']
+            input_partial = multiflx['routing']['INPUT']['partial_out']
+            output = multiflx['routing']['OUTPUT']['labels']
+            output_partial = multiflx['routing']['OUTPUT']['partial_out']
 
-            for sv_label, sub_flx in zip(multiflx['routing'].keys(), flx):
-                multifluxes[sv_label].append(sub_flx)
+            if len(input) == len(flx):
+                if input_partial is None:
+                    for sv_label, sub_flx in zip(input, flx):
+                        multifluxes[sv_label].append(sub_flx)
+                else:
+                    pass
+            elif len(input) == 1:
+                multifluxes[input[0]].append(input_partial(flx))
+
+            if len(output) == len(flx):
+                if output_partial is None:
+                    for sv_label, sub_flx in zip(output, flx):
+                        multifluxes[sv_label].append(-sub_flx)
+                else:
+                    pass
+
+
+
 
         fluxes_out = []
         for label in self.sv_labels:
@@ -170,13 +187,12 @@ class ModelBackend:
         # create Equations
         self.core.gekko.Equations(equations)
 
-
         if self.Time is None:
             raise Exception('Time needs to be supplied before solve')
 
         self.core.gekko.time = self.Time
 
-        print(self.core.gekko.__dict__)
+        # print(self.core.gekko.__dict__)
         print([val.value for val in self.core.gekko.__dict__['_equations']])
 
         solve_start = tm.time()

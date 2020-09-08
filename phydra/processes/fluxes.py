@@ -51,37 +51,13 @@ class MonodUptake:
 class HollingTypeIIIGrazing:
     resource = phydra.sv(flow='output')
     consumer = phydra.sv(flow='input')
-    feed_pref = phydra.param(description='feeding preferences') # add arg: units = ['micromolar'], add conversion to Latex
+    feed_pref = phydra.param(description='feeding preferences')
     Imax = phydra.param(description='maximum ingestion rate')
     kZ = phydra.param(description='feeding preferences')
 
     def flux(resource, consumer, feed_pref, Imax, kZ):
         return Imax * resource ** 2 \
                * feed_pref / (kZ ** 2 + sum([resource ** 2 * feed_pref])) * consumer
-
-    # 2nd resource should be calculated for every resource
-
-
-# so having a list input, is actually not what I need right now!
-# hm actually I DO!
-# so the main problem is, that a single flux needs to have an input of the
-
-# either! define seperate flux functions for svs
-# or! USE vectorization, so that a part of the input is ARRAYS..
-# ... BUT, is that reasonable??
-# this is necessary for functional groups,
-
-# ?????????????????
-
-
-# XxXxXxX
-
-# 1. vectorize - both for list input and func group input
-# 2. split output - define different outputs in func
-
-# - so the flux,
-
-import numpy as np
 
 # TODO: How to make vectorization explicit here,
 #   and simplify the routing of output?
@@ -90,11 +66,14 @@ import numpy as np
 @phydra.multiflux
 class MultiLossTest:
     sources = phydra.sv(flow='output', dims='MultiLoss')
+    sink = phydra.sv(flow='input', partial_out='sink_out')
+    rate = phydra.param(dims=[(), 'MultiLoss'])
 
-    rate = phydra.param()
-
-    def flux(sources, rate):
+    def flux(sources, sink, rate):
         return sources * rate
+
+    def sink_out(flux):
+        return sum(flux)
 
 
 
