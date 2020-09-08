@@ -7,6 +7,7 @@ import time as tm
 
 from .converters import BaseConverter, GekkoConverter
 
+
 class ModelBackend:
     def __init__(self, solver_type):
         self.Solver = solver_type
@@ -67,36 +68,30 @@ class ModelBackend:
 
     def model(self, current_state, time):
         state = {label: val for label, val in zip(self.sv_labels, current_state)}
-        print("STATE", state)
 
-        flux_out = []
+        multifluxes = defaultdict(list)
 
-        print("MULTIFLUXXXX")
-        for label, flux in self.MultiFluxes.items():
-            #print(label)
-            # TODO here I can do the ROUTING
-            # pass with function, a dict of inputs/outputs + partial funcs, etc...
-            # but ideally this complexity is wrapped below..
-            # as in, I assign the multiflux to the svs below actually!
-            # hm
-            print("MULTIFLUX_CALC", flux(state=state, parameters=self.parameters, forcings=self.forcings))
-            print(" ")
+        for label, multiflx in self.MultiFluxes.items():
+            flx = multiflx['flux'](state=state, parameters=self.parameters, forcings=self.forcings)
 
-        print(" ")
-        print(" ")
+            if len(multiflx['routing'].keys()) != len(flx):
+                raise Exception("Damn! better check your MultiFlux routing, "
+                                "dimensions of func output do not match.")
 
+            for sv_label, sub_flx in zip(multiflx['routing'].keys(), flx):
+                multifluxes[sv_label].append(sub_flx)
+
+        fluxes_out = []
         for label in self.sv_labels:
             sv_fluxes = []
+            for sub_flux in multifluxes[label]:
+                sv_fluxes.append(sub_flux)
             for flux in self.Fluxes[label]:
                 sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
 
-            flux_out.append(sum(sv_fluxes))
-            print(label, "sv_fluxes", sv_fluxes)
+            fluxes_out.append(sum(sv_fluxes))
 
-
-        print("flux_out", flux_out)
-
-        return flux_out
+        return fluxes_out
 
     def assemble(self):
         """Assembles model for all Solver types"""
@@ -147,9 +142,7 @@ class ModelBackend:
         solve_end = tm.time()
         print(f"Model was solved in {round(solve_end - solve_start, 5)} seconds")
 
-        # print(c_out)
         state_rows = (row for row in state_out.T)
-        # print(c_rows)
         state_dict = {y_label: vals for y_label, vals in zip(self.sv_labels, state_rows)}
 
         for sv_val in self.sv_values:
@@ -158,35 +151,25 @@ class ModelBackend:
 
     def gekko_solve(self, disp=False):
         """XXX"""
-
-        fluxes = {label: flux
-                  for label, flux in zip(self.Fluxes.keys(), self.Fluxes.values())}
-
-        state = {label: val for label, val in zip(self.sv_labels, self.sv_values)}
+        sv_states = [sv for sv in self.sv_values]
+        state_out = self.model(sv_states, self.Time)
+        state_dict = {sv_label: eq for sv_label, eq in zip(self.sv_labels, state_out)}
 
         equations = []
 
         for SV, label in zip(self.sv_values, self.sv_labels):
-            # check if there are fluxes defined for state variable
+            print(SV, state_dict[label])
             try:
-                fluxes[label]
+                state_dict[label]
             except KeyError:
                 # if not, define derivative as 0
                 equations.append(SV.dt() == 0)
             else:
-                # add sum of all part fluxes as derivative
-                equations.append(SV.dt() == sum(
-                    [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]]
-                ))
+                equations.append(SV.dt() == state_dict[label])
 
         # create Equations
         self.core.gekko.Equations(equations)
 
-        # self.core.gekko.Equations(
-        #    [SV.dt() == sum(
-        #        [flux(state=state, parameters=self.parameters, forcings=self.forcings) for flux in fluxes[label]])
-        #     for SV, label in zip(self.sv_values, self.sv_labels)]
-        # )
 
         if self.Time is None:
             raise Exception('Time needs to be supplied before solve')

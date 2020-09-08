@@ -275,10 +275,6 @@ def multiflux(cls):
         out = flux(self, **kwargs)
         return out
 
-    def negative_partial_flux(self, **kwargs):
-        out = negative_flux(self, **kwargs)
-        return out
-
     def negative_flux(self, **kwargs):
         """simple wrapper function to return negative flux to output flow"""
         out = flux(self, **kwargs)
@@ -287,7 +283,6 @@ def multiflux(cls):
     setattr(new_cls, 'flux', flux)
     setattr(new_cls, 'negative_flux', negative_flux)
     setattr(new_cls, 'partial_flux', partial_flux)
-    setattr(new_cls, 'negative_partial_flux', negative_partial_flux)
 
     def initialize_flux(self):
         self.label = self.__xsimlab_name__
@@ -303,23 +298,11 @@ def multiflux(cls):
         self.pars = []
         self.forcings = []
 
-        # somehow the sub_flux needs to have a label for
-        # a) which SV it is applied to
-        # b) the actual flux function / fraction that is applied to the SV
-        # this either means vectorisation, or subfunctions or both
-
-        # TODO:
-        #   so:
-        #   For val in input_list:
-        #   so like a loop through inputs, co-assigning the flux function output array
+        self.multiflux_routing = {}
 
         for key, varlist in flux_dict.items():
-            print(key)
-
             for var in varlist:
-                print("var_dims", var['metadata']['dims'])
                 var_value = getattr(self, var['var_name'])
-                print("var_value", var_value)
 
                 if key is FluxVarType.PARAMETER:
                     self.pars.append(var['var_name'])
@@ -327,35 +310,18 @@ def multiflux(cls):
                         Parameter(name=self.label + '_' + var['var_name'], value=var_value)
 
                 elif key is FluxVarType.STATEVARIABLE:
-                    self.states.append({'value': var_value, 'keyword': var['var_name'], })
-                    # if isinstance(var_value, np.ndarray):
-                    #    for val in var_value:
-                    #        if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                    #            self.m.Fluxes[val].append(functools.partial(self.negative_partial_flux))
-                    #        elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                    #            self.m.Fluxes[val].append(functools.partial(self.partial_flux))
-                    # else:
-                    #    if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                    #        self.m.Fluxes[var_value].append(self.negative_flux)
-                    #    elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                    #        self.m.Fluxes[var_value].append(self.flux)
+                    self.states.append({'value': var_value, 'keyword': var['var_name']})
+                    if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
+                        self.multiflux_routing.update({val: 'OUTPUT' for val in var_value})
+                    elif var['metadata']['flow'] is FluxVarFlow.INPUT:
+                        self.multiflux_routing.update({val: 'INPUT' for val in var_value})
 
                 elif key is FluxVarType.FORCING:
                     self.forcings.append({'value': var_value, 'keyword': var['var_name']})
 
-                self.m.MultiFluxes[self.label] = self.negative_partial_flux
-                # SO the problem is:
-                # if xs.variable input has dims
-                # I need to:
-                # a) loop over flux, with the different inputs
-                # b) define different fluxes for each input
-
-                # so it is svs in the flux func, that means the array goes in there
-                # and it only has one output.. can I loop through LOSS
-
-                #########################################################################
-                # if the function returns an array (this is easy!) how to do the routing?
-                #
+        # add all necessary info to do multiflux routing in backend.model:
+        self.m.MultiFluxes[self.label] = {'flux': self.negative_flux,
+                                          'routing': self.multiflux_routing}
 
         # TODO: add handling of forcing!
 
