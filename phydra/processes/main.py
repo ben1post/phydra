@@ -28,6 +28,7 @@ class ModelContext:
     label = xs.variable(intent='out', groups='label')
 
     def initalize(self):
+        print('calling model context')
         self.label = self.__xsimlab_name__  # assign given label to all subclasses
 
 @xs.process

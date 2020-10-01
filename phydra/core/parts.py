@@ -19,6 +19,7 @@ class Parameter:
 @attr.s
 class Forcing:
     # usually changes over Time
+    # TODO: support variable forcings (i.e. set as array)! currently this produces error
     name = attr.ib()
     value = attr.ib()
 
