@@ -1,5 +1,5 @@
 import attr
-import numpy as np
+
 
 @attr.s
 class StateVariable:
