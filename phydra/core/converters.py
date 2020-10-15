@@ -1,9 +1,9 @@
 from gekko import GEKKO
 
-from .parts import StateVariable, Forcing, Flux, Parameter
+from .parts import Variable, Forcing, Flux, Parameter
 
 # Utilizing a visitor pattern
-# to allow seamless switching between Solver methods
+# to allow seamless switching between SolverABC methods
 
 # code copied and modified from Joren Van Severen:
 # https://stackoverflow.com/questions/25891637/visitor-pattern-in-python
@@ -49,7 +49,7 @@ def convertor(arg_type):
 
 class BaseConverter:
 
-    @convertor(StateVariable)
+    @convertor(Variable)
     def convert(self, obj):
         return obj
 
@@ -75,7 +75,7 @@ class GekkoContext:
 
 class GekkoConverter(GekkoContext):
 
-    @convertor(StateVariable)
+    @convertor(Variable)
     def convert(self, obj):
         print("creating new SV", obj)
         return self.gekko.SV(obj.initial_value, name=obj.name, lb=obj.lb)

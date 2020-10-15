@@ -7,7 +7,7 @@ import scipy.interpolate as intrp
 
 from phydra.utility.forcingdata import ClimatologyForcing
 
-from phydra.processes.statevars import Time
+from phydra.processes.variables import Time
 
 
 @xs.process

@@ -1,11 +1,28 @@
-from phydra.core.backend import ModelBackend
+from phydra.core.model import ModelBackend, PhydraModel
 
 import xsimlab as xs
 import numpy as np
 
 @xs.process
 class ModelCore:
-    """this object contains the backend GEKKO Solver and is modified or read by all other processes"""
+    """this object contains the backend PhydraModel and is modified or read by all other processes"""
+
+    solver_type = xs.variable(intent='in')
+    m = xs.any_object(description='model core instance is stored here')
+
+    def initialize(self):
+        print('initializing model core')
+        self.m = PhydraModel(self.solver_type)
+
+    def finalize(self):
+        print('finalizing: cleanup')
+        self.m.cleanup()  # for now only affects gekko solve
+
+
+
+@xs.process
+class old_ModelCore:
+    """this object contains the backend GEKKO SolverABC and is modified or read by all other processes"""
 
     solver_type = xs.variable(intent='in')
     m = xs.any_object(description='model core instance is stored here')
@@ -19,6 +36,9 @@ class ModelCore:
         # self.m.open_folder()
 
         self.m.cleanup()  # for now only affects gekko solve
+
+
+
 
 @xs.process
 class ModelContext:

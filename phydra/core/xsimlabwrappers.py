@@ -1,7 +1,7 @@
 import xsimlab as xs
 
-from ..processes.main import ModelCore, Solver
-from ..processes.statevars import Time
+from phydra.processes.main import ModelCore, Solver
+from phydra.processes.variables import Time
 
 
 def create(model_dict):
@@ -10,9 +10,9 @@ def create(model_dict):
 
     # TODO: is there any way to check if dims already exists in model?
     #   I think that happens in xs.model.. so perhaps I can include it in the wrappper?
-    #   Idea: I can simply check if there are two multifluxes of the same name in the model..
+    #   Idea: I can simply check if there are two multi_fluxes of the same name in the model..
 
-    model_dict.update({'Core': ModelCore, 'Solver': Solver, 'Time': Time})
+    model_dict.update({'Core': ModelCore, 'SolverABC': Solver, 'Time': Time})
     return xs.Model(model_dict)
 
 
@@ -20,7 +20,7 @@ def setup(solver, model, input_vars, output_vars, time=None):
     """ This function wraps create_setup and adds a dummy clock parameter
     necessary for model execution """
     if time is None:
-        raise Exception("Please supply (numpy) array of explicit timesteps to Time keyword argument")
+        raise Exception("Please supply (numpy) array of explicit timesteps to time keyword argument")
 
     input_vars.update({'Core__solver_type': solver,
                        'Time__time': time})

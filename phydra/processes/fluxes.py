@@ -118,7 +118,7 @@ class MultiTest2:
 
 #### SO there are separate stages:
 
-## 1. where I calculate the TOTAL portion of each flux, using an array of all SVs, Params etc.
+## 1. where I calculate the TOTAL portion of each flux, using an array of all variables, Params etc.
 
 ## 2. This Total is then run through a function
 # that returns the output portion for each SV involved and assigns that a specific Flux

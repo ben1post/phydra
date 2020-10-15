@@ -6,6 +6,77 @@ import numpy as np
 import time as tm
 
 from .converters import BaseConverter, GekkoConverter
+from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
+
+built_in_solvers = {'odeint': ODEINTSolver, 'gekko': GEKKOSolver, 'stepwise': StepwiseSolver}
+
+
+class PhydraModel:
+    """Backend model class
+    - collects all things relevant to the model instance (i.e. variables, parameters, ...)
+    - can be solved by passing it to the SolverABC class (that's where conversion (if necessary) happens)
+    TODO:
+        - boil it down to the basics
+        - solve with external SolverABC class
+    """
+
+    def __init__(self, solver):
+
+        self.time = None
+
+        if isinstance(solver, str):
+            self.Solver = built_in_solvers[solver]()
+        elif isinstance(solver, SolverABC):
+            self.Solver = solver
+        else:
+            raise Exception("Solver passed to PhydraModel is not built-in or subclass of SolverABC")
+
+        self.variables = defaultdict()
+        self.parameters = defaultdict()
+        self.forcings = defaultdict()
+        self.fluxes = defaultdict(list)
+        self.multi_fluxes = defaultdict()
+
+        self.sv_labels = None
+        self.sv_values = None
+
+    def __repr__(self):
+        return (f"Model contains: \n"
+                f"Variables:{[var for var in self.variables]} \n"
+                f"Parameters:{[par for par in self.parameters]} \n"
+                f"Forcings:{[forc for forc in self.forcings]} \n"
+                f"Fluxes:{[flx for flx in self.fluxes]} \n"
+                f"Multi-Fluxes:{[multflx for multflx in self.multi_fluxes]}")
+
+    def add_variable(self, label, initial_value=0):
+        """
+        function that takes the state variable setup as input
+        and returns the storage values
+        """
+        # the following step registers the values with gekko, but simply returns SV for odeint
+        self.variables[label] = self.Solver.add_variable(initial_value, self.time)
+
+        # return actual value store of variable, returned to XSimlab framework
+        return self.variables[label]
+
+    def assemble(self):
+        print("Assemble method is called within Model class")
+        self.Solver.assemble()
+
+    def solve(self, time_step):
+        print("Solve method is called within Model class")
+        self.Solver.solve(time_step)
+
+    def cleanup(self):
+        print("Cleanup method is called within Model class")
+        self.Solver.cleanup()
+
+
+
+
+
+
+######################################################
 
 
 class ModelBackend:
@@ -29,11 +100,11 @@ class ModelBackend:
         elif self.Solver == "gekko":
             self.core = GekkoConverter()
         else:
-            raise Exception("Please provide Solver type to core, can be 'gekko', 'odeint' or 'stepwise")
+            raise Exception("Please provide SolverABC type to core, can be 'gekko', 'odeint' or 'stepwise")
 
     def __repr__(self):
         return (f"Model contains: \n"
-                f"SVs:{self.SVs} \n"
+                f"variables:{self.SVs} \n"
                 f"Params:{self.Parameters} \n"
                 f"Forcings:{self.Forcings} \n"
                 f"Fluxes:{self.Fluxes}")
@@ -42,7 +113,7 @@ class ModelBackend:
         """
         function that takes the state variable setup as input
         and returns the storage values
-        and adds state variable to SVs defaultdict in the background
+        and adds state variable to variables defaultdict in the background
         """
         # the following step registers the values with gekko, but simply returns SV for odeint
         self.SVs[label] = self.core.convert(SV)
@@ -95,9 +166,6 @@ class ModelBackend:
                 else:
                     pass
 
-
-
-
         fluxes_out = []
         for label in self.sv_labels:
             sv_fluxes = []
@@ -111,7 +179,7 @@ class ModelBackend:
         return fluxes_out
 
     def assemble(self):
-        """Assembles model for all Solver types"""
+        """Assembles model for all SolverABC types"""
         self.sv_labels = [label for label in self.SVs.keys()]
         self.sv_values = [SV for SV in self.SVs.values()]
 
@@ -122,7 +190,7 @@ class ModelBackend:
         if self.Solver == "gekko":
             self.core.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
             self.core.gekko.options.NODES = 3  # improves solution accuracy
-            self.core.gekko.options.IMODE = 5  # 7  # sequential dynamic Solver
+            self.core.gekko.options.IMODE = 5  # 7  # sequential dynamic SolverABC
 
             self.gekko_solve()  # use option disp=True to print gekko output
 
@@ -133,7 +201,7 @@ class ModelBackend:
             self.step_solve(time_step)
 
         else:
-            raise Exception("Please provide Solver type to core, can be 'gekko', 'odeint' or 'stepwise")
+            raise Exception("Please provide SolverABC type to core, can be 'gekko', 'odeint' or 'stepwise")
 
     def step_solve(self, time_step):
         """XXX"""

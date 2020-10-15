@@ -2,7 +2,7 @@ import attr
 
 
 @attr.s
-class StateVariable:
+class Variable:
     name = attr.ib()
     initial_value = attr.ib(default=0.)
     value = attr.ib(default=None)
