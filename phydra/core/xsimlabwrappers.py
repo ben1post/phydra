@@ -1,6 +1,6 @@
 import xsimlab as xs
 
-from phydra.processes.main import ModelCore, Solver
+from phydra.processes.main import Backend, Solver
 from phydra.processes.variables import Time
 
 
@@ -12,7 +12,7 @@ def create(model_dict):
     #   I think that happens in xs.model.. so perhaps I can include it in the wrappper?
     #   Idea: I can simply check if there are two multi_fluxes of the same name in the model..
 
-    model_dict.update({'Core': ModelCore, 'SolverABC': Solver, 'Time': Time})
+    model_dict.update({'Core': Backend, 'Solver': Solver, 'Time': Time})
     return xs.Model(model_dict)
 
 

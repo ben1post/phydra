@@ -4,13 +4,13 @@ import scipy.interpolate as intrp
 
 import matplotlib.pyplot as plt
 
-from phydra.processes.main import ModelContext, Time
+from phydra.processes.main import Context, Time
 
 from phydra.utility.forcingdata import ClimatologyForcing
 
 
 @xs.process
-class Forcing(ModelContext):
+class Forcing(Context):
     label = xs.variable(intent='out')
     value = xs.variable(intent='out', dims='Time', groups='forcing_value')
     deriv = xs.variable(intent='out', dims='Time', groups='forcing_deriv')

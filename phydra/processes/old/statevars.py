@@ -1,11 +1,11 @@
 import numpy as np
 import xsimlab as xs
 
-from phydra.processes.main import ModelContext
+from phydra.processes.main import Context
 
 
 @xs.process
-class StateVariable(ModelContext):
+class StateVariable(Context):
     """ this process creates a single state variable with user specified label in our model """
     label = xs.variable(intent='out')
 
@@ -30,7 +30,7 @@ class StateVariable(ModelContext):
         )
 
 
-class FunctionalGroup(ModelContext):
+class FunctionalGroup(Context):
     """ creates array of state variables """
 
     label = xs.variable(intent='out', description='the label supplied at model initialisation')

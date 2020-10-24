@@ -1,10 +1,10 @@
 import numpy as np
 import xsimlab as xs
 
-from phydra.processes.main import ModelContext
+from phydra.processes.main import Context
 
 @xs.process
-class InFlux(ModelContext):
+class InFlux(Context):
     label = xs.variable(intent='out')
     value = xs.variable(intent='out', dims='Time')
 
@@ -27,14 +27,14 @@ class InFlux(ModelContext):
 
 
 @xs.process
-class EvansParslow_SlabPhysics(ModelContext):
+class EvansParslow_SlabPhysics(Context):
     """"""
     pass
 
 
 # FORCING FLUXES
 @xs.process
-class InputFlux(ModelContext):
+class InputFlux(Context):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -112,7 +112,7 @@ class Upwelling(InputFlux):
 
 
 @xs.process
-class LossFlux(ModelContext):
+class LossFlux(Context):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -176,7 +176,7 @@ class QuadraticLossFlux(LossFlux):
 
 
 @xs.process
-class LossMultiFlux(ModelContext):
+class LossMultiFlux(Context):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -268,7 +268,7 @@ class Mixing(LossMultiFlux):
         return self.SV * K
 
 @xs.process
-class InputMultiFlux(ModelContext):
+class InputMultiFlux(Context):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -317,7 +317,7 @@ class InputMultiFlux(ModelContext):
 # EXCHANGE FLUXES
 
 @xs.process
-class ExchangeFlux(ModelContext):
+class ExchangeFlux(Context):
     """
     Base class for a flux that defines an interaction between 2 state variables
 
@@ -437,7 +437,7 @@ class Growth_MultiLim(ExchangeFlux):
         return xs.process(new_cls)
 
 
-class GML_BaseFlux(ModelContext):
+class GML_BaseFlux(Context):
     """ Base LinearFlux for multi-limitation Growth """
 
     limiting_factor = xs.variable(intent='out', groups='not_initialized')
@@ -450,8 +450,8 @@ class GML_BaseFlux(ModelContext):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux
 
-          to access state variables, use cls argument
-          e.g. cls.source / (self.halfsat + cls.source)
+          to access state variables, use model argument
+          e.g. model.source / (self.halfsat + model.source)
           """
         raise ValueError('flux needs to be defined in GML_BaseFlux subclass')
 
@@ -526,7 +526,7 @@ class GML_SteeleLightLim(GML_BaseFlux):
 #########################################################
 
 @xs.process
-class GrazingFlux(ModelContext):
+class GrazingFlux(Context):
     """
     Base class for a flux that defines an interaction between 1 state variables and multiple others
     (i.e. grazing to SV + fraction egested to another SV + fraction excreted to another SV)
@@ -584,7 +584,7 @@ class GrazingFlux(ModelContext):
 
 
 @xs.process
-class GrazingFlux_MultiRessource(ModelContext):
+class GrazingFlux_MultiRessource(Context):
     """
     Base class for a flux that defines an interaction between 1 state variables and multiple others
     (i.e. grazing to SV + fraction egested to another SV + fraction excreted to another SV)

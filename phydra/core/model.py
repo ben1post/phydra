@@ -2,14 +2,6 @@ from collections import defaultdict
 from scipy.integrate import odeint
 import numpy as np
 
-# to measure process Time
-import time as tm
-
-from .converters import BaseConverter, GekkoConverter
-from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
-
-built_in_solvers = {'odeint': ODEINTSolver, 'gekko': GEKKOSolver, 'stepwise': StepwiseSolver}
-
 
 class PhydraModel:
     """Backend model class
@@ -20,16 +12,9 @@ class PhydraModel:
         - solve with external SolverABC class
     """
 
-    def __init__(self, solver):
+    def __init__(self):
 
         self.time = None
-
-        if isinstance(solver, str):
-            self.Solver = built_in_solvers[solver]()
-        elif isinstance(solver, SolverABC):
-            self.Solver = solver
-        else:
-            raise Exception("Solver passed to PhydraModel is not built-in or subclass of SolverABC")
 
         self.variables = defaultdict()
         self.parameters = defaultdict()
@@ -37,6 +22,7 @@ class PhydraModel:
         self.fluxes = defaultdict(list)
         self.multi_fluxes = defaultdict()
 
+        # following initialized at assemble (maybe remove extra step there?)
         self.sv_labels = None
         self.sv_values = None
 
@@ -48,28 +34,57 @@ class PhydraModel:
                 f"Fluxes:{[flx for flx in self.fluxes]} \n"
                 f"Multi-Fluxes:{[multflx for multflx in self.multi_fluxes]}")
 
-    def add_variable(self, label, initial_value=0):
+    def model_function(self, current_state, time=0):
+        """ general model function that matches fluxes to state variables
+
+        :param current_state:
+        :param time: argument is necessary for odeint solve
+        :return:
+
+        # TODO:
+        #   simplify multi_flux calc, by including subfunctions (i.e. self.multi_fluxes() to call here)
         """
-        function that takes the state variable setup as input
-        and returns the storage values
-        """
-        # the following step registers the values with gekko, but simply returns SV for odeint
-        self.variables[label] = self.Solver.add_variable(initial_value, self.time)
+        state = {label: val for label, val in zip(self.variables.keys(), current_state)}
 
-        # return actual value store of variable, returned to XSimlab framework
-        return self.variables[label]
+        _multi_fluxes_out = defaultdict(list)
 
-    def assemble(self):
-        print("Assemble method is called within Model class")
-        self.Solver.assemble()
+        for label, multiflx in self.multi_fluxes.items():
+            flx = multiflx['flux'](state=state, parameters=self.parameters, forcings=self.forcings)
 
-    def solve(self, time_step):
-        print("Solve method is called within Model class")
-        self.Solver.solve(time_step)
+            input_ = multiflx['routing']['INPUT']['labels']
+            input_partial = multiflx['routing']['INPUT']['partial_out']
+            output_ = multiflx['routing']['OUTPUT']['labels']
+            output_partial = multiflx['routing']['OUTPUT']['partial_out']
 
-    def cleanup(self):
-        print("Cleanup method is called within Model class")
-        self.Solver.cleanup()
+            if len(input_) == len(flx):
+                if input_partial is None:
+                    for sv_label, sub_flx in zip(input_, flx):
+                        _multi_fluxes_out[sv_label].append(sub_flx)
+                else:
+                    pass
+            elif len(input_) == 1:
+                _multi_fluxes_out[input_[0]].append(input_partial(flx))
+
+            if len(output_) == len(flx):
+                if output_partial is None:
+                    for sv_label, sub_flx in zip(output_, flx):
+                        _multi_fluxes_out[sv_label].append(-sub_flx)
+                else:
+                    pass
+
+        fluxes_out = []
+        for label in self.variables.keys():
+            sv_fluxes = []
+            for sub_flux in _multi_fluxes_out[label]:
+                sv_fluxes.append(sub_flux)
+            for flux in self.fluxes[label]:
+                sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
+
+            fluxes_out.append(sum(sv_fluxes))
+
+        return fluxes_out
+
+
 
 
 
@@ -137,46 +152,46 @@ class ModelBackend:
         else:
             pass
 
-    def model(self, current_state, time):
-        state = {label: val for label, val in zip(self.sv_labels, current_state)}
-
-        multifluxes = defaultdict(list)
-
-        for label, multiflx in self.MultiFluxes.items():
-            flx = multiflx['flux'](state=state, parameters=self.parameters, forcings=self.forcings)
-
-            input = multiflx['routing']['INPUT']['labels']
-            input_partial = multiflx['routing']['INPUT']['partial_out']
-            output = multiflx['routing']['OUTPUT']['labels']
-            output_partial = multiflx['routing']['OUTPUT']['partial_out']
-
-            if len(input) == len(flx):
-                if input_partial is None:
-                    for sv_label, sub_flx in zip(input, flx):
-                        multifluxes[sv_label].append(sub_flx)
-                else:
-                    pass
-            elif len(input) == 1:
-                multifluxes[input[0]].append(input_partial(flx))
-
-            if len(output) == len(flx):
-                if output_partial is None:
-                    for sv_label, sub_flx in zip(output, flx):
-                        multifluxes[sv_label].append(-sub_flx)
-                else:
-                    pass
-
-        fluxes_out = []
-        for label in self.sv_labels:
-            sv_fluxes = []
-            for sub_flux in multifluxes[label]:
-                sv_fluxes.append(sub_flux)
-            for flux in self.Fluxes[label]:
-                sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
-
-            fluxes_out.append(sum(sv_fluxes))
-
-        return fluxes_out
+    # def model(self, current_state, time):
+    #     state = {label: val for label, val in zip(self.sv_labels, current_state)}
+    #
+    #     multifluxes = defaultdict(list)
+    #
+    #     for label, multiflx in self.MultiFluxes.items():
+    #         flx = multiflx['flux'](state=state, parameters=self.parameters, forcings=self.forcings)
+    #
+    #         input = multiflx['routing']['INPUT']['labels']
+    #         input_partial = multiflx['routing']['INPUT']['partial_out']
+    #         output = multiflx['routing']['OUTPUT']['labels']
+    #         output_partial = multiflx['routing']['OUTPUT']['partial_out']
+    #
+    #         if len(input) == len(flx):
+    #             if input_partial is None:
+    #                 for sv_label, sub_flx in zip(input, flx):
+    #                     multifluxes[sv_label].append(sub_flx)
+    #             else:
+    #                 pass
+    #         elif len(input) == 1:
+    #             multifluxes[input[0]].append(input_partial(flx))
+    #
+    #         if len(output) == len(flx):
+    #             if output_partial is None:
+    #                 for sv_label, sub_flx in zip(output, flx):
+    #                     multifluxes[sv_label].append(-sub_flx)
+    #             else:
+    #                 pass
+    #
+    #     fluxes_out = []
+    #     for label in self.sv_labels:
+    #         sv_fluxes = []
+    #         for sub_flux in multifluxes[label]:
+    #             sv_fluxes.append(sub_flux)
+    #         for flux in self.Fluxes[label]:
+    #             sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
+    #
+    #         fluxes_out.append(sum(sv_fluxes))
+    #
+    #     return fluxes_out
 
     def assemble(self):
         """Assembles model for all SolverABC types"""

@@ -1,5 +1,3 @@
-from .parts import Parameter
-
 from ..processes.main import ThirdInit
 
 import xsimlab as xs
@@ -175,7 +173,7 @@ def flux(cls):
         input_args = {}
         for name in self.states:
             input_args[name['name']] = state[name['value']]
-        for name in self.forcings:
+        for name in self.forcs:
             input_args[name['name']] = forcings[name['value']]
         for name in self.pars:
             input_args[name] = parameters[self.label + '_' + name]
@@ -197,23 +195,22 @@ def flux(cls):
 
         self.states = []
         self.pars = []
-        self.forcings = []
+        self.forcs = []
         for key, varlist in flux_dict.items():
             for var in varlist:
                 var_value = getattr(self, var['var_name'])
                 # parameters var_value is a float, statevariable var_value is string!
                 if key is FluxVarType.PARAMETER:
                     self.pars.append(var['var_name'])
-                    self.m.Parameters[self.label + '_' + var['var_name']] = \
-                        Parameter(name=self.label + '_' + var['var_name'], value=var_value)
+                    self.m.Model.parameters[self.label + '_' + var['var_name']] = var_value
                 elif key is FluxVarType.STATEVARIABLE:
                     self.states.append({'value': var_value, 'name': var['var_name']})
                     if var['metadata']['flow'] is FluxVarFlow.OUTPUT:
-                        self.m.Fluxes[var_value].append(self.negative_flux)
+                        self.m.Model.fluxes[var_value].append(self.negative_flux)
                     elif var['metadata']['flow'] is FluxVarFlow.INPUT:
-                        self.m.Fluxes[var_value].append(self.flux)
+                        self.m.Model.fluxes[var_value].append(self.flux)
                 elif key is FluxVarType.FORCING:
-                    self.forcings.append({'value': var_value, 'name': var['var_name']})
+                    self.forcs.append({'value': var_value, 'name': var['var_name']})
 
     setattr(new_cls, 'initialize', initialize_flux)
 
@@ -254,7 +251,7 @@ def multiflux(cls):
 
         # print("self.states", self.states)
         # print("self.forcings", self.forcings)
-        # print("self.pars", self.pars)
+        # print("self.parameters", self.parameters)
 
         input_args = {}
 
@@ -265,7 +262,7 @@ def multiflux(cls):
                 input_args[var['keyword']] = state[var['value']]
         for var in self.forcings:
             input_args[var['keyword']] = forcings[var['value']]
-        for var in self.pars:
+        for var in self.parameters:
             input_args[var] = parameters[self.label + '_' + var]
 
         return cls.flux(**input_args)

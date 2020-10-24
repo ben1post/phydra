@@ -1,32 +1,28 @@
 from abc import ABC, abstractmethod
-from gekko import GEKKO
 import numpy as np
+
+from scipy.integrate import odeint
+from gekko import GEKKO
 
 
 class SolverABC(ABC):
-    """Backend solver class (or should I use a function instead?)
-    ## IMPORTANT: MAKE SURE THIS IS ADAPTABLE! allows using different solvers by user..
-
-    - takes Model class as input ?
-    hm, but how to pass data back and forth...
+    """ abstract base class of backend solver class,
+    use subclass to solve model within the Phydra framework
 
     TODO:
         - add all necessary abstract methods and add quick & dirty docs
     """
 
-    #def __init__(self, time):
-    #    self.time = time
-
     @abstractmethod
-    def add_variable(self, label, time):
+    def add_variable(self, label, initial_value, time):
         pass
 
     @abstractmethod
-    def assemble(self):
+    def assemble(self, model):
         pass
 
     @abstractmethod
-    def solve(self, time_step):
+    def solve(self, model, time_step):
         pass
 
     @abstractmethod
@@ -35,57 +31,109 @@ class SolverABC(ABC):
 
 
 class ODEINTSolver(SolverABC):
-    """ SolverABC can handle odeint solving of Model """
+    """ Solver that can handle odeint solving of Model """
 
-    def add_variable(self, label, time):
+    def __init__(self):
+        self.y_init = []
+
+    def add_variable(self, label, initial_value, time):
         """"""
+
+        if time is None:
+            raise Exception("To use odeint solver, model time needs to be supplied before adding variables")
+
+        # store initial values of variables to pass to odeint function
+        self.y_init.append(initial_value)
+
         value = np.zeros(np.shape(time))
         return value
 
-    def assemble(self):
-        print("Hiho there, this is assembling using", self.__class__)
+    def assemble(self, model):
         pass
 
-    def solve(self, time_step):
-        print("Hullo there, this is solving using", self.__class__)
-        pass
+    def solve(self, model, time_step):
+        print("start solve now")
+
+        state_out = odeint(model.model_function, self.y_init, model.time)
+
+        state_rows = (row for row in state_out.T)
+        state_dict = {y_label: values for y_label, values in zip(model.variables.keys(), state_rows)}
+
+        for var, val in zip(model.variables.values(), state_dict.values()):
+            var[:] = val
 
     def cleanup(self):
-        print("Well hullo again, this is cleaning up using", self.__class__)
         pass
 
-
-
-# TODO: FIX THESE BELOW; ONLY FOCUS ON ABOVE RIGHT NOW!
 
 class StepwiseSolver(SolverABC):
-    """ SolverABC can handle odeint solving of Model """
+    """ Solver that can handle stepwise calculation built into xarray-simlab framework """
 
-    def add_variable(self, label, time):
+    def add_variable(self, label, initial_value, time):
         """"""
-        variable.value = np.zeros(np.shape(time))
+        # return list of values to be appended to
+        variable = [initial_value]
         return variable
 
-    def solve(self):
-        print("Hullo there, this is solving using", self.__class__)
+    def assemble(self, model):
         pass
+
+    def solve(self, model, time_step):
+        sv_state = [var[-1] for var in model.variables.values()]
+        state_out = model.model_function(sv_state)
+        state_dict = {sv_label: value for sv_label, value in zip(model.variables.keys(), state_out)}
+
+        for var, val in zip(model.variables.values(), state_dict.values()):
+            state = var[-1] + val * time_step  # model returns derivative, this calculates value
+            var.append(state)
 
     def cleanup(self):
-        print("Well hullo again, this is cleaning up using", self.__class__)
         pass
-
 
 
 class GEKKOSolver(SolverABC):
-    """ SolverABC can handle odeint solving of Model """
+    """ Solver that can handle solving the model with GEKKO """
 
     def __init__(self):
         self.gekko = GEKKO(remote=False)
 
-    def solve(self):
-        print("Hullo there, this is solving using", self.__class__)
-        pass
+    def add_variable(self, label, initial_value, time):
+        """"""
+        # return list of values to be appended to
+        variable = self.gekko.SV(value=initial_value, name=label, lb=0)
+
+        # WARNING: SVs only positive for now! (lower bound = 0) might limit use cases
+        return variable
+
+    def assemble(self, model):
+        state_out = model.model_function(model.variables.values())
+        state_dict = {sv_label: eq for sv_label, eq in zip(model.variables.keys(), state_out)}
+
+        equations = []
+
+        for SV, label in zip(model.variables.values(), model.variables.keys()):
+            print(SV, state_dict[label])
+            try:
+                state_dict[label]
+            except KeyError:
+                # if not, define derivative as 0
+                equations.append(SV.dt() == 0)
+            else:
+                equations.append(SV.dt() == state_dict[label])
+
+        # create Equations
+        self.gekko.Equations(equations)
+
+        self.gekko.time = model.time
+
+        print([val.value for val in self.gekko.__dict__['_equations']])
+
+    def solve(self, model, time_step):
+        self.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
+        self.gekko.options.NODES = 3  # improves solution accuracy
+        self.gekko.options.IMODE = 5  # 7  # sequential dynamic Solver
+
+        self.gekko.solve(disp=False)  # use option disp=True to print gekko output
 
     def cleanup(self):
-        print("Well hullo again, this is cleaning up using", self.__class__)
-        pass
+        self.gekko.cleanup()

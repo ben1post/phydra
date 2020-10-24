@@ -1,7 +1,7 @@
 import xsimlab as xs
 import numpy as np
 
-from phydra.processes.main import ModelContext
+from phydra.processes.main import Context
 #from .fluxes import GrowthMultiFlux
 
 # TODO: \
@@ -12,7 +12,7 @@ from phydra.processes.main import ModelContext
 
 
 @xs.process
-class GrowthParameterSetup(ModelContext):
+class GrowthParameterSetup(Context):
     label = xs.variable(intent='out')
     parameter = 1 # xs.foreign(GrowthMultiFlux, 'halfsat', intent='out')
 

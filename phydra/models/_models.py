@@ -1,7 +1,7 @@
 import xsimlab as xs
 
 import phydra
-from phydra.processes.main import ModelCore
+from phydra.processes.main import Backend
 
 
 
@@ -9,7 +9,7 @@ from phydra.processes.main import ModelCore
 # simulate a
 
 Bootstrap_model = xs.Model({
-    'Grid': ModelCore
+    'Grid': Backend
 })
 
 
@@ -17,7 +17,7 @@ Bootstrap_model = xs.Model({
 # simulate a
 
 ZeroD_NPZD_Slab_model = xs.Model({
-    'Grid': ModelCore
+    'Grid': Backend
 })
 
 
@@ -25,7 +25,7 @@ ZeroD_NPZD_Slab_model = xs.Model({
 # simulate a
 
 ZeroD_NPxZx_Chemostat_model = xs.Model({
-    'Grid': ModelCore
+    'Grid': Backend
 })
 
 
@@ -33,7 +33,7 @@ ZeroD_NPxZx_Chemostat_model = xs.Model({
 # simulate a
 
 ZeroD_NPxZx_Slab_model = xs.Model({
-    'Grid': ModelCore
+    'Grid': Backend
 })
 
 
@@ -42,17 +42,17 @@ ZeroD_NPxZx_Slab_model = xs.Model({
 
 
 GridXY_NP_Chemostat_model = xs.Model({
-    'Grid': ModelCore,
+    'Grid': Backend,
 
-    'Env': ModelCore,
+    'Env': Backend,
 
-    'N': ModelCore, 'P': ModelCore,
+    'N': Backend, 'P': Backend,
 
-    'NP_uptake': ModelCore, 'P_Mortality': ModelCore,
+    'NP_uptake': Backend, 'P_Mortality': Backend,
 
-    'FX': ModelCore, 'Mix': ModelCore,
+    'FX': Backend, 'Mix': Backend,
 
-    'GX': ModelCore,
+    'GX': Backend,
 
-    'MS': ModelCore
+    'MS': Backend
 })

@@ -1,4 +1,3 @@
-from phydra.core.parts import Variable
 from .main import FirstInit, SecondInit
 
 import xsimlab as xs
@@ -22,16 +21,17 @@ class StateVariable(SecondInit):
 class Time(FirstInit):
     """Time is represented as a state variable"""
 
-    time = xs.variable(intent='in', dims='input_time', description='A sequence of Time points for which to solve for y.')
+    time = xs.variable(intent='in', dims='input_time',
+                       description='sequence of time points for which to solve the model')
     value = xs.variable(intent='out', dims='time')
 
     def initialize(self):
         print('Initializing Model Time')
-        self.m.Time = self.time
+        self.m.Model.time = self.time
 
         self.value = self.m.add_variable('time')
 
-        self.m.fluxes['time'].append(self.time_flux)
+        self.m.add_flux('time', self.time_flux)
 
     def time_flux(self, state, parameters, forcings):
         dtdt = 1

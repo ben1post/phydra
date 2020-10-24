@@ -8,4 +8,4 @@ from . import models
 
 from phydra.core.xsimlabwrappers import setup, create, update_setup
 
-from .core.flux import sv, param, fx, flux, multiflux
+from .core.flux_decorator import sv, param, fx, flux, multiflux
