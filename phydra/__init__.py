@@ -3,9 +3,11 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-from . import processes
+from . import components
 from . import models
 
-from phydra.core.xsimlabwrappers import setup, create, update_setup
+from .backend.variable import variable, parameter, forcing
 
-from .core.flux_decorator import sv, param, fx, flux, multiflux
+from .backend.component import comp, multiflux
+
+from phydra.backend.xsimlabwrappers import setup, create, update_setup

@@ -1,5 +1,8 @@
 import time as tm
 
+from attr._make import _CountingAttr
+
+
 from .model import PhydraModel
 from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
 
@@ -7,7 +10,7 @@ from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
 _built_in_solvers = {'odeint': ODEINTSolver, 'gekko': GEKKOSolver, 'stepwise': StepwiseSolver}
 
 
-class PhydraBackend:
+class PhydraCore:
     """"""
     def __init__(self, solver):
 
@@ -34,8 +37,34 @@ class PhydraBackend:
         # return actual value store of variable to xsimlab framework
         return self.Model.variables[label]
 
-    def add_flux(self, label, flux):
-        self.Model.fluxes[label].append(flux)
+    def add_flux(self, variable, flux_dict):
+        print("ADDING FLUX NOW IN BACKEND")
+        print(variable, flux_dict)
+
+        if flux_dict['negative'] is True:
+            self.Model.fluxes[variable].append(flux.negative_flux)
+        elif flux_dict['negative'] is False:
+            self.Model.fluxes[variable].append(flux.comp)
+
+        for var_name, var in flux.flux_dict.items():
+            print(var_name, var)
+
+            if isinstance(var, _CountingAttr):
+                print('HELAU')
+                var_value = getattr(flux, var_name)
+                var_type = var.metadata.get('var_type')
+                var_flow = var.metadata.get('flow')
+
+                print('FLOW', var_flow, '\n \n TYPE', var_type, '\n \n NAME', var_name, '\n \n value ',var_value)
+
+                # parameters var_name is a float, statevariable var_name is string!
+                if var_type is FluxVarType.PARAMETER:
+                    self.Model.parameters[label + '_' + var_name] = var_value
+                elif var_type is FluxVarType.VARIABLE:
+                    if var_flow is FluxVarFlow.OUTPUT:
+                        self.Model.fluxes[var_value].append(flux.negative_flux)
+                    elif var_flow is FluxVarFlow.INPUT:
+                        self.Model.fluxes[var_value].append(flux.comp)
 
     def assemble(self):
         self.Solver.assemble(self.Model)
@@ -43,6 +72,8 @@ class PhydraBackend:
         self.solve_start = tm.time()
 
     def solve(self, time_step):
+
+        print(self.Model)
 
         if self.Model.time is None:
             raise Exception('Time needs to be supplied to Model before solve')

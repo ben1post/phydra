@@ -1,40 +1,64 @@
 import phydra
 
+@phydra.comp(init_stage=3)
+class LinearInput:
+    var = phydra.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
+    rate = phydra.parameter(description='linear rate of change')
+
+    def input(var, rate):
+        return var * rate
+
+
+
+
+
+################################################################################################################
+
+################################################################################################################
+
+################OLD#CODE########################################################################################
+
+################################################################################################################
+
+################################################################################################################
+
+################################################################################################################
+
 # Standard Linear Fluxes:
-@phydra.flux
+@phydra.comp
 class LinearOutputFlux:
-    sv = phydra.sv(flow='output', description='state variable affected by flux')
-    rate = phydra.param(description='flowing rate')
+    sv = phydra.variable(description='state variable affected by flux')
+    rate = phydra.parameter(description='flowing rate')
 
     def flux(sv, rate):
         return sv * rate
 
 
-@phydra.flux
+@phydra.comp
 class LinearInputFlux:
-    sv = phydra.sv(flow='input', description='state variable affected by flux')
-    rate = phydra.param(description='flowing rate')
+    sv = phydra.variable(description='state variable affected by flux')
+    rate = phydra.parameter(description='flowing rate')
 
     def flux(sv, rate):
         return sv * rate
 
 
-@phydra.flux
+@phydra.comp
 class ForcingLinearInputFlux:
-    sv = phydra.sv(flow='input', description='state variable affected by forcing flux')
-    fx = phydra.fx(description='forcing affecting rate')
-    rate = phydra.param(description='flowing rate')
+    sv = phydra.variable(description='state variable affected by forcing flux')
+    fx = phydra.forcing(description='forcing affecting rate')
+    rate = phydra.parameter(description='flowing rate')
 
     def flux(sv, fx, rate):
         return fx * rate
 
 
 # Michaelis Menten Flux
-@phydra.flux
+@phydra.comp
 class MonodUptake:
-    resource = phydra.sv(flow='output')
-    consumer = phydra.sv(flow='input')
-    halfsat = phydra.param(description='half saturation constant')
+    resource = phydra.variable()
+    consumer = phydra.variable()
+    halfsat = phydra.parameter(description='half saturation constant')
 
     def flux(resource, consumer, halfsat):
         return resource / (resource + halfsat) * consumer
@@ -47,13 +71,13 @@ class MonodUptake:
 
 
 # Grazing Flux
-@phydra.flux
+@phydra.comp
 class HollingTypeIIIGrazing:
-    resource = phydra.sv(flow='output')
-    consumer = phydra.sv(flow='input')
-    feed_pref = phydra.param(description='feeding preferences')
-    Imax = phydra.param(description='maximum ingestion rate')
-    kZ = phydra.param(description='feeding preferences')
+    resource = phydra.variable()
+    consumer = phydra.variable()
+    feed_pref = phydra.parameter(description='feeding preferences')
+    Imax = phydra.parameter(description='maximum ingestion rate')
+    kZ = phydra.parameter(description='feeding preferences')
 
     def flux(resource, consumer, feed_pref, Imax, kZ):
         return Imax * resource ** 2 \
@@ -63,11 +87,11 @@ class HollingTypeIIIGrazing:
 #   and simplify the routing of output?
 
 
-@phydra.multiflux
+@phydra.comp
 class MultiLossTest:
-    sources = phydra.sv(flow='output', dims='MultiLoss')
-    sink = phydra.sv(flow='input', partial_out='sink_out')
-    rate = phydra.param(dims=[(), 'MultiLoss'])
+    sources = phydra.variable(dims='MultiLoss')
+    sink = phydra.variable(partial_out='sink_out')
+    rate = phydra.parameter(dims=[(), 'MultiLoss'])
 
     def flux(sources, sink, rate):
         return sources * rate
@@ -79,11 +103,11 @@ class MultiLossTest:
 
 
 
-@phydra.multiflux
+@phydra.comp
 class MultiTest2:
-    svs_input = phydra.sv(flow='output', dims='Multi_input')
-    svs_output = phydra.sv(flow='output', dims='Multi_output')
-    rate = phydra.param()
+    svs_input = phydra.variable(dims='Multi_input')
+    svs_output = phydra.variable(dims='Multi_output')
+    rate = phydra.parameter()
 
     def flux(svs_input, svs_output, rate):
         # TODO: SO I WANT THIS FUNCTION TO BE ONLY CALLED ONCE at each step
@@ -128,7 +152,7 @@ class MultiTest2:
 
 
 # OKAY, so in order to get sv input either as FuncGroup or List, I need to add a dim to the xs.var
-# the next step is how it retrieves the states of the input labels within the flux function
+# the next step is how it retrieves the vars of the input labels within the flux function
 # and how it assigns the fluxes to thoses state variabes
 
 # FOR NOW I DON'T NEED TO CARE ABOUT FUNC GROUPS!
@@ -159,10 +183,10 @@ class MultiTest2:
 
 import xsimlab as xs
 
-@phydra.flux
+@phydra.comp
 class PartialOutputLossTest:
-    egested = phydra.sv(flow='output')#, partial='egestion')
-    rate = phydra.param()
+    egested = phydra.variable()#, partial='egestion')
+    rate = phydra.parameter()
     egested_frac = xs.variable(intent='in')
 
     # in flux, state comes in, flux needs to unpack full list to array

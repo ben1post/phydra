@@ -1,7 +1,7 @@
 import xsimlab as xs
 import numpy as np
 
-from phydra.processes.main import Context
+from phydra.components.main import Context
 #from .fluxes import GrowthMultiFlux
 
 # TODO: \

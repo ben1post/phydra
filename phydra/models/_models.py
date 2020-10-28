@@ -1,11 +1,11 @@
 import xsimlab as xs
 
 import phydra
-from phydra.processes.main import Backend
+from phydra.components.main import Backend
 
 
 
-# ``Bootstrap model`` has the minimal set of processes required to
+# ``Bootstrap model`` has the minimal set of components required to
 # simulate a
 
 Bootstrap_model = xs.Model({
@@ -13,7 +13,7 @@ Bootstrap_model = xs.Model({
 })
 
 
-# ``NPZD Slab model`` has the minimal set of processes required to
+# ``NPZD Slab model`` has the minimal set of components required to
 # simulate a
 
 ZeroD_NPZD_Slab_model = xs.Model({
@@ -21,7 +21,7 @@ ZeroD_NPZD_Slab_model = xs.Model({
 })
 
 
-# ``ZeroD NPxZx Chemostat model`` has the minimal set of processes required to
+# ``ZeroD NPxZx Chemostat model`` has the minimal set of components required to
 # simulate a
 
 ZeroD_NPxZx_Chemostat_model = xs.Model({
@@ -29,7 +29,7 @@ ZeroD_NPxZx_Chemostat_model = xs.Model({
 })
 
 
-# ``ZeroD NPxZx Slab model`` has the minimal set of processes required to
+# ``ZeroD NPxZx Slab model`` has the minimal set of components required to
 # simulate a
 
 ZeroD_NPxZx_Slab_model = xs.Model({
@@ -37,7 +37,7 @@ ZeroD_NPxZx_Slab_model = xs.Model({
 })
 
 
-# ``GridXY Chemostat model`` has a minimal set of processes for a
+# ``GridXY Chemostat model`` has a minimal set of components for a
 # 2-dimensional model, with Nutrients and Phytoplankton as components
 
 

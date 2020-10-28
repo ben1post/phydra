@@ -1,7 +1,7 @@
 import numpy as np
 import xsimlab as xs
 
-from phydra.processes.main import Context
+from phydra.components.main import Context
 
 
 @xs.process

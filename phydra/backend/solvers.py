@@ -17,6 +17,23 @@ class SolverABC(ABC):
     def add_variable(self, label, initial_value, time):
         pass
 
+    def add_flux(self, model, flux_dict):
+        for var_name, var in flux_dict.items():
+            if isinstance(var, _CountingAttr):
+                print(var)
+                var_value = getattr(self, var_name)
+                var_type = var.metadata.get('var_type')
+                var_flow = var.metadata.get('flow')
+                print(var_flow, var_type, var_name)
+                # parameters var_name is a float, statevariable var_name is string!
+                if var_type is FluxVarType.PARAMETER:
+                    self.m.Model.parameters[self.label + '_' + var_name] = var_value
+                elif var_type is FluxVarType.VARIABLE:
+                    if var_flow is FluxVarFlow.OUTPUT:
+                        self.m.Model.fluxes[var_value].append(self.negative_flux)
+                    elif var_flow is FluxVarFlow.INPUT:
+                        self.m.Model.fluxes[var_value].append(self.flux)
+
     @abstractmethod
     def assemble(self, model):
         pass
@@ -45,8 +62,7 @@ class ODEINTSolver(SolverABC):
         # store initial values of variables to pass to odeint function
         self.y_init.append(initial_value)
 
-        value = np.zeros(np.shape(time))
-        return value
+        return np.zeros(np.shape(time))
 
     def assemble(self, model):
         pass
@@ -71,9 +87,8 @@ class StepwiseSolver(SolverABC):
 
     def add_variable(self, label, initial_value, time):
         """"""
-        # return list of values to be appended to
-        variable = [initial_value]
-        return variable
+        # return list to be appended to
+        return [initial_value]
 
     def assemble(self, model):
         pass
@@ -100,26 +115,25 @@ class GEKKOSolver(SolverABC):
     def add_variable(self, label, initial_value, time):
         """"""
         # return list of values to be appended to
-        variable = self.gekko.SV(value=initial_value, name=label, lb=0)
-
-        # WARNING: SVs only positive for now! (lower bound = 0) might limit use cases
-        return variable
+        return self.gekko.SV(value=initial_value, name=label, lb=0)
 
     def assemble(self, model):
+        model.parameters
+
         state_out = model.model_function(model.variables.values())
-        state_dict = {sv_label: eq for sv_label, eq in zip(model.variables.keys(), state_out)}
+        state_dict = {label: eq for label, eq in zip(model.variables.keys(), state_out)}
 
         equations = []
 
-        for SV, label in zip(model.variables.values(), model.variables.keys()):
-            print(SV, state_dict[label])
+        for label, var in model.variables.items():
+            print(var, state_dict[label])
             try:
                 state_dict[label]
             except KeyError:
                 # if not, define derivative as 0
-                equations.append(SV.dt() == 0)
+                equations.append(var.dt() == 0)
             else:
-                equations.append(SV.dt() == state_dict[label])
+                equations.append(var.dt() == state_dict[label])
 
         # create Equations
         self.gekko.Equations(equations)

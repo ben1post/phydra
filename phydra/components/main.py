@@ -1,28 +1,27 @@
 import xsimlab as xs
 
-from phydra.core.backend import PhydraBackend
+from phydra.backend.core import PhydraCore
 
 
 @xs.process
 class Backend:
-    """this object contains the backend model and is modified or read by all other processes"""
+    """this object contains the backend model and is modified or read by all other components"""
 
     solver_type = xs.variable(intent='in')
-    m = xs.any_object(description='model core instance is stored here')
+    m = xs.any_object(description='model backend instance is stored here')
 
     def initialize(self):
-        print('initializing model core')
-        self.m = PhydraBackend(self.solver_type)
+        print('initializing model backend')
+        self.m = PhydraCore(self.solver_type)
 
     def finalize(self):
         print('finalizing: cleanup')
         self.m.cleanup()  # for now only affects gekko solve
 
 
-
 @xs.process
 class Context:
-    """ Inherited by all other model processes to access GekkoCore"""
+    """ Inherited by all other model components to access backend"""
     m = xs.foreign(Backend, 'm')
 
     label = xs.variable(intent='out', groups='label')
@@ -31,18 +30,20 @@ class Context:
         print('calling model context')
         self.label = self.__xsimlab_name__  # assign given label to all subclasses
 
+
 @xs.process
 class FirstInit(Context):
-    """ Inherited by all other model processes to access GekkoCore"""
+    """ Inherited by all other model components to access backend"""
     group = xs.variable(intent='out', groups='FirstInit')
 
     def initialize(self):
         super(FirstInit, self).initalize()
         self.group = 1
 
+
 @xs.process
 class SecondInit(Context):
-    """ Inherited by all other model processes to access GekkoCore"""
+    """ Inherited by all other model components to access backend"""
     firstinit = xs.group('FirstInit')
     group = xs.variable(intent='out', groups='SecondInit')
 
@@ -53,7 +54,7 @@ class SecondInit(Context):
 
 @xs.process
 class ThirdInit(Context):
-    """ Inherited by all other model processes to access GekkoCore"""
+    """ Inherited by all other model components to access backend"""
     firstinit = xs.group('FirstInit')
     secondinit = xs.group('SecondInit')
     group = xs.variable(intent='out', groups='ThirdInit')
@@ -71,7 +72,7 @@ class Solver(Context):
     thirdinit = xs.group('ThirdInit')
 
     def initialize(self):
-        """TODO: assemble model + equations here"""
+        """"""
         print("assembling model")
         print("SOLVER :", self.m.Solver)
         self.m.assemble()

@@ -1,12 +1,12 @@
 import xsimlab as xs
 
-from phydra.processes.main import Backend, Solver
-from phydra.processes.variables import Time
+from phydra.components.main import Backend, Solver
+from phydra.components.variables import Time
 
 
 def create(model_dict):
     """Function creates xsimlab Model instance,
-    automatically adding the necessary model core, solver and time processes"""
+    automatically adding the necessary model backend, solver and time components"""
 
     # TODO: is there any way to check if dims already exists in model?
     #   I think that happens in xs.model.. so perhaps I can include it in the wrappper?

@@ -4,7 +4,7 @@ import scipy.interpolate as intrp
 
 import matplotlib.pyplot as plt
 
-from phydra.processes.main import Context, Time
+from phydra.components.main import Context, Time
 
 from phydra.utility.forcingdata import ClimatologyForcing
 

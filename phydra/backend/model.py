@@ -74,14 +74,15 @@ class PhydraModel:
 
         fluxes_out = []
         for label in self.variables.keys():
+            print(label)
             sv_fluxes = []
             for sub_flux in _multi_fluxes_out[label]:
                 sv_fluxes.append(sub_flux)
             for flux in self.fluxes[label]:
                 sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
-
+            print("SV FLUXES", sv_fluxes)
             fluxes_out.append(sum(sv_fluxes))
-
+        print("fluxes out", fluxes_out)
         return fluxes_out
 
 
@@ -115,7 +116,7 @@ class ModelBackend:
         elif self.Solver == "gekko":
             self.core = GekkoConverter()
         else:
-            raise Exception("Please provide SolverABC type to core, can be 'gekko', 'odeint' or 'stepwise")
+            raise Exception("Please provide SolverABC type to backend, can be 'gekko', 'odeint' or 'stepwise")
 
     def __repr__(self):
         return (f"Model contains: \n"
@@ -216,7 +217,7 @@ class ModelBackend:
             self.step_solve(time_step)
 
         else:
-            raise Exception("Please provide SolverABC type to core, can be 'gekko', 'odeint' or 'stepwise")
+            raise Exception("Please provide SolverABC type to backend, can be 'gekko', 'odeint' or 'stepwise")
 
     def step_solve(self, time_step):
         """XXX"""
@@ -275,7 +276,7 @@ class ModelBackend:
 
         self.core.gekko.time = self.Time
 
-        # print(self.core.gekko.__dict__)
+        # print(self.backend.gekko.__dict__)
         print([val.value for val in self.core.gekko.__dict__['_equations']])
 
         solve_start = tm.time()
