@@ -10,16 +10,6 @@ class SV:
 
     var = phydra.variable(description='basic state variable')
 
-    #
-    # init = xs.variable(intent='in', description='initial value for state variable')
-    # value = xs.variable(intent='out', dims='time', description='value output of state variable')
-    #
-    # def initialize(self):
-    #     super(SV, self).initialize()  # handles initialization stages
-    #     print(f"initializing state variable {self.label}")
-    #
-    #     self.value = self.m.add_variable(self.label, initial_value=self.init)
-
 
 @xs.process
 class OldSV(SecondInit):
@@ -64,7 +54,7 @@ class Time(FirstInit):
 
         self.value = self.m.add_variable('time')
 
-        self.m.Model.fluxes['time'].append(self.time_flux)
+        self.m.Model.fluxes_per_var['time'].append(self.time_flux)
 
     def time_flux(self, state, parameters, forcings):
         dtdt = 1

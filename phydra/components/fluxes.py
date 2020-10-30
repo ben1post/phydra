@@ -1,11 +1,13 @@
 import phydra
 
+
 @phydra.comp(init_stage=3)
-class LinearInput:
-    var = phydra.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
+class ExponentialGrowth:
+    var = phydra.variable(foreign=True, flux='input', negative=True, description='variable affected by flux')
     rate = phydra.parameter(description='linear rate of change')
 
     def input(var, rate):
+        """ """
         return var * rate
 
 

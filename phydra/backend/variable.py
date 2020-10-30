@@ -11,16 +11,6 @@ class FluxVarType(Enum):
     FORCING = "forcing"
 
 
-class FluxVarFlow(Enum):
-    INPUT = "input"
-    OUTPUT = "output"
-
-
-class FluxVarIntent(Enum):
-    IN = "in"
-    OUT = "out"
-
-
 def variable(foreign=False,
         flux=None, negative=False, dims=[()], partial_out=None, sub_label=None, description='', attrs=None):
 
@@ -45,7 +35,7 @@ def forcing(foreign=False,
     metadata = {
         "var_type": FluxVarType.FORCING,
         "foreign": foreign,
-        "intent": FluxVarIntent(intent),
+        "intent": intent,
         "dims": dims,
         "sub_label": sub_label,
         "attrs": attrs or {},
@@ -61,7 +51,7 @@ def parameter(foreign=False,
     metadata = {
         "var_type": FluxVarType.PARAMETER,
         "foreign": foreign,
-        "intent": FluxVarIntent(intent),
+        "intent": intent,
         "dims": dims,
         "sub_label": sub_label,
         "attrs": attrs or {},

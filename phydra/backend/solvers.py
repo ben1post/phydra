@@ -17,22 +17,13 @@ class SolverABC(ABC):
     def add_variable(self, label, initial_value, time):
         pass
 
-    def add_flux(self, model, flux_dict):
-        for var_name, var in flux_dict.items():
-            if isinstance(var, _CountingAttr):
-                print(var)
-                var_value = getattr(self, var_name)
-                var_type = var.metadata.get('var_type')
-                var_flow = var.metadata.get('flow')
-                print(var_flow, var_type, var_name)
-                # parameters var_name is a float, statevariable var_name is string!
-                if var_type is FluxVarType.PARAMETER:
-                    self.m.Model.parameters[self.label + '_' + var_name] = var_value
-                elif var_type is FluxVarType.VARIABLE:
-                    if var_flow is FluxVarFlow.OUTPUT:
-                        self.m.Model.fluxes[var_value].append(self.negative_flux)
-                    elif var_flow is FluxVarFlow.INPUT:
-                        self.m.Model.fluxes[var_value].append(self.flux)
+    @abstractmethod
+    def add_parameter(self, label, value):
+        pass
+
+    @abstractmethod
+    def add_flux(self, label, flux, time):
+        pass
 
     @abstractmethod
     def assemble(self, model):
@@ -54,20 +45,33 @@ class ODEINTSolver(SolverABC):
         self.y_init = []
 
     def add_variable(self, label, initial_value, time):
-        """"""
+        """ this returns storage container """
 
         if time is None:
-            raise Exception("To use odeint solver, model time needs to be supplied before adding variables")
+            raise Exception("To use ODEINT solver, model time needs to be supplied before adding variables")
 
         # store initial values of variables to pass to odeint function
         self.y_init.append(initial_value)
 
         return np.zeros(np.shape(time))
 
+    def add_parameter(self, label, value):
+        """ """
+        return value
+
+    def add_flux(self, label, flux, time):
+        """ this returns storage container """
+        if time is None:
+            raise Exception("To use ODEINT solver, model time needs to be supplied before adding variables")
+
+        return np.zeros(np.shape(time))
+
     def assemble(self, model):
+        """ """
         pass
 
     def solve(self, model, time_step):
+        """ """
         print("start solve now")
 
         state_out = odeint(model.model_function, self.y_init, model.time)
@@ -86,9 +90,16 @@ class StepwiseSolver(SolverABC):
     """ Solver that can handle stepwise calculation built into xarray-simlab framework """
 
     def add_variable(self, label, initial_value, time):
-        """"""
+        """ """
         # return list to be appended to
         return [initial_value]
+
+    def add_parameter(self, label, value):
+        """ """
+        return value
+
+    def add_flux(self, label, flux, time):
+        return [np.nan]
 
     def assemble(self, model):
         pass
@@ -117,8 +128,14 @@ class GEKKOSolver(SolverABC):
         # return list of values to be appended to
         return self.gekko.SV(value=initial_value, name=label, lb=0)
 
+    def add_parameter(self, label, value):
+        # this needs to be sub-delegated to solver (hence it is)
+        # TODO:
+        #  particular use case: for GEKKO! add gekko.param() to backend
+        return self.gekko.Param(value=value, name=label)
+
     def assemble(self, model):
-        model.parameters
+        #model.parameters
 
         state_out = model.model_function(model.variables.values())
         state_dict = {label: eq for label, eq in zip(model.variables.keys(), state_out)}
