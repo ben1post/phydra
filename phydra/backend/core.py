@@ -1,8 +1,5 @@
 import time as tm
 
-from attr._make import _CountingAttr
-
-
 from .model import PhydraModel
 from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
 
@@ -41,20 +38,29 @@ class PhydraCore:
         self.Model.parameters[label] = self.Solver.add_parameter(label, value)
 
     def add_flux(self, process_label, var_label, flux):
-
+        """"""
         label = process_label + '_' + flux.__name__
 
-        self.Model.fluxes[label] = self.Solver.add_flux(label, flux, self.Model.time)
-        self.Model.fluxes_per_var[var_label].append(flux)
+        # to store flux function:
+        self.Model.fluxes[label] = flux
+        # to store flux value:
+        self.Model.flux_values[label] = self.Solver.add_flux(label, flux, self.Model)
+        # to store var - flux connection:
+        self.Model.fluxes_per_var[var_label].append(label)
 
-        return self.Model.fluxes[label]
+        return self.Model.flux_values[label]
 
     def assemble(self):
+        for key, value in self.Model.variables.items():
+            self.Model.full_model_state[key] = value
+        for key, value in self.Model.flux_values.items():
+            self.Model.full_model_state[key] = value
+
         self.Solver.assemble(self.Model)
+
         self.solve_start = tm.time()
 
     def solve(self, time_step):
-        print(self.Model)
         if self.Model.time is None:
             raise Exception('Time needs to be supplied to Model before solve')
         self.Solver.solve(self.Model, time_step)

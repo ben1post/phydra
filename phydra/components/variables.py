@@ -12,6 +12,28 @@ class SV:
 
 
 @xs.process
+class Time(FirstInit):
+    """Time is represented as a state variable"""
+
+    time = xs.variable(intent='in', dims='input_time',
+                       description='sequence of time points for which to solve the model')
+    value = xs.variable(intent='out', dims='time')
+
+    def initialize(self):
+        print('Initializing Model Time')
+        self.label = self.__xsimlab_name__
+        self.m.Model.time = self.time
+
+        self.value = self.m.add_variable('time')
+
+        self.m.add_flux(self.label, 'time', self.time_flux)
+
+    def time_flux(self, state, parameters, forcings):
+        dtdt = 1
+        return dtdt
+
+
+@xs.process
 class OldSV(SecondInit):
     """represents a state variable in the model"""
 
@@ -38,24 +60,3 @@ class SV_Array(SecondInit):
         print(f"initializing state variable {self.label}")
 
         self.value = self.m.add_variable(self.label, initial_value=self.init)
-
-
-@xs.process
-class Time(FirstInit):
-    """Time is represented as a state variable"""
-
-    time = xs.variable(intent='in', dims='input_time',
-                       description='sequence of time points for which to solve the model')
-    value = xs.variable(intent='out', dims='time')
-
-    def initialize(self):
-        print('Initializing Model Time')
-        self.m.Model.time = self.time
-
-        self.value = self.m.add_variable('time')
-
-        self.m.Model.fluxes_per_var['time'].append(self.time_flux)
-
-    def time_flux(self, state, parameters, forcings):
-        dtdt = 1
-        return dtdt

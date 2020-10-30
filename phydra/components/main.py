@@ -26,8 +26,7 @@ class Context:
 
     label = xs.variable(intent='out', groups='label')
 
-    def initalize(self):
-        print('calling model context')
+    def initialize(self):
         self.label = self.__xsimlab_name__  # assign given label to all subclasses
 
 
@@ -37,7 +36,7 @@ class FirstInit(Context):
     group = xs.variable(intent='out', groups='FirstInit')
 
     def initialize(self):
-        super(FirstInit, self).initalize()
+        super(FirstInit, self).initialize()
         self.group = 1
 
 
@@ -48,7 +47,7 @@ class SecondInit(Context):
     group = xs.variable(intent='out', groups='SecondInit')
 
     def initialize(self):
-        super(SecondInit, self).initalize()
+        super(SecondInit, self).initialize()
         self.group = 2
 
 
@@ -60,7 +59,7 @@ class ThirdInit(Context):
     group = xs.variable(intent='out', groups='ThirdInit')
 
     def initialize(self):
-        super(ThirdInit, self).initalize()
+        super(ThirdInit, self).initialize()
         self.group = 3
 
 
@@ -79,6 +78,5 @@ class Solver(Context):
 
     @xs.runtime(args="step_delta")
     def run_step(self, dt):
-        # print("pre-solve:", self.m.Time, self.m)
         self.m.solve(dt)
 

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+from collections import defaultdict
 
 from scipy.integrate import odeint
 from gekko import GEKKO
@@ -42,7 +43,8 @@ class ODEINTSolver(SolverABC):
     """ Solver that can handle odeint solving of Model """
 
     def __init__(self):
-        self.y_init = []
+        self.var_init = defaultdict()
+        self.flux_init = defaultdict()
 
     def add_variable(self, label, initial_value, time):
         """ this returns storage container """
@@ -51,7 +53,7 @@ class ODEINTSolver(SolverABC):
             raise Exception("To use ODEINT solver, model time needs to be supplied before adding variables")
 
         # store initial values of variables to pass to odeint function
-        self.y_init.append(initial_value)
+        self.var_init[label] = initial_value
 
         return np.zeros(np.shape(time))
 
@@ -59,12 +61,19 @@ class ODEINTSolver(SolverABC):
         """ """
         return value
 
-    def add_flux(self, label, flux, time):
+    def add_flux(self, label, flux, model):
         """ this returns storage container """
-        if time is None:
-            raise Exception("To use ODEINT solver, model time needs to be supplied before adding variables")
 
-        return np.zeros(np.shape(time))
+        if model.time is None:
+            raise Exception("To use ODEINT solver, model time needs to be supplied before adding fluxes")
+
+        var_in_dict = defaultdict()
+        for var, value in model.variables.items():
+            var_in_dict[var] = self.var_init[var]
+
+        self.flux_init[label] = flux(state=var_in_dict, parameters=model.parameters, forcings=model.forcings)
+
+        return np.zeros(np.shape(model.time))
 
     def assemble(self, model):
         """ """
@@ -73,14 +82,21 @@ class ODEINTSolver(SolverABC):
     def solve(self, model, time_step):
         """ """
         print("start solve now")
+        full_init = np.concatenate([[val for val in self.var_init.values()],
+                                    [val for val in self.flux_init.values()]], axis=None)
 
-        state_out = odeint(model.model_function, self.y_init, model.time)
+        full_model_out = odeint(model.model_function, full_init, model.time)
 
-        state_rows = (row for row in state_out.T)
-        state_dict = {y_label: values for y_label, values in zip(model.variables.keys(), state_rows)}
+        state_rows = (row for row in full_model_out.T)
+        state_dict = {y_label: values for y_label, values in zip(model.full_model_state.keys(), state_rows)}
 
-        for var, val in zip(model.variables.values(), state_dict.values()):
-            var[:] = val
+        for var, val in model.variables.items():
+            state = state_dict[var]
+            val[:] = state
+
+        for var, val in model.flux_values.items():
+            state = state_dict[var]
+            val[:] = np.concatenate([state[0], np.diff(state) / time_step], axis=None)
 
     def cleanup(self):
         pass
@@ -98,20 +114,28 @@ class StepwiseSolver(SolverABC):
         """ """
         return value
 
-    def add_flux(self, label, flux, time):
-        return [np.nan]
+    def add_flux(self, label, flux, model):
+        var_in_dict = defaultdict()
+        for var, value in model.variables.items():
+            var_in_dict[var] = value[-1]
+        return [flux(state=var_in_dict, parameters=model.parameters, forcings=model.forcings)]
 
     def assemble(self, model):
+        print(model)
         pass
 
     def solve(self, model, time_step):
-        sv_state = [var[-1] for var in model.variables.values()]
-        state_out = model.model_function(sv_state)
-        state_dict = {sv_label: value for sv_label, value in zip(model.variables.keys(), state_out)}
+        model_state = [var[-1] for var in model.full_model_state.values()]
+        state_out = model.model_function(model_state)
+        state_dict = {label: value for label, value in zip(model.full_model_state.keys(), state_out)}
 
-        for var, val in zip(model.variables.values(), state_dict.values()):
-            state = var[-1] + val * time_step  # model returns derivative, this calculates value
-            var.append(state)
+        for var, val in model.variables.items():
+            state = val[-1] + state_dict[var] * time_step  # model returns derivative, this calculates value
+            val.append(state)
+
+        for var, val in model.flux_values.items():
+            state = state_dict[var]
+            val.append(state)
 
     def cleanup(self):
         pass
@@ -123,27 +147,29 @@ class GEKKOSolver(SolverABC):
     def __init__(self):
         self.gekko = GEKKO(remote=False)
 
-    def add_variable(self, label, initial_value, time):
+    def add_variable(self, label, initial_value, model):
         """"""
         # return list of values to be appended to
         return self.gekko.SV(value=initial_value, name=label, lb=0)
 
     def add_parameter(self, label, value):
-        # this needs to be sub-delegated to solver (hence it is)
-        # TODO:
-        #  particular use case: for GEKKO! add gekko.param() to backend
         return self.gekko.Param(value=value, name=label)
 
-    def assemble(self, model):
-        #model.parameters
+    def add_flux(self, label, flux, model):
+        """ this returns storage container """
+        return self.gekko.Intermediate(flux(state=model.variables,
+                                            parameters=model.parameters,
+                                            forcings=model.forcings), name=label)
 
-        state_out = model.model_function(model.variables.values())
-        state_dict = {label: eq for label, eq in zip(model.variables.keys(), state_out)}
+    def assemble(self, model):
+        """ """
+        state_out = model.model_function(model.full_model_state.values())
+
+        state_dict = {label: eq for label, eq in zip(model.full_model_state.keys(), state_out)}
 
         equations = []
 
         for label, var in model.variables.items():
-            print(var, state_dict[label])
             try:
                 state_dict[label]
             except KeyError:

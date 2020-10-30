@@ -32,7 +32,7 @@ def setup(solver, model, input_vars, output_vars, time=None):
     if solver == "odeint" or solver == "gekko":
         return xs.create_setup(model=model,
                                # supply a single Time step to xsimlab model setup
-                               clocks={'clock': [0, 1]},
+                               clocks={'clock': [time[0], time[1]]},
                                input_vars=input_vars,
                                output_vars=output_vars)
     elif solver == "stepwise":

@@ -8,6 +8,6 @@ from . import models
 
 from .backend.variable import variable, parameter, forcing
 
-from .backend.component import comp, multiflux
+from .backend.component import comp
 
 from phydra.backend.xsimlabwrappers import setup, create, update_setup

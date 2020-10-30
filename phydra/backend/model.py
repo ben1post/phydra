@@ -1,4 +1,5 @@
 from collections import defaultdict
+import numpy as np
 
 
 class PhydraModel:
@@ -14,17 +15,19 @@ class PhydraModel:
         self.variables = defaultdict()
         self.parameters = defaultdict()
         self.forcings = defaultdict()
+
         self.fluxes = defaultdict()
+        self.flux_values = defaultdict()
         self.fluxes_per_var = defaultdict(list)
-        self.multi_fluxes = defaultdict()
+
+        self.full_model_state = defaultdict()
 
     def __repr__(self):
         return (f"Model contains: \n"
                 f"Variables:{[var for var in self.variables]} \n"
                 f"Parameters:{[par for par in self.parameters]} \n"
                 f"Forcings:{[forc for forc in self.forcings]} \n"
-                f"Fluxes:{[flx for flx in self.fluxes]} \n"
-                f"Multi-Fluxes:{[multflx for multflx in self.multi_fluxes]}")
+                f"Fluxes:{[flx for flx in self.fluxes]} \n")
 
     def model_function(self, current_state, time=0):
         """ general model function that matches fluxes to state variables
@@ -32,29 +35,25 @@ class PhydraModel:
         :param current_state:
         :param time: argument is necessary for odeint solve
         :return:
-
-        # TODO:
-        #   simplify multi_flux calc, by including subfunctions (i.e. self.multi_fluxes() to call here)
         """
-        state = {label: val for label, val in zip(self.variables.keys(), current_state)}
+        state = {label: val for label, val in zip(self.full_model_state.keys(), current_state)}
 
-        # NOTE:
-        # currently I compute the model centered on state vars,
-        # the value I am looking for is compute with every call to the flux function below
-        # all I need to do is match fluxes_per_var with the new fluxes defaultdict..
-        # so only compute once, use/store twice!
-
-        fluxes = []
-        for flux in self.fluxes.keys():
-            print(flux)
-
+        # Compute fluxes:
+        flux_values = defaultdict()
         fluxes_out = []
-        for label in self.variables.keys():
+        for flx_label, flux in self.fluxes.items():
+            _value = flux(state=state, parameters=self.parameters, forcings=self.forcings)
+            flux_values[flx_label] = _value
+            fluxes_out.append(_value)
 
-            sv_fluxes = []
-            for flux in self.fluxes_per_var[label]:
-                sv_fluxes.append(flux(state=state, parameters=self.parameters, forcings=self.forcings))
+        # Assign fluxes to variables:
+        state_out = []
+        for var_label in self.variables.keys():
+            var_fluxes = []
+            for flux_label in self.fluxes_per_var[var_label]:
+                var_fluxes.append(flux_values[flux_label])
+            state_out.append(sum(var_fluxes))
 
-            fluxes_out.append(sum(sv_fluxes))
-        print(fluxes_out)
-        return fluxes_out
+        full_output = np.concatenate([state_out, fluxes_out], axis=None)
+
+        return full_output
