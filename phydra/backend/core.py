@@ -37,18 +37,28 @@ class PhydraCore:
     def add_parameter(self, label, value):
         self.Model.parameters[label] = self.Solver.add_parameter(label, value)
 
-    def add_flux(self, process_label, var_label, flux):
+    def register_flux(self, process_label, flux):
         """"""
         label = process_label + '_' + flux.__name__
 
-        # to store flux function:
-        self.Model.fluxes[label] = flux
-        # to store flux value:
-        self.Model.flux_values[label] = self.Solver.add_flux(label, flux, self.Model)
-        # to store var - flux connection:
-        self.Model.fluxes_per_var[var_label].append(label)
+        # TODO: problem: can only keep one reference to flux in backend (to keep it clean)
+        #   BUT, I still need negative flux functionality... hm...
+
+        if label not in self.Model.fluxes:
+            # to store flux function:
+            self.Model.fluxes[label] = flux
+            # to store flux value:
+            self.Model.flux_values[label] = self.Solver.add_flux(label, flux, self.Model)
+        else:
+            raise Exception("Something is wrong, a unique flux label was registered twice")
 
         return self.Model.flux_values[label]
+
+    def add_flux(self, process_label, var_label, flux_label, negative=False):
+        # to store var - flux connection:
+        label = process_label + '_' + flux_label
+        flux_var_dict = {'label': label, 'negative': negative}
+        self.Model.fluxes_per_var[var_label].append(flux_var_dict)
 
     def assemble(self):
         for key, value in self.Model.variables.items():

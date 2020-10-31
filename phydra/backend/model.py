@@ -50,8 +50,12 @@ class PhydraModel:
         state_out = []
         for var_label in self.variables.keys():
             var_fluxes = []
-            for flux_label in self.fluxes_per_var[var_label]:
-                var_fluxes.append(flux_values[flux_label])
+            for flux_var_dict in self.fluxes_per_var[var_label]:
+                flux_label, negative = flux_var_dict.values()
+                if negative:
+                    var_fluxes.append(-flux_values[flux_label])
+                else:
+                    var_fluxes.append(flux_values[flux_label])
             state_out.append(sum(var_fluxes))
 
         full_output = np.concatenate([state_out, fluxes_out], axis=None)

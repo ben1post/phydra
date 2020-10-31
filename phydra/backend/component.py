@@ -54,16 +54,23 @@ def _create_xsimlab_var_dict(cls_vars):
 
 def _create_fluxes_dict(cls, var_dict):
     """ """
-    process_dict = defaultdict(dict)
+    fluxes_dict = defaultdict()
+    flux_var_dict = defaultdict(dict)
 
     for key, var in var_dict.items():
         if var.metadata.get('var_type') is FluxVarType.VARIABLE:
             _flux = var.metadata.get('flux')
             if _flux is not None:
-                process_dict[key] = {'flux': getattr(cls, _flux),
+                if _flux not in flux_var_dict:
+                    fluxes_dict[_flux] = getattr(cls, _flux)
+
+                flux_var_dict[key] = {'flux': _flux,
                                      'negative': var.metadata.get('negative'),
                                      'foreign': var.metadata.get('foreign')}
-    return process_dict
+
+    flux_var_dict['_fluxes'] = fluxes_dict
+
+    return flux_var_dict
 
 
 def _create_new_cls(cls, cls_dict, init_stage):
@@ -96,15 +103,22 @@ def _initialize_process_vars(cls, vars_dict):
 
 def _initialize_fluxes(cls, process_dict):
     """ """
-    for var, flx_dict in process_dict.items():
-        if flx_dict['foreign'] is True:
-            var_label = getattr(cls, var)
-        elif flx_dict['foreign'] is False:
-            var_label = getattr(cls, var + '_label')
+    # TODO: here make sure that a single flux in backend can be applied negatively and positively
+    #   - 1st loop over all fluxes and add those to backend
+    #   - 2nd loop over vars and add references to flux
 
-        _flux = flx_dict['flux']
-        setattr(cls, _flux.__name__ + '_value',
-                cls.m.add_flux(cls.label, var_label, cls.flux(_flux, flx_dict['negative'])))
+    for flx_label, flux in process_dict['_fluxes'].items():
+        setattr(cls, flux.__name__ + '_value',
+                cls.m.register_flux(cls.label, cls.flux(flux)))
+
+    for var, flx_dict in process_dict.items():
+        if var != '_fluxes':
+            if flx_dict['foreign'] is True:
+                var_label = getattr(cls, var)
+            elif flx_dict['foreign'] is False:
+                var_label = getattr(cls, var + '_label')
+
+            cls.m.add_flux(cls.label, var_label, flx_dict['flux'], flx_dict['negative'])
 
 
 def _create_flux_inputargs_dict(cls, vars_dict):
@@ -150,7 +164,7 @@ def comp(cls, init_stage):
 
     new_cls = _create_new_cls(cls, _create_xsimlab_var_dict(vars_dict), init_stage)
 
-    def flux(self, func, negative):
+    def flux(self, func):
         """ flux function decorator to unpack arguments """
 
         @wraps(func)
@@ -166,10 +180,7 @@ def comp(cls, init_stage):
             for p_dict in self.flux_input_args['pars']:
                 input_args[p_dict['var']] = parameters[p_dict['label']]
 
-            if negative is False:
-                return func(**input_args)
-            elif negative is True:
-                return - func(**input_args)
+            return func(**input_args)
 
         return unpack_args
 
