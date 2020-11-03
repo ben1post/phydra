@@ -3,10 +3,12 @@ import xsimlab as xs
 import attr
 from attr import fields_dict
 
-from .variable import FluxVarType
-from ..components.main import FirstInit, SecondInit, ThirdInit
 from collections import OrderedDict, defaultdict
 from functools import wraps
+import inspect
+
+from .variable import FluxVarType
+from ..components.main import FirstInit, SecondInit, ThirdInit
 
 
 def _create_variables_dict(process_cls):
@@ -18,12 +20,12 @@ def _create_variables_dict(process_cls):
     )
 
 
-def _convert_2_xsimlabvar(var, label=""):
+def _convert_2_xsimlabvar(var, description_label=""):
     """ """
     var_description = var.metadata.get('description')
     var_dims = var.metadata.get('dims')
 
-    return xs.variable(intent='in', dims=var_dims, description=label + var_description)
+    return xs.variable(intent='in', dims=var_dims, description=description_label + var_description)
 
 
 def _create_xsimlab_var_dict(cls_vars):
@@ -33,21 +35,29 @@ def _create_xsimlab_var_dict(cls_vars):
     for key, var in cls_vars.items():
         if var.metadata.get('var_type') is FluxVarType.VARIABLE:
             if var.metadata.get('foreign') is True:
-                xs_var_dict[key] = _convert_2_xsimlabvar(var)
+                xs_var_dict[key] = _convert_2_xsimlabvar(var=var, description_label='label reference /')
             elif var.metadata.get('foreign') is False:
-                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var, 'label /')
-                xs_var_dict[key + '_init'] = _convert_2_xsimlabvar(var, 'initial value /')
+                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var=var, description_label='label /')
+                xs_var_dict[key + '_init'] = _convert_2_xsimlabvar(var=var, description_label='initial value /')
                 xs_var_dict[key + '_value'] = xs.variable(intent='out', dims='time',
                                                           description='output of variable value')
 
             flux_label = var.metadata.get('flux')
             if flux_label is not None:
-                if flux_label+'_value' not in xs_var_dict:
-                    xs_var_dict[flux_label+'_value'] = xs.variable(intent='out', dims='time',
-                                                                   description='output of flux value')
+                if flux_label + '_value' not in xs_var_dict:
+                    xs_var_dict[flux_label + '_value'] = xs.variable(intent='out', dims='time',
+                                                                     description='output of flux value')
 
         if var.metadata.get('var_type') is FluxVarType.PARAMETER:
-            xs_var_dict[key] = _convert_2_xsimlabvar(var)
+            xs_var_dict[key] = _convert_2_xsimlabvar(var=var)
+
+        if var.metadata.get('var_type') is FluxVarType.FORCING:
+            if var.metadata.get('foreign') is True:
+                xs_var_dict[key] = _convert_2_xsimlabvar(var=var, description_label='label reference /')
+            elif var.metadata.get('foreign') is False:
+                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var=var, description_label='label /')
+                xs_var_dict[key + '_value'] = xs.variable(intent='out', dims='time',
+                                                          description='output of forcing value')
 
     return xs_var_dict
 
@@ -65,12 +75,26 @@ def _create_fluxes_dict(cls, var_dict):
                     fluxes_dict[_flux] = getattr(cls, _flux)
 
                 flux_var_dict[key] = {'flux': _flux,
-                                     'negative': var.metadata.get('negative'),
-                                     'foreign': var.metadata.get('foreign')}
+                                      'negative': var.metadata.get('negative'),
+                                      'foreign': var.metadata.get('foreign')}
 
     flux_var_dict['_fluxes'] = fluxes_dict
 
     return flux_var_dict
+
+
+def _create_forcing_dict(cls, var_dict):
+    """ """
+    forcings_dict = defaultdict()
+
+    for key, var in var_dict.items():
+        if var.metadata.get('var_type') is FluxVarType.FORCING:
+            _file_input_func = var.metadata.get('file_input_func')
+
+            if _file_input_func is not None:
+                forcings_dict[key] = getattr(cls, _file_input_func)
+
+    return forcings_dict
 
 
 def _create_new_cls(cls, cls_dict, init_stage):
@@ -97,19 +121,33 @@ def _initialize_process_vars(cls, vars_dict):
                 setattr(cls, key + '_value', cls.m.add_variable(label=_label, initial_value=_init))
 
         elif var.metadata.get('var_type') is FluxVarType.PARAMETER:
-            _par_value = getattr(cls, key)
-            cls.m.add_parameter(label=process_label + '_' + key, value=_par_value)
+            if var.metadata.get('foreign') is False:
+                _par_value = getattr(cls, key)
+                cls.m.add_parameter(label=process_label + '_' + key, value=_par_value)
+
+
+def _initialize_forcings(cls, forcing_dict):
+    """ """
+    for var, forc_input_func in forcing_dict.items():
+        forc_label = getattr(cls, var + '_label')
+
+        argspec = inspect.getfullargspec(forc_input_func)
+        input_args = defaultdict()
+
+        for arg in argspec.args:
+            input_args[arg] = getattr(cls, arg)
+
+        forc_func = forc_input_func(**input_args)
+
+        setattr(cls, var + '_value',
+                cls.m.add_forcing(label=forc_label, forcing_func=forc_func))
 
 
 def _initialize_fluxes(cls, process_dict):
     """ """
-    # TODO: here make sure that a single flux in backend can be applied negatively and positively
-    #   - 1st loop over all fluxes and add those to backend
-    #   - 2nd loop over vars and add references to flux
-
     for flx_label, flux in process_dict['_fluxes'].items():
         setattr(cls, flux.__name__ + '_value',
-                cls.m.register_flux(cls.label, cls.flux(flux)))
+                cls.m.register_flux(process_label=cls.label, flux=cls.flux(flux)))
 
     for var, flx_dict in process_dict.items():
         if var != '_fluxes':
@@ -118,7 +156,10 @@ def _initialize_fluxes(cls, process_dict):
             elif flx_dict['foreign'] is False:
                 var_label = getattr(cls, var + '_label')
 
-            cls.m.add_flux(cls.label, var_label, flx_dict['flux'], flx_dict['negative'])
+            cls.m.add_flux(process_label=cls.label,
+                           var_label=var_label,
+                           flux_label=flx_dict['flux'],
+                           negative=flx_dict['negative'])
 
 
 def _create_flux_inputargs_dict(cls, vars_dict):
@@ -133,7 +174,14 @@ def _create_flux_inputargs_dict(cls, vars_dict):
                 var_label = getattr(cls, key)
             input_arg_dict['vars'].append({'var': key, 'label': var_label})
         elif var.metadata.get('var_type') is FluxVarType.PARAMETER:
+            # TODO: so it doesn't work with foreign parameters here yet!
             input_arg_dict['pars'].append({'var': key, 'label': cls.label + '_' + key})
+        elif var.metadata.get('var_type') is FluxVarType.FORCING:
+            if var.metadata.get('foreign') is False:
+                forc_label = getattr(cls, key + '_label')
+            elif var.metadata.get('foreign') is True:
+                forc_label = getattr(cls, key)
+            input_arg_dict['forcs'].append({'var': key, 'label': forc_label})
 
     return input_arg_dict
 
@@ -161,6 +209,7 @@ def comp(cls, init_stage):
     attr_cls = attr.attrs(cls, repr=False)
     vars_dict = _create_variables_dict(attr_cls)
     fluxes_dict = _create_fluxes_dict(cls, vars_dict)
+    forcing_dict = _create_forcing_dict(cls, vars_dict)
 
     new_cls = _create_new_cls(cls, _create_xsimlab_var_dict(vars_dict), init_stage)
 
@@ -179,6 +228,8 @@ def comp(cls, init_stage):
                 input_args[v_dict['var']] = state[v_dict['label']]
             for p_dict in self.flux_input_args['pars']:
                 input_args[p_dict['var']] = parameters[p_dict['label']]
+            for f_dict in self.flux_input_args['forcs']:
+                input_args[f_dict['var']] = forcings[f_dict['label']]
 
             return func(**input_args)
 
@@ -192,6 +243,8 @@ def comp(cls, init_stage):
         _initialize_process_vars(self, vars_dict)
 
         self.flux_input_args = _create_flux_inputargs_dict(self, vars_dict)
+
+        _initialize_forcings(self, forcing_dict)
 
         _initialize_fluxes(self, fluxes_dict)
 

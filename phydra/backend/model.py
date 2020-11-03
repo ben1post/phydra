@@ -14,6 +14,8 @@ class PhydraModel:
 
         self.variables = defaultdict()
         self.parameters = defaultdict()
+
+        self.forcing_func = defaultdict()
         self.forcings = defaultdict()
 
         self.fluxes = defaultdict()
@@ -29,20 +31,30 @@ class PhydraModel:
                 f"Forcings:{[forc for forc in self.forcings]} \n"
                 f"Fluxes:{[flx for flx in self.fluxes]} \n")
 
-    def model_function(self, current_state, time=0):
+    def model_function(self, current_state, time=None, forcing=None):
         """ general model function that matches fluxes to state variables
 
         :param current_state:
         :param time: argument is necessary for odeint solve
+        :param forcing:
         :return:
         """
         state = {label: val for label, val in zip(self.full_model_state.keys(), current_state)}
+
+        # Return forcings for time point:
+        if time is not None:
+            forcing_now = defaultdict()
+            for key, func in self.forcing_func.items():
+                forcing_now[key] = func(time)
+            forcing = forcing_now
+        elif forcing is None:
+            forcing = self.forcings
 
         # Compute fluxes:
         flux_values = defaultdict()
         fluxes_out = []
         for flx_label, flux in self.fluxes.items():
-            _value = flux(state=state, parameters=self.parameters, forcings=self.forcings)
+            _value = flux(state=state, parameters=self.parameters, forcings=forcing)
             flux_values[flx_label] = _value
             fluxes_out.append(_value)
 

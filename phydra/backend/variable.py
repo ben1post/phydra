@@ -30,12 +30,12 @@ def variable(foreign=False,
 
 
 def forcing(foreign=False,
-            intent='in', dims=[()], sub_label=None, description='', attrs=None):
+            file_input_func=None, dims=[()], sub_label=None, description='', attrs=None):
 
     metadata = {
         "var_type": FluxVarType.FORCING,
         "foreign": foreign,
-        "intent": intent,
+        "file_input_func": file_input_func,
         "dims": dims,
         "sub_label": sub_label,
         "attrs": attrs or {},
@@ -45,13 +45,11 @@ def forcing(foreign=False,
     return attr.attrib(metadata=metadata)
 
 
-def parameter(foreign=False,
-              intent='in', dims=[()], sub_label=None, description='', attrs=None):
+def parameter(foreign=False, dims=[()], sub_label=None, description='', attrs=None):
 
     metadata = {
         "var_type": FluxVarType.PARAMETER,
         "foreign": foreign,
-        "intent": intent,
         "dims": dims,
         "sub_label": sub_label,
         "attrs": attrs or {},

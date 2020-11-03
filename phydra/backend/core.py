@@ -41,9 +41,6 @@ class PhydraCore:
         """"""
         label = process_label + '_' + flux.__name__
 
-        # TODO: problem: can only keep one reference to flux in backend (to keep it clean)
-        #   BUT, I still need negative flux functionality... hm...
-
         if label not in self.Model.fluxes:
             # to store flux function:
             self.Model.fluxes[label] = flux
@@ -59,6 +56,11 @@ class PhydraCore:
         label = process_label + '_' + flux_label
         flux_var_dict = {'label': label, 'negative': negative}
         self.Model.fluxes_per_var[var_label].append(flux_var_dict)
+
+    def add_forcing(self, label, forcing_func):
+        self.Model.forcing_func[label] = forcing_func
+        self.Model.forcings[label] = self.Solver.add_forcing(label, forcing_func, self.Model)
+        return self.Model.forcings[label]
 
     def assemble(self):
         for key, value in self.Model.variables.items():

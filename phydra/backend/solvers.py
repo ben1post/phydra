@@ -27,6 +27,10 @@ class SolverABC(ABC):
         pass
 
     @abstractmethod
+    def add_forcing(self, label, flux, time):
+        pass
+
+    @abstractmethod
     def assemble(self, model):
         pass
 
@@ -71,13 +75,21 @@ class ODEINTSolver(SolverABC):
         for var, value in model.variables.items():
             var_in_dict[var] = self.var_init[var]
 
-        self.flux_init[label] = flux(state=var_in_dict, parameters=model.parameters, forcings=model.forcings)
+        forcing_now = defaultdict()
+        for key, func in model.forcing_func.items():
+            forcing_now[key] = func(0)
+
+        self.flux_init[label] = flux(state=var_in_dict, parameters=model.parameters, forcings=forcing_now)
 
         return np.zeros(np.shape(model.time))
 
+    def add_forcing(self, label, forcing_func, model):
+        """ """
+        return forcing_func(model.time)
+
     def assemble(self, model):
         """ """
-        pass
+        print(model)
 
     def solve(self, model, time_step):
         """ """
@@ -105,6 +117,9 @@ class ODEINTSolver(SolverABC):
 class StepwiseSolver(SolverABC):
     """ Solver that can handle stepwise calculation built into xarray-simlab framework """
 
+    def __init__(self):
+        self.model_time = 0
+
     def add_variable(self, label, initial_value, time):
         """ """
         # return list to be appended to
@@ -118,15 +133,31 @@ class StepwiseSolver(SolverABC):
         var_in_dict = defaultdict()
         for var, value in model.variables.items():
             var_in_dict[var] = value[-1]
-        return [flux(state=var_in_dict, parameters=model.parameters, forcings=model.forcings)]
+        forc_in_dict = defaultdict()
+        for forc, value in model.forcings.items():
+            forc_in_dict[forc] = value[-1]
+        return [flux(state=var_in_dict, parameters=model.parameters, forcings=forc_in_dict)]
+
+    def add_forcing(self, label, forcing_func, model):
+        """ """
+        return [forcing_func(0)]
 
     def assemble(self, model):
         print(model)
         pass
 
     def solve(self, model, time_step):
+        self.model_time += time_step
+
+        for key, func in model.forcing_func.items():
+            model.forcings[key].append(func(self.model_time))
+
+        model_forcing = defaultdict()
+        for key, val in model.forcings.items():
+            model_forcing[key] = val[-1]
+
         model_state = [var[-1] for var in model.full_model_state.values()]
-        state_out = model.model_function(model_state)
+        state_out = model.model_function(model_state, forcing=model_forcing)
         state_dict = {label: value for label, value in zip(model.full_model_state.keys(), state_out)}
 
         for var, val in model.variables.items():
@@ -161,6 +192,10 @@ class GEKKOSolver(SolverABC):
                                             parameters=model.parameters,
                                             forcings=model.forcings), name=label)
 
+    def add_forcing(self, label, forcing_func, model):
+        """ """
+        return self.gekko.Param(value=forcing_func(model.time), name=label)
+
     def assemble(self, model):
         """ """
         state_out = model.model_function(model.full_model_state.values())
@@ -188,7 +223,7 @@ class GEKKOSolver(SolverABC):
     def solve(self, model, time_step):
         self.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
         self.gekko.options.NODES = 3  # improves solution accuracy
-        self.gekko.options.IMODE = 5  # 7  # sequential dynamic Solver
+        self.gekko.options.IMODE = 7  # 7  # sequential dynamic Solver
 
         self.gekko.solve(disp=False)  # use option disp=True to print gekko output
 

@@ -4,14 +4,53 @@ import xsimlab as xs
 import numpy as np
 import scipy.interpolate as intrp
 
+import phydra
 from phydra.utility.forcingdata import ClimatologyForcing
 
 from phydra.components.variables import Time
 
+# TODO:
+#   A forcing essentially is a function returning a value, with time as input
+#   could also be an array with a value for each time_step (e.g. gekko), but that could be created in backend from func
+#   ...
+#   I need to somehow allow for free modification of initialize/ reading + modifying input..
+
+# what does this function need access to?
+# can I store the function, and convert it to a value in backend?
+#
+# hm..
+
+# this is tricky, what do I need in the "backend"
+#   --> I need the function that is
+
+import os
+
+
+@phydra.comp(init_stage=2)
+class ConstantForcing:
+    forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
+    value = phydra.parameter()
+
+    def forcing_setup(value):
+        cwd = os.getcwd()
+        print("forcing function is in directory:", cwd)
+
+        @np.vectorize
+        def forcing(time):
+            return value - time/(time+100)
+
+        return forcing
+
+
+# OLD#CODE###########################################################################################################
+# #########OLD#CODE##################################################################################################
+# ##################OLD#CODE#########################################################################################
+# ###########################OLD#CODE################################################################################
+# #####################################OLD#CODE######################################################################
+# ##############################################OLD#CODE#############################################################
 
 @xs.process
-class ConstantForcing(SecondInit):
-
+class OLD_ConstantForcing(SecondInit):
     value = xs.variable(intent='in')
 
     def initialize(self):
@@ -38,10 +77,10 @@ class SinusoidalForcing(SecondInit):
         # (self, spline, Time, loop=365, derivative=0):
         self.m.Forcings[self.label] = Forcing(name=self.label, value=self.interpolated(self.time))
 
-        #self.m.phydra_forcings[self.label+'_deriv'] = self.m.Param(self.interpolated(self.time, derivative=1),
+        # self.m.phydra_forcings[self.label+'_deriv'] = self.m.Param(self.interpolated(self.time, derivative=1),
         #                                                           name=self.label+'_deriv')
-        #self.value = self.m.phydra_forcings[self.label].value
-        #self.deriv = self.m.phydra_forcings[self.label+'_deriv'].value
+        # self.value = self.m.phydra_forcings[self.label].value
+        # self.deriv = self.m.phydra_forcings[self.label+'_deriv'].value
 
     @interpolated.compute
     def sinusoidal_interpolated(self):
@@ -100,7 +139,6 @@ class GlobalSlabClimatologyForcing(SecondInit):
 
         return self.return_discretized_forcing
 
-
     def interpolate_monthly_climatology(self, data):
         """ Function that returns periodic smoothed forcing from monthly climatology data
         returns interpolated spline object
@@ -127,7 +165,6 @@ class GlobalSlabClimatologyForcing(SecondInit):
             plt.show()
 
         return spl
-
 
     def return_discretized_forcing(self, time, loop=365, derivative=0):
         """ Function returns discretized interpolated forcing, for use in the model """
