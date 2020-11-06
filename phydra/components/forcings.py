@@ -29,15 +29,16 @@ import os
 @phydra.comp(init_stage=2)
 class ConstantForcing:
     forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
-    value = phydra.parameter()
+    value = phydra.parameter(description='constant value of forcing')
 
     def forcing_setup(value):
         cwd = os.getcwd()
         print("forcing function is in directory:", cwd)
+        print("forcing_val:", value)
 
         @np.vectorize
         def forcing(time):
-            return value - time/(time+100)
+            return value
 
         return forcing
 

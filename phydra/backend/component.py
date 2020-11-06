@@ -6,6 +6,7 @@ from attr import fields_dict
 from collections import OrderedDict, defaultdict
 from functools import wraps
 import inspect
+import numpy as np
 
 from .variable import FluxVarType
 from ..components.main import FirstInit, SecondInit, ThirdInit
@@ -20,12 +21,20 @@ def _create_variables_dict(process_cls):
     )
 
 
-def _convert_2_xsimlabvar(var, description_label=""):
+def _convert_2_xsimlabvar(var, intent='in', var_dims=None, value_store=False, description_label=""):
     """ """
     var_description = var.metadata.get('description')
-    var_dims = var.metadata.get('dims')
 
-    return xs.variable(intent='in', dims=var_dims, description=description_label + var_description)
+    if var_dims is None:
+        var_dims = var.metadata.get('dims')
+
+    if value_store:
+        if not var_dims:
+            var_dims = 'time'
+        else:
+            var_dims = (var_dims, 'time')
+
+    return xs.variable(intent=intent, dims=var_dims, description=description_label + var_description)
 
 
 def _create_xsimlab_var_dict(cls_vars):
@@ -35,29 +44,32 @@ def _create_xsimlab_var_dict(cls_vars):
     for key, var in cls_vars.items():
         if var.metadata.get('var_type') is FluxVarType.VARIABLE:
             if var.metadata.get('foreign') is True:
-                xs_var_dict[key] = _convert_2_xsimlabvar(var=var, description_label='label reference /')
+                xs_var_dict[key] = _convert_2_xsimlabvar(var=var, var_dims=(), description_label='label reference / ')
             elif var.metadata.get('foreign') is False:
-                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var=var, description_label='label /')
-                xs_var_dict[key + '_init'] = _convert_2_xsimlabvar(var=var, description_label='initial value /')
-                xs_var_dict[key + '_value'] = xs.variable(intent='out', dims='time',
-                                                          description='output of variable value')
-
+                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var=var, var_dims=(), description_label='label / ')
+                xs_var_dict[key + '_init'] = _convert_2_xsimlabvar(var=var, description_label='initial value / ')
+                xs_var_dict[key + '_value'] = _convert_2_xsimlabvar(var=var, intent='out',
+                                                                    value_store=True,
+                                                                    description_label='output of variable value / ')
             flux_label = var.metadata.get('flux')
             if flux_label is not None:
                 if flux_label + '_value' not in xs_var_dict:
-                    xs_var_dict[flux_label + '_value'] = xs.variable(intent='out', dims='time',
-                                                                     description='output of flux value')
+                    xs_var_dict[flux_label + '_value'] = _convert_2_xsimlabvar(var=var, intent='out',
+                                                                               value_store=True,
+                                                                               description_label='output of flux '
+                                                                                                 'value / ')
 
         if var.metadata.get('var_type') is FluxVarType.PARAMETER:
             xs_var_dict[key] = _convert_2_xsimlabvar(var=var)
 
         if var.metadata.get('var_type') is FluxVarType.FORCING:
             if var.metadata.get('foreign') is True:
-                xs_var_dict[key] = _convert_2_xsimlabvar(var=var, description_label='label reference /')
+                xs_var_dict[key] = _convert_2_xsimlabvar(var=var, description_label='label reference / ')
             elif var.metadata.get('foreign') is False:
-                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var=var, description_label='label /')
-                xs_var_dict[key + '_value'] = xs.variable(intent='out', dims='time',
-                                                          description='output of forcing value')
+                xs_var_dict[key + '_label'] = _convert_2_xsimlabvar(var=var, description_label='label / ')
+                xs_var_dict[key + '_value'] = _convert_2_xsimlabvar(var=var, intent='out',
+                                                                    value_store=True,
+                                                                    description_label='output of forcing value / ')
 
     return xs_var_dict
 
@@ -147,7 +159,7 @@ def _initialize_fluxes(cls, process_dict):
     """ """
     for flx_label, flux in process_dict['_fluxes'].items():
         setattr(cls, flux.__name__ + '_value',
-                cls.m.register_flux(process_label=cls.label, flux=cls.flux(flux)))
+                cls.m.register_flux(process_label=cls.label, flux=cls.flux_decorator(flux)))
 
     for var, flx_dict in process_dict.items():
         if var != '_fluxes':
@@ -213,7 +225,7 @@ def comp(cls, init_stage):
 
     new_cls = _create_new_cls(cls, _create_xsimlab_var_dict(vars_dict), init_stage)
 
-    def flux(self, func):
+    def flux_decorator(self, func):
         """ flux function decorator to unpack arguments """
 
         @wraps(func)
@@ -231,7 +243,7 @@ def comp(cls, init_stage):
             for f_dict in self.flux_input_args['forcs']:
                 input_args[f_dict['var']] = forcings[f_dict['label']]
 
-            return func(**input_args)
+            return func(self, **input_args)
 
         return unpack_args
 
@@ -248,7 +260,16 @@ def comp(cls, init_stage):
 
         _initialize_fluxes(self, fluxes_dict)
 
-    setattr(new_cls, 'flux', flux)
+    setattr(new_cls, 'flux_decorator', flux_decorator)
     setattr(new_cls, 'initialize', initialize)
 
-    return xs.process(new_cls)
+    process_cls = xs.process(new_cls)
+
+    # TODO: clean this up below:
+    try:
+        process_cls.flux = getattr(cls, 'flux')
+    except AttributeError:
+        # print("process cls contains no flux func")
+        pass
+
+    return process_cls

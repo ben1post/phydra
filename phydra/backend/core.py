@@ -1,4 +1,5 @@
 import time as tm
+import numpy as np
 
 from .model import PhydraModel
 from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
@@ -29,7 +30,7 @@ class PhydraCore:
         and returns the storage values
         """
         # the following step registers the variable within the framework
-        self.Model.variables[label] = self.Solver.add_variable(label, initial_value, self.Model.time)
+        self.Model.variables[label] = self.Solver.add_variable(label, initial_value, self.Model)
 
         # return actual value store of variable to xsimlab framework
         return self.Model.variables[label]
@@ -55,18 +56,19 @@ class PhydraCore:
         # to store var - flux connection:
         label = process_label + '_' + flux_label
         flux_var_dict = {'label': label, 'negative': negative}
+
         self.Model.fluxes_per_var[var_label].append(flux_var_dict)
 
     def add_forcing(self, label, forcing_func):
+
         self.Model.forcing_func[label] = forcing_func
+
         self.Model.forcings[label] = self.Solver.add_forcing(label, forcing_func, self.Model)
+
         return self.Model.forcings[label]
 
     def assemble(self):
-        for key, value in self.Model.variables.items():
-            self.Model.full_model_state[key] = value
-        for key, value in self.Model.flux_values.items():
-            self.Model.full_model_state[key] = value
+        print("lets do the magic at model assembly")
 
         self.Solver.assemble(self.Model)
 

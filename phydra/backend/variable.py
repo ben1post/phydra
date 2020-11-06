@@ -12,7 +12,8 @@ class FluxVarType(Enum):
 
 
 def variable(foreign=False,
-        flux=None, negative=False, dims=[()], partial_out=None, sub_label=None, description='', attrs=None):
+             flux=None, negative=False, dims=(), partial_out=None,
+             sub_label=None, description='', attrs=None):
 
     metadata = {
         "var_type": FluxVarType.VARIABLE,
@@ -30,7 +31,7 @@ def variable(foreign=False,
 
 
 def forcing(foreign=False,
-            file_input_func=None, dims=[()], sub_label=None, description='', attrs=None):
+            file_input_func=None, dims=(), sub_label=None, description='', attrs=None):
 
     metadata = {
         "var_type": FluxVarType.FORCING,
@@ -45,7 +46,7 @@ def forcing(foreign=False,
     return attr.attrib(metadata=metadata)
 
 
-def parameter(foreign=False, dims=[()], sub_label=None, description='', attrs=None):
+def parameter(foreign=False, dims=(), sub_label=None, description='', attrs=None):
 
     metadata = {
         "var_type": FluxVarType.PARAMETER,

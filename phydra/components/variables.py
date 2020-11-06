@@ -11,6 +11,13 @@ class SV:
     var = phydra.variable(description='basic state variable')
 
 
+@phydra.comp(init_stage=2)
+class SVArray:
+    """represents a state variable in the model"""
+
+    var = phydra.variable(dims='var', description='basic state variable')
+
+
 @xs.process
 class Time(FirstInit):
     """Time is represented as a state variable"""
@@ -49,7 +56,7 @@ class OldSV(SecondInit):
 
 
 @xs.process
-class SV_Array(SecondInit):
+class OLD_SV_Array(SecondInit):
     """represents a state variable in the model"""
 
     init = xs.variable(intent='in', dims='SV')
