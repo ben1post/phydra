@@ -22,6 +22,7 @@ class LinearForcingInput:
 
     def input(self, var, forcing, rate):
         """ """
+        # print("var", type(var), var, "  ","forcing", type(forcing),  forcing, "  ","rate", type(rate),  rate)
         return forcing * rate
 
 
@@ -71,7 +72,7 @@ class MonodGrowth:
     resource = phydra.variable(foreign=True, flux='uptake', negative=True)
     consumer = phydra.variable(foreign=True, dims='var', flux='uptake', negative=False)
 
-    halfsat = phydra.parameter()
+    halfsat = phydra.parameter(dims='var')
 
     def uptake(self, resource, consumer, halfsat):
         return resource / (resource + halfsat) * consumer

@@ -74,7 +74,6 @@ class ODEINTSolver(SolverABC):
         # store initial values of variables to pass to odeint function
         self.var_init[label] = return_dim_ndarray(initial_value)
 
-
         print("adding variable here:")
         if np.size(initial_value) == 1:
             full_dims = (np.size(model.time),)
@@ -179,54 +178,118 @@ class StepwiseSolver(SolverABC):
 
     def __init__(self):
         self.model_time = 0
+        self.time_index = 0
 
-    def add_variable(self, label, initial_value, time):
+        self.full_model_values = defaultdict(list)
+
+    def add_variable(self, label, initial_value, model):
         """ """
         # return list to be appended to
-        return [initial_value]
+        print(label, initial_value)
+
+        print("adding variable here:")
+        if np.size(initial_value) == 1:
+            full_dims = (np.size(model.time),)
+            array_out = np.zeros(full_dims)
+            array_out[0] = initial_value
+        else:
+            full_dims = (np.size(initial_value), np.size(model.time))
+            array_out = np.zeros(full_dims)
+            array_out[:, 0] = initial_value
+
+        # print("FULL DIMS", full_dims)
+
+        return array_out
 
     def add_parameter(self, label, value):
         """ """
-        return value
+        return return_dim_ndarray(value)
 
     def add_flux(self, label, flux, model):
+
         var_in_dict = defaultdict()
         for var, value in model.variables.items():
-            var_in_dict[var] = value[-1]
-        forc_in_dict = defaultdict()
-        for forc, value in model.forcings.items():
-            forc_in_dict[forc] = value[-1]
-        return [flux(state=var_in_dict, parameters=model.parameters, forcings=forc_in_dict)]
+            var_in_dict[var] = value[0] if np.size(value[0]) < 2 else value[:, 0]
+
+        forcing_now = defaultdict()
+        for key, func in model.forcing_func.items():
+            forcing_now[key] = func(0)
+
+        flux_init = return_dim_ndarray(flux(state=var_in_dict,
+                                            parameters=model.parameters,
+                                            forcings=forcing_now))
+
+        if np.size(flux_init) == 1:
+            full_dims = (np.size(model.time),)
+            array_out = np.zeros(full_dims)
+            array_out[0] = flux_init
+        else:
+            full_dims = (np.size(flux_init), np.size(model.time))
+            array_out = np.zeros(full_dims)
+            array_out[:, 0] = flux_init
+
+        # print("flux", label, full_dims)
+
+        return array_out
 
     def add_forcing(self, label, forcing_func, model):
         """ """
-        return [forcing_func(0)]
+        return forcing_func(model.time)
 
     def assemble(self, model):
+        for key, value in model.variables.items():
+            # print("variables", key, np.shape(value))
+            self.full_model_values[key] = value
+            dims = set(np.shape(value)) - set(np.shape(model.time))
+            add_dims = dims.pop() if dims else None
+            model.full_model_dims[key] = add_dims
+
+        for key, value in model.flux_values.items():
+            # print("values", key, np.shape(value))
+            self.full_model_values[key] = value
+            dims = set(np.shape(value)) - set(np.shape(model.time))
+            add_dims = dims.pop() if dims else None
+            model.full_model_dims[key] = add_dims
+
+        # finally print model repr for diagnostic purposes:
+        print("Model is assembled:")
         print(model)
-        pass
 
     def solve(self, model, time_step):
         self.model_time += time_step
 
-        for key, func in model.forcing_func.items():
-            model.forcings[key].append(func(self.model_time))
-
         model_forcing = defaultdict()
-        for key, val in model.forcings.items():
-            model_forcing[key] = val[-1]
+        for key, func in model.forcing_func.items():
+            _forcing = func(self.model_time)
+            model.forcings[key][self.time_index] = _forcing
+            model_forcing[key] = _forcing
 
-        model_state = [var[-1] for var in model.full_model_dims.values()]
+        model_state = []
+        for key, val in self.full_model_values.items():
+            # print(key, val)
+            if model.full_model_dims[key]:
+                model_state.append(val[:, self.time_index])
+            else:
+                model_state.append(val[self.time_index])
+
+        model_state = np.concatenate(model_state, axis=None)
+
         state_out = model.model_function(model_state, forcing=model_forcing)
-        state_dict = {label: value for label, value in zip(model.full_model_dims.keys(), state_out)}
+        state_dict = model.unpack_flat_state(state_out)
+        # add time index, to assign new values to next slot in numpy arrays:
+        self.time_index += 1
 
-        for var, val in model.variables.items():
-            state = val[-1] + state_dict[var] * time_step  # model returns derivative, this calculates value
-            val.append(state)
+        for key, val in model.variables.items():
+            if model.full_model_dims[key]:
+                val[:, self.time_index] = val[:, self.time_index - 1] + state_dict[key] * time_step
+            else:
+                val[self.time_index] = val[self.time_index - 1] + state_dict[key] * time_step
 
-        for var, val in model.flux_values.items():
-            state = state_dict[var]
-            val.append(state)
+        for key, val in model.flux_values.items():
+            if model.full_model_dims[key]:
+                val[:, self.time_index] = val[:, self.time_index - 1]
+            else:
+                val[self.time_index] = val[self.time_index - 1]
 
     def cleanup(self):
         pass
