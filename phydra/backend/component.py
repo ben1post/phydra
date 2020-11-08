@@ -243,7 +243,16 @@ def comp(cls, init_stage):
             for f_dict in self.flux_input_args['forcs']:
                 input_args[f_dict['var']] = forcings[f_dict['label']]
 
-            return func(self, **input_args)
+            # added option to force vectorisation for model arrays/lists containing objects (i.e. gekko components):
+            try:
+                vectorized = kwargs.pop('vectorized')
+            except:
+                vectorized = False
+
+            if vectorized:
+                return np.vectorize(func,  excluded=['forcing'])(self, **input_args)
+            else:
+                return func(self, **input_args)
 
         return unpack_args
 

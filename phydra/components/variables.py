@@ -36,7 +36,7 @@ class Time(FirstInit):
         self.m.register_flux(self.label, self.time_flux)
         self.m.add_flux(self.label, 'time', 'time_flux')
 
-    def time_flux(self, state, parameters, forcings):
+    def time_flux(self, **kwargs):
         dtdt = 1
         return dtdt
 

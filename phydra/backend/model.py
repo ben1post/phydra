@@ -92,7 +92,6 @@ class PhydraModel:
             _value = return_dim_ndarray(flux(state=state, parameters=self.parameters, forcings=forcing))
             flux_values[flx_label] = _value
             fluxes_out.append(_value)
-
         # print("fluxes_out", fluxes_out)
 
         # Assign fluxes to variables:
@@ -104,8 +103,6 @@ class PhydraModel:
                 for flux_var_dict in self.fluxes_per_var[var_label]:
                     flux_label, negative = flux_var_dict.values()
                     # print(flux_label, flux_values[flux_label])
-
-                    # TODO: add checking dims here, or safer handling!
 
                     if dims:
                         _flux = flux_values[flux_label]
@@ -128,10 +125,7 @@ class PhydraModel:
             state_out.append(np.sum(var_fluxes, axis=0))
 
         # print("state_out", state_out)
-
         full_output = np.concatenate([[v for val in state_out for v in val.flatten()],
                                       [v for val in fluxes_out for v in val.flatten()]], axis=None)
-
         # print(full_output)
-
         return full_output

@@ -66,20 +66,15 @@ class ODEINTSolver(SolverABC):
         if model.time is None:
             raise Exception("To use ODEINT solver, model time needs to be supplied before adding variables")
 
-        # TODO:
-        #      Problem is: if I keep extra dim here to loop over later, values are stored with extra dim in model!
-        #   - try using np.nditer, or other solution that can loop over single values as well!
-        #   - fix dis!
+        if isinstance(initial_value, list) or isinstance(initial_value, np.ndarray):
+            full_dims = (np.size(initial_value), np.size(model.time))
+        else:
+            full_dims = (np.size(model.time),)
 
         # store initial values of variables to pass to odeint function
         self.var_init[label] = return_dim_ndarray(initial_value)
 
         print("adding variable here:")
-        if np.size(initial_value) == 1:
-            full_dims = (np.size(model.time),)
-        else:
-            full_dims = (np.size(initial_value), np.size(model.time))
-
         print("FULL DIMS", full_dims)
 
         return np.zeros(full_dims)
@@ -121,9 +116,6 @@ class ODEINTSolver(SolverABC):
 
     def assemble(self, model):
         """ """
-        # TODO: here I need to create full_model_dims so that minimal processing needs to happen within model
-        #   - this includes: having a flat to nested mapping that can easily unpack full_model_init flat list
-
         for key, value in model.variables.items():
             print("variables", key, np.shape(value))
             dims = set(np.shape(value)) - set(np.shape(model.time))
@@ -180,7 +172,7 @@ class StepwiseSolver(SolverABC):
         self.model_time = 0
         self.time_index = 0
 
-        self.full_model_values = defaultdict(list)
+        self.full_model_values = defaultdict()
 
     def add_variable(self, label, initial_value, model):
         """ """
@@ -188,14 +180,14 @@ class StepwiseSolver(SolverABC):
         print(label, initial_value)
 
         print("adding variable here:")
-        if np.size(initial_value) == 1:
-            full_dims = (np.size(model.time),)
-            array_out = np.zeros(full_dims)
-            array_out[0] = initial_value
-        else:
+        if isinstance(initial_value, list) or isinstance(initial_value, np.ndarray):
             full_dims = (np.size(initial_value), np.size(model.time))
             array_out = np.zeros(full_dims)
             array_out[:, 0] = initial_value
+        else:
+            full_dims = (np.size(model.time),)
+            array_out = np.zeros(full_dims)
+            array_out[0] = initial_value
 
         # print("FULL DIMS", full_dims)
 
@@ -257,27 +249,27 @@ class StepwiseSolver(SolverABC):
 
     def solve(self, model, time_step):
         self.model_time += time_step
+        self.time_index += 1
 
         model_forcing = defaultdict()
         for key, func in model.forcing_func.items():
-            _forcing = func(self.model_time)
-            model.forcings[key][self.time_index] = _forcing
-            model_forcing[key] = _forcing
+            # retrieve pre-computed forcing:
+            model_forcing[key] = model.forcings[key][self.time_index]
 
         model_state = []
         for key, val in self.full_model_values.items():
-            # print(key, val)
+            # retrieve state computed in previous time step:
             if model.full_model_dims[key]:
-                model_state.append(val[:, self.time_index])
+                model_state.append(val[:, self.time_index - 1])
             else:
-                model_state.append(val[self.time_index])
+                model_state.append(val[self.time_index - 1])
 
+        # flatten list for model function:
         model_state = np.concatenate(model_state, axis=None)
 
         state_out = model.model_function(model_state, forcing=model_forcing)
         state_dict = model.unpack_flat_state(state_out)
         # add time index, to assign new values to next slot in numpy arrays:
-        self.time_index += 1
 
         for key, val in model.variables.items():
             if model.full_model_dims[key]:
@@ -287,9 +279,9 @@ class StepwiseSolver(SolverABC):
 
         for key, val in model.flux_values.items():
             if model.full_model_dims[key]:
-                val[:, self.time_index] = val[:, self.time_index - 1]
+                val[:, self.time_index] = state_dict[key]
             else:
-                val[self.time_index] = val[self.time_index - 1]
+                val[self.time_index] = state_dict[key]
 
     def cleanup(self):
         pass
@@ -301,19 +293,63 @@ class GEKKOSolver(SolverABC):
     def __init__(self):
         self.gekko = GEKKO(remote=False)
 
+        self.full_model_values = defaultdict()
+
     def add_variable(self, label, initial_value, model):
         """"""
-        # return list of values to be appended to
-        return self.gekko.SV(value=initial_value, name=label, lb=0)
+        # TODO: NOW ADD GEKKO SUPPORT!
+        print("adding variable here:")
+        if isinstance(initial_value, list) or isinstance(initial_value, np.ndarray):
+            var_out = [self.gekko.SV(value=initial_value[i], name=label + str(i), lb=0)
+                       for i in range(len(initial_value))]
+        else:
+            var_out = self.gekko.SV(value=initial_value, name=label, lb=0)
+
+        print(var_out)
+        print(type(var_out))
+
+        try:
+            print([var.name for var in var_out])
+            print(type(var_out))
+            print([type(var) for var in var_out])
+        except:
+            pass
+
+        return var_out
 
     def add_parameter(self, label, value):
-        return self.gekko.Param(value=value, name=label)
+        print("adding parameter:")
+        if isinstance(value, list) or isinstance(value, np.ndarray):
+            var_out = [self.gekko.Param(value=value[i], name=label + str(i), lb=0) for i in range(len(value))]
+        else:
+            var_out = self.gekko.Param(value=value, name=label)
+
+        print(var_out)
+
+        try:
+            print([var.name for var in var_out])
+        except:
+            pass
+
+        return var_out
 
     def add_flux(self, label, flux, model):
         """ this returns storage container """
-        return self.gekko.Intermediate(flux(state=model.variables,
-                                            parameters=model.parameters,
-                                            forcings=model.forcings), name=label)
+        print("adding flux")
+
+        # need to force vectorization here, otherwise lists/arrays of gekko object are not iterated over:
+        _flux = flux(state=model.variables,
+                     parameters=model.parameters,
+                     forcings=model.forcings, vectorized=True)
+
+        print(_flux, type(_flux))
+
+        try:
+            flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
+        except:
+            flux_out = self.gekko.Intermediate(_flux, name=label)
+
+        return flux_out
 
     def add_forcing(self, label, forcing_func, model):
         """ """
@@ -321,20 +357,72 @@ class GEKKOSolver(SolverABC):
 
     def assemble(self, model):
         """ """
-        state_out = model.model_function(model.full_model_dims.values())
-
-        state_dict = {label: eq for label, eq in zip(model.full_model_dims.keys(), state_out)}
-
-        equations = []
-
-        for label, var in model.variables.items():
-            try:
-                state_dict[label]
-            except KeyError:
-                # if not, define derivative as 0
-                equations.append(var.dt() == 0)
+        for key, value in model.variables.items():
+            print("variables", key, np.shape(value))
+            self.full_model_values[key] = value
+            if isinstance(value, list) or isinstance(value, np.ndarray):
+                model.full_model_dims[key] = np.size(value)
             else:
-                equations.append(var.dt() == state_dict[label])
+                model.full_model_dims[key] = None
+
+        for key, value in model.flux_values.items():
+            print("fluxes", key, np.shape(value))
+            self.full_model_values[key] = value
+            if isinstance(value, list) or isinstance(value, np.ndarray):
+                if np.size(value) == np.size(model.time):
+                    model.full_model_dims[key] = None
+                else:
+                    model.full_model_dims[key] = np.size(value)
+            else:
+                model.full_model_dims[key] = None
+
+        # finally print model repr for diagnostic purposes:
+        print("Model dicts are assembled:")
+        print(model)
+
+        print("Now assembling gekko model:")
+        # Assign fluxes to variables:
+        equations = []
+        for var_label, value in model.variables.items():
+            var_fluxes = []
+            dims = model.full_model_dims[var_label]
+            if var_label in model.fluxes_per_var:
+                for flux_var_dict in model.fluxes_per_var[var_label]:
+                    flux_label, negative = flux_var_dict.values()
+                    _flux = model.flux_values[flux_label]
+                    # print(var_label, dims, flux_label, _flux)
+                    flux_dims = np.size(_flux)
+
+                    if negative:
+                        if flux_dims > 1:
+                            var_fluxes.append([-_flux[i] for i in range(flux_dims)])
+                        else:
+                            var_fluxes.append(-_flux)
+                    else:
+                        if flux_dims > 1:
+                            var_fluxes.append([_flux[i] for i in range(flux_dims)])
+                        else:
+                            var_fluxes.append(_flux)
+
+            else:
+                print("here appending 0")
+                # if not, define derivative as 0
+                if dims:
+                    var_fluxes.append([0 for i in range(dims)])
+                else:
+                    var_fluxes.append(0)
+
+            if dims:
+                for i in range(dims):
+                    equations.append(value[i].dt() == sum([var_flx[i] for var_flx in var_fluxes]))
+            else:
+                _var_fluxes = []
+                for flx in var_fluxes:
+                    if np.size(flx) > 1:
+                        _var_fluxes.append(sum(flx))
+                    else:
+                        _var_fluxes.append(flx)
+                equations.append(value.dt() == sum(_var_fluxes))
 
         # create Equations
         self.gekko.Equations(equations)
