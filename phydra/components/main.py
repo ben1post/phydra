@@ -62,6 +62,18 @@ class ThirdInit(Context):
         super(ThirdInit, self).initialize()
         self.group = 3
 
+@xs.process
+class FourthInit(Context):
+    """ Inherited by all other model components to access backend"""
+    firstinit = xs.group('FirstInit')
+    secondinit = xs.group('SecondInit')
+    thirdinit = xs.group('ThirdInit')
+    group = xs.variable(intent='out', groups='FourthInit')
+
+    def initialize(self):
+        super(FourthInit, self).initialize()
+        self.group = 4
+
 
 @xs.process
 class Solver(Context):
@@ -69,6 +81,7 @@ class Solver(Context):
     firstinit = xs.group('FirstInit')
     secondinit = xs.group('SecondInit')
     thirdinit = xs.group('ThirdInit')
+    fourthinit = xs.group('FourthInit')
 
     def initialize(self):
         """"""

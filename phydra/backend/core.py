@@ -68,8 +68,6 @@ class PhydraCore:
         return self.Model.forcings[label]
 
     def assemble(self):
-        print("lets do the magic at model assembly")
-
         self.Solver.assemble(self.Model)
 
         self.solve_start = tm.time()

@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 
 from scipy.io import netcdf
 
@@ -7,6 +8,7 @@ from scipy.io import netcdf
 from pathlib import Path
 # TODO: Get this data in smaller files on server to query as described in:
 # https://zonca.dev/2019/08/large-files-python-packages.html
+
 
 class ClimatologyForcing:
     """
@@ -181,7 +183,7 @@ class VerifData:
         dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
         dpm_3 = dayspermonth * 3
         dpm_cumsum = np.cumsum(dpm_3) - np.array(dpm_3) / 2
-        dat_dpm = pandas.DataFrame(np.column_stack([dat * 3, dpm_cumsum]), columns=['Value', 'yday'])
+        dat_dpm = pd.DataFrame(np.column_stack([dat * 3, dpm_cumsum]), columns=['Value', 'yday'])
         tm_dat_conc = np.arange(0., 3 * 365., 1.0)
 
         dat_pad = dat_dpm.set_index('yday').reindex(tm_dat_conc).reset_index()

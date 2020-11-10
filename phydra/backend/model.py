@@ -44,8 +44,8 @@ class PhydraModel:
 
     def unpack_flat_state(self, flat_state):
         """ """
-        #print("FLAT STATE:", flat_state)
-        #print(self.full_model_dims)
+        # print("FLAT STATE:", flat_state)
+        # print(self.full_model_dims)
 
         state_dict = defaultdict()
         index = 0
@@ -59,7 +59,7 @@ class PhydraModel:
             else:
                 state_dict[key] = flat_state[index]
                 index += 1
-            #print(key, dims, state_dict, index)
+            # print(key, dims, state_dict, index)
 
         return state_dict
 
@@ -71,8 +71,8 @@ class PhydraModel:
         :param forcing:
         :return:
         """
-        # print("CURRENT STATE")
-        # print(current_state)
+        #print("CURRENT STATE")
+        #print(current_state)
 
         state = self.unpack_flat_state(current_state)
 
@@ -102,7 +102,7 @@ class PhydraModel:
                 dims = self.full_model_dims[var_label]
                 for flux_var_dict in self.fluxes_per_var[var_label]:
                     flux_label, negative = flux_var_dict.values()
-                    # print(flux_label, flux_values[flux_label])
+                    #print(flux_label, flux_values[flux_label])
 
                     if dims:
                         _flux = flux_values[flux_label]
@@ -121,11 +121,11 @@ class PhydraModel:
                 else:
                     var_fluxes.append(np.array([0]))
 
-            # print("var_fluxes", var_fluxes)
+            #print("var_fluxes", var_fluxes)
             state_out.append(np.sum(var_fluxes, axis=0))
 
-        # print("state_out", state_out)
+        #print("state_out", state_out)
         full_output = np.concatenate([[v for val in state_out for v in val.flatten()],
                                       [v for val in fluxes_out for v in val.flatten()]], axis=None)
-        # print(full_output)
+        #print(full_output)
         return full_output

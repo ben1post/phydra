@@ -74,8 +74,8 @@ class ODEINTSolver(SolverABC):
         # store initial values of variables to pass to odeint function
         self.var_init[label] = return_dim_ndarray(initial_value)
 
-        print("adding variable here:")
-        print("FULL DIMS", full_dims)
+        # print("adding variable here:")
+        # print("FULL DIMS", full_dims)
 
         return np.zeros(full_dims)
 
@@ -106,7 +106,7 @@ class ODEINTSolver(SolverABC):
         else:
             full_dims = (np.size(self.flux_init[label]), np.size(model.time))
 
-        print("flux", label, full_dims)
+        # print("flux", label, full_dims)
 
         return np.zeros(full_dims)
 
@@ -177,9 +177,9 @@ class StepwiseSolver(SolverABC):
     def add_variable(self, label, initial_value, model):
         """ """
         # return list to be appended to
-        print(label, initial_value)
+        # print(label, initial_value)
 
-        print("adding variable here:")
+        # print("adding variable here:")
         if isinstance(initial_value, list) or isinstance(initial_value, np.ndarray):
             full_dims = (np.size(initial_value), np.size(model.time))
             array_out = np.zeros(full_dims)
@@ -319,6 +319,10 @@ class GEKKOSolver(SolverABC):
 
     def add_parameter(self, label, value):
         print("adding parameter:")
+        
+        if isinstance(value, str):
+            return value
+
         if isinstance(value, list) or isinstance(value, np.ndarray):
             var_out = [self.gekko.Param(value=value[i], name=label + str(i), lb=0) for i in range(len(value))]
         else:
@@ -342,9 +346,8 @@ class GEKKOSolver(SolverABC):
                      parameters=model.parameters,
                      forcings=model.forcings, vectorized=True)
 
-        print(_flux, type(_flux))
-
         try:
+            print(_flux, type(_flux), len(_flux))
             flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
         except:
             flux_out = self.gekko.Intermediate(_flux, name=label)

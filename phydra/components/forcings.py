@@ -1,5 +1,6 @@
 from .main import SecondInit
 
+import os
 import xsimlab as xs
 import numpy as np
 import scipy.interpolate as intrp
@@ -9,29 +10,13 @@ from phydra.utility.forcingdata import ClimatologyForcing
 
 from phydra.components.variables import Time
 
-# TODO:
-#   A forcing essentially is a function returning a value, with time as input
-#   could also be an array with a value for each time_step (e.g. gekko), but that could be created in backend from func
-#   ...
-#   I need to somehow allow for free modification of initialize/ reading + modifying input..
-
-# what does this function need access to?
-# can I store the function, and convert it to a value in backend?
-#
-# hm..
-
-# this is tricky, what do I need in the "backend"
-#   --> I need the function that is
-
-import os
-
 
 @phydra.comp(init_stage=2)
 class ConstantForcing:
     forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
     value = phydra.parameter(description='constant value of forcing')
 
-    def forcing_setup(value):
+    def forcing_setup(self, value):
         cwd = os.getcwd()
         print("forcing function is in directory:", cwd)
         print("forcing_val:", value)
@@ -39,6 +24,55 @@ class ConstantForcing:
         @np.vectorize
         def forcing(time):
             return value
+
+        return forcing
+
+
+@phydra.comp(init_stage=2)
+class SinusoidalForcing:
+    forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
+    value = phydra.parameter(description='constant value of forcing')
+
+    def forcing_setup(value):
+
+
+        cwd = os.getcwd()
+        print("forcing function is in directory:", cwd)
+        print("forcing_val:", value)
+
+        @np.vectorize
+        def forcing(time):
+            return np.cos(time / 365 * 2 * np.pi) + 1
+
+        return forcing
+
+
+@phydra.comp(init_stage=2)
+class GlobalSlabClimatologyForcing:
+    forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
+    dataset = phydra.parameter(description="Options: 'n0x', 'mld', 'tmld', 'par'")
+    lat = phydra.parameter(description='constant value of forcing')
+    lon = phydra.parameter(description='constant value of forcing')
+    rbb = phydra.parameter(description='constant value of forcing')
+    smooth = phydra.parameter(description='smoothing conditions, larger values = stronger smoothing')
+    k = phydra.parameter(description='The degree of the spline fit')
+
+    def forcing_setup(self, dataset, lat, lon, rbb, smooth, k):
+        data = ClimatologyForcing(lat, lon, rbb, dataset).outForcing
+
+        dayspermonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        dpm = dayspermonth
+        dpm_cumsum = np.cumsum(dpm) - np.array(dpm) / 2
+
+        time = np.concatenate([[0], dpm_cumsum, [365]], axis=None)
+
+        boundary_int = [(data[0] + data[-1]) / 2]
+        dat = np.concatenate([boundary_int, data, boundary_int], axis=None)
+
+        spl = intrp.splrep(time, dat, per=True, k=k, s=smooth)
+
+        def forcing(time):
+            return intrp.splev(np.mod(time, 365), spl, der=0)
 
         return forcing
 
@@ -63,7 +97,7 @@ class OLD_ConstantForcing(SecondInit):
 
 
 @xs.process
-class SinusoidalForcing(SecondInit):
+class OLD_SinusoidalForcing(SecondInit):
     """provides a sinusoidal value forcing"""
 
     time = xs.foreign(Time, 'time')
@@ -107,7 +141,7 @@ class SinusoidalForcing(SecondInit):
 
 
 @xs.process
-class GlobalSlabClimatologyForcing(SecondInit):
+class OLD_GlobalSlabClimatologyForcing(SecondInit):
     """MLD Climatology from x
     WOA2018 Forcing for Nitrate, MLD, T_MLD
     MODIS aqua forcing PAR"""

@@ -6,7 +6,7 @@ del get_versions
 from . import components
 from . import models
 
-from .backend.variable import variable, parameter, forcing
+from .backend.variable import variable, parameter, forcing, flux
 
 from .backend.component import comp
 

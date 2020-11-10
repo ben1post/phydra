@@ -2,27 +2,26 @@ import attr
 
 from enum import Enum
 
-import xsimlab as xs
+from functools import wraps
 
 
-class FluxVarType(Enum):
+class PhydraVarType(Enum):
     VARIABLE = "variable"
     PARAMETER = "parameter"
     FORCING = "forcing"
+    FLUX = "flux"
 
 
 def variable(foreign=False,
-             flux=None, negative=False, dims=(), partial_out=None,
-             sub_label=None, description='', attrs=None):
+             flux=None, negative=False, dims=(),
+             description='', attrs=None):
 
     metadata = {
-        "var_type": FluxVarType.VARIABLE,
+        "var_type": PhydraVarType.VARIABLE,
         "foreign": foreign,
         "negative": negative,
         "flux": flux,
         "dims": dims,
-        "partial_out": partial_out,
-        "sub_label": sub_label,
         "attrs": attrs or {},
         "description": description,
     }
@@ -31,14 +30,13 @@ def variable(foreign=False,
 
 
 def forcing(foreign=False,
-            file_input_func=None, dims=(), sub_label=None, description='', attrs=None):
+            file_input_func=None, dims=(), description='', attrs=None):
 
     metadata = {
-        "var_type": FluxVarType.FORCING,
+        "var_type": PhydraVarType.FORCING,
         "foreign": foreign,
         "file_input_func": file_input_func,
         "dims": dims,
-        "sub_label": sub_label,
         "attrs": attrs or {},
         "description": description,
     }
@@ -46,16 +44,46 @@ def forcing(foreign=False,
     return attr.attrib(metadata=metadata)
 
 
-def parameter(foreign=False, dims=(), sub_label=None, description='', attrs=None):
+def parameter(foreign=False, dims=(), description='', attrs=None):
 
     metadata = {
-        "var_type": FluxVarType.PARAMETER,
+        "var_type": PhydraVarType.PARAMETER,
         "foreign": foreign,
         "dims": dims,
-        "sub_label": sub_label,
         "attrs": attrs or {},
         "description": description,
     }
 
     return attr.attrib(metadata=metadata)
 
+
+def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs=None):
+    """ decorator arg setup allows to be applied to function with and without args """
+
+    def _decorate(function):
+        #print("_decorating now")
+
+        #@wraps(function)
+        #def decorate_function(*args, **kwargs):
+        #    print("in decorateor 1")
+        #    print(args, kwargs)
+        #    return function(*args, **kwargs)
+
+        metadata = {
+            "var_type": PhydraVarType.FLUX,
+            "flux_func": function,
+            "group_input_arg": group_input_arg,
+            "dims": dims,
+            "attrs": attrs or {},
+            "description": description,
+        }
+        return attr.attrib(metadata=metadata)
+
+    if flux_func:
+        #print(_decorate(flux_func).metadata['flux_func'])
+
+        return _decorate(flux_func)
+
+    #print(_decorate)
+
+    return _decorate
