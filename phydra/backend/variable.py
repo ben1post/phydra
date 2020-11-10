@@ -60,14 +60,7 @@ def parameter(foreign=False, dims=(), description='', attrs=None):
 def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs=None):
     """ decorator arg setup allows to be applied to function with and without args """
 
-    def _decorate(function):
-        #print("_decorating now")
-
-        #@wraps(function)
-        #def decorate_function(*args, **kwargs):
-        #    print("in decorateor 1")
-        #    print(args, kwargs)
-        #    return function(*args, **kwargs)
+    def create_attrib(function):
 
         metadata = {
             "var_type": PhydraVarType.FLUX,
@@ -80,10 +73,6 @@ def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs
         return attr.attrib(metadata=metadata)
 
     if flux_func:
-        #print(_decorate(flux_func).metadata['flux_func'])
+        return create_attrib(flux_func)
 
-        return _decorate(flux_func)
-
-    #print(_decorate)
-
-    return _decorate
+    return create_attrib

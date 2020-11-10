@@ -204,7 +204,6 @@ def _initialize_forcings(cls, forcing_dict):
                 input_args[arg] = getattr(cls, arg)
 
         forc_func = forc_input_func(cls, **input_args)
-
         setattr(cls, var + '_value',
                 cls.m.add_forcing(label=forc_label, forcing_func=forc_func))
 
@@ -236,87 +235,79 @@ def _create_flux_inputargs_dict(cls, vars_dict):
 # TODO: currently only function calls phydra.comp() of decorator work,
 #  i.e. phydra.comp returns parameterized type obj, not process
 
-def parametrized(dec):
-    """ Simple decorator that allows adding parameters to another decorator
-    Source: https://stackoverflow.com/a/26151604/11826333
-    """
-
-    def layer(*args, **kwargs):
-        def repl(f):
-            return dec(f, *args, **kwargs)
-
-        return repl
-
-    return layer
-
-
-@parametrized
-def comp(cls, init_stage=3):
+def comp(cls=None, *, init_stage=3):
     """ component decorator
     that converts simple base class using phydra.backend.variables into fully functional xarray simlab process
     """
-    attr_cls = attr.attrs(cls, repr=False)
-    vars_dict = _create_variables_dict(attr_cls)
-    forcing_dict = _create_forcing_dict(cls, vars_dict)
+    def create_component(cls):
 
-    new_cls = _create_new_cls(cls, _create_xsimlab_var_dict(vars_dict), init_stage)
+        attr_cls = attr.attrs(cls, repr=False)
+        vars_dict = _create_variables_dict(attr_cls)
+        forcing_dict = _create_forcing_dict(cls, vars_dict)
 
-    def flux_decorator(self, func):
-        """ flux function decorator to unpack arguments """
+        new_cls = _create_new_cls(cls, _create_xsimlab_var_dict(vars_dict), init_stage)
 
-        @wraps(func)
-        def unpack_args(**kwargs):
-            state = kwargs.get('state')
-            parameters = kwargs.get('parameters')
-            forcings = kwargs.get('forcings')
+        def flux_decorator(self, func):
+            """ flux function decorator to unpack arguments """
 
-            input_args = {}
+            @wraps(func)
+            def unpack_args(**kwargs):
+                state = kwargs.get('state')
+                parameters = kwargs.get('parameters')
+                forcings = kwargs.get('forcings')
 
-            forcings_vectorize_exclude = []
+                input_args = {}
 
-            for v_dict in self.flux_input_args['vars']:
-                input_args[v_dict['var']] = state[v_dict['label']]
-            for p_dict in self.flux_input_args['pars']:
-                input_args[p_dict['var']] = parameters[p_dict['label']]
-            for f_dict in self.flux_input_args['forcs']:
-                input_args[f_dict['var']] = forcings[f_dict['label']]
-                forcings_vectorize_exclude.append(f_dict['var'])
+                forcings_vectorize_exclude = []
 
-            # added option to force vectorisation for model arrays/lists
-            #   containing objects (i.e. gekko components), excluding the forcings
-            try:
-                vectorized = kwargs.pop('vectorized')
-            except:
-                vectorized = False
+                for v_dict in self.flux_input_args['vars']:
+                    input_args[v_dict['var']] = state[v_dict['label']]
+                for p_dict in self.flux_input_args['pars']:
+                    input_args[p_dict['var']] = parameters[p_dict['label']]
+                for f_dict in self.flux_input_args['forcs']:
+                    input_args[f_dict['var']] = forcings[f_dict['label']]
+                    forcings_vectorize_exclude.append(f_dict['var'])
 
-            if vectorized:
-                return np.vectorize(func, excluded=forcings_vectorize_exclude)(self, **input_args)
-            else:
-                return func(self, **input_args)
+                # added option to force vectorisation for model arrays/lists
+                #   containing objects (i.e. gekko components), excluding the forcings
+                try:
+                    vectorized = kwargs.pop('vectorized')
+                except:
+                    vectorized = False
 
-        return unpack_args
+                if vectorized:
+                    return np.vectorize(func, excluded=forcings_vectorize_exclude)(self, **input_args)
+                else:
+                    return func(self, **input_args)
 
-    def initialize(self):
-        """ """
-        super(new_cls, self).initialize()
-        print(f"Initializing component {self.label}")
+            return unpack_args
 
-        self.flux_input_args = _create_flux_inputargs_dict(self, vars_dict)
+        def initialize(self):
+            """ """
+            super(new_cls, self).initialize()
+            print(f"Initializing component {self.label}")
 
-        _initialize_forcings(self, forcing_dict)
+            self.flux_input_args = _create_flux_inputargs_dict(self, vars_dict)
 
-        _initialize_process_vars(self, vars_dict)
+            _initialize_forcings(self, forcing_dict)
 
-    setattr(new_cls, 'flux_decorator', flux_decorator)
-    setattr(new_cls, 'initialize', initialize)
+            _initialize_process_vars(self, vars_dict)
 
-    process_cls = xs.process(new_cls)
+        setattr(new_cls, 'flux_decorator', flux_decorator)
+        setattr(new_cls, 'initialize', initialize)
 
-    # TODO: clean this up below:
-    try:
-        process_cls.flux = getattr(cls, 'flux')
-    except AttributeError:
-        # print("process cls contains no flux func")
-        pass
+        process_cls = xs.process(new_cls)
 
-    return process_cls
+        # TODO: clean this up below:
+        try:
+            process_cls.flux = getattr(cls, 'flux')
+        except AttributeError:
+            # print("process cls contains no flux func")
+            pass
+
+        return process_cls
+
+    if cls:
+        return create_component(cls)
+
+    return create_component

@@ -319,7 +319,7 @@ class GEKKOSolver(SolverABC):
 
     def add_parameter(self, label, value):
         print("adding parameter:")
-        
+
         if isinstance(value, str):
             return value
 
