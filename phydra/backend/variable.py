@@ -2,8 +2,6 @@ import attr
 
 from enum import Enum
 
-from functools import wraps
-
 
 class PhydraVarType(Enum):
     VARIABLE = "variable"
@@ -14,7 +12,9 @@ class PhydraVarType(Enum):
 
 def variable(foreign=False,
              flux=None, negative=False, dims=(),
-             description='', attrs=None):
+             description='', attrs={}):
+
+    attrs.update({'Phydra_store_out': True})
 
     metadata = {
         "var_type": PhydraVarType.VARIABLE,
@@ -22,7 +22,7 @@ def variable(foreign=False,
         "negative": negative,
         "flux": flux,
         "dims": dims,
-        "attrs": attrs or {},
+        "attrs": attrs,
         "description": description,
     }
 
@@ -30,14 +30,16 @@ def variable(foreign=False,
 
 
 def forcing(foreign=False,
-            file_input_func=None, dims=(), description='', attrs=None):
+            file_input_func=None, dims=(), description='', attrs={}):
+
+    attrs.update({'Phydra_store_out': True})
 
     metadata = {
         "var_type": PhydraVarType.FORCING,
         "foreign": foreign,
         "file_input_func": file_input_func,
         "dims": dims,
-        "attrs": attrs or {},
+        "attrs": attrs,
         "description": description,
     }
 
@@ -57,17 +59,19 @@ def parameter(foreign=False, dims=(), description='', attrs=None):
     return attr.attrib(metadata=metadata)
 
 
-def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs=None):
+def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs={}):
     """ decorator arg setup allows to be applied to function with and without args """
 
     def create_attrib(function):
+
+        attrs.update({'Phydra_store_out': True})
 
         metadata = {
             "var_type": PhydraVarType.FLUX,
             "flux_func": function,
             "group_input_arg": group_input_arg,
             "dims": dims,
-            "attrs": attrs or {},
+            "attrs": attrs,
             "description": description,
         }
         return attr.attrib(metadata=metadata)

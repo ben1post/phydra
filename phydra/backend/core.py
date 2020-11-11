@@ -31,7 +31,6 @@ class PhydraCore:
         """
         # the following step registers the variable within the framework
         self.Model.variables[label] = self.Solver.add_variable(label, initial_value, self.Model)
-
         # return actual value store of variable to xsimlab framework
         return self.Model.variables[label]
 
@@ -60,16 +59,12 @@ class PhydraCore:
         self.Model.fluxes_per_var[var_label].append(flux_var_dict)
 
     def add_forcing(self, label, forcing_func):
-
         self.Model.forcing_func[label] = forcing_func
-
         self.Model.forcings[label] = self.Solver.add_forcing(label, forcing_func, self.Model)
-
         return self.Model.forcings[label]
 
     def assemble(self):
         self.Solver.assemble(self.Model)
-
         self.solve_start = tm.time()
 
     def solve(self, time_step):

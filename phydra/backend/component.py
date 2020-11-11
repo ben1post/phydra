@@ -39,7 +39,9 @@ def _convert_2_xsimlabvar(var, intent='in',
         else:
             var_dims = (var_dims, 'time')
 
-    return xs.variable(intent=intent, dims=var_dims, groups=groups, description=description_label)
+    var_attrs = var.metadata.get('attrs')
+
+    return xs.variable(intent=intent, dims=var_dims, groups=groups, description=description_label, attrs=var_attrs)
 
 
 def _make_phydra_variable(label, variable):
@@ -136,7 +138,6 @@ def _create_forcing_dict(cls, var_dict):
     for key, var in var_dict.items():
         if var.metadata.get('var_type') is PhydraVarType.FORCING:
             _file_input_func = var.metadata.get('file_input_func')
-
             if _file_input_func is not None:
                 forcings_dict[key] = getattr(cls, _file_input_func)
 
@@ -173,18 +174,14 @@ def _initialize_process_vars(cls, vars_dict):
                 setattr(cls, key + '_value', cls.m.add_variable(label=_label, initial_value=_init))
             flux = var.metadata.get('flux')
             if flux:
-                cls.m.add_flux(process_label=cls.label,
-                               var_label=_label,
-                               flux_label=flux,
+                cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux,
                                negative=var.metadata.get('negative'))
-
         elif var_type is PhydraVarType.PARAMETER:
             if var.metadata.get('foreign') is False:
                 _par_value = getattr(cls, key)
                 cls.m.add_parameter(label=process_label + '_' + key, value=_par_value)
             else:
                 raise Exception("Currently Phydra does not support foreign=True for parameters -> TODO 4 v1")
-
         elif var_type is PhydraVarType.FLUX:
             flux_func = var.metadata.get('flux_func')
             setattr(cls, key + '_value',

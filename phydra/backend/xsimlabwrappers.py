@@ -1,4 +1,7 @@
 import xsimlab as xs
+from xsimlab.variable import VarIntent
+
+from collections import defaultdict
 
 from phydra.components.main import Backend, Solver
 from phydra.components.variables import Time
@@ -7,10 +10,6 @@ from phydra.components.variables import Time
 def create(model_dict):
     """Function creates xsimlab Model instance,
     automatically adding the necessary model backend, solver and time components"""
-
-    # TODO: is there any way to check if dims already exists in model?
-    #   I think that happens in xs.model.. so perhaps I can include it in the wrappper?
-    #   Idea: I can simply check if there are two multi_fluxes of the same name in the model..
 
     model_dict.update({'Core': Backend, 'Solver': Solver, 'Time': Time})
     return xs.Model(model_dict)
@@ -25,8 +24,18 @@ def setup(solver, model, input_vars, output_vars, time=None):
     input_vars.update({'Core__solver_type': solver,
                        'Time__time': time})
 
-    # for simpler initialisation of output vars as set, that don't require dimensions
-    if isinstance(output_vars, set):
+    # convenient option "ALL" and providing set of values that automatically are returned with dim None:
+    if output_vars == "ALL":
+        full_output_vars = defaultdict()
+        for var in model._var_cache.values():
+            try:
+                if var['metadata']['intent'] is VarIntent.OUT:
+                    if var['metadata']['attrs']['Phydra_store_out']:
+                        full_output_vars[var['name']] = None
+            except:
+                pass
+        output_vars = full_output_vars
+    elif isinstance(output_vars, set):
         output_vars = {var: None for var in output_vars}
 
     if solver == "odeint" or solver == "gekko":
@@ -57,15 +66,11 @@ def update_setup(model, old_setup, new_solver, new_time=None):
         with model:
             setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver,
                                                                'Time__time': time})
-            setup2 = setup1.xsimlab.update_clocks(clocks={'clock': [0, 1]},
-                                                  master_clock='clock')
-
+            setup2 = setup1.xsimlab.update_clocks(clocks={'clock': [0, 1]}, master_clock='clock')
     elif new_solver == "stepwise":
         with model:
             setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver})  # ,
-            setup2 = setup1.xsimlab.update_clocks(clocks={'clock': time},
-                                                  master_clock='clock')
-
+            setup2 = setup1.xsimlab.update_clocks(clocks={'clock': time}, master_clock='clock')
     else:
         raise Exception("Please supply one of the available solvers: 'odeint', 'gekko' or 'stepwise'")
 
