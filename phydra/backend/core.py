@@ -49,10 +49,10 @@ class PhydraCore:
 
         return self.Model.flux_values[label]
 
-    def add_flux(self, process_label, var_label, flux_label, negative=False):
+    def add_flux(self, process_label, var_label, flux_label, negative=False, list_input=False):
         # to store var - flux connection:
         label = process_label + '_' + flux_label
-        flux_var_dict = {'label': label, 'negative': negative}
+        flux_var_dict = {'label': label, 'negative': negative, 'list_input': list_input}
 
         self.Model.fluxes_per_var[var_label].append(flux_var_dict)
 
@@ -74,3 +74,11 @@ class PhydraCore:
         self.solve_end = tm.time()
         print(f"Model was solved in {round(self.solve_end - self.solve_start, 5)} seconds")
         self.Solver.cleanup()
+
+    # math function wrappers:
+    def exp(self, args):
+        """ Exponential function that provides correct function for all supported solver types """
+        if isinstance(self.Solver , GEKKOSolver):
+            return self.Solver.gekko.exp(args)
+        else:
+            return np.exp(args)

@@ -118,6 +118,22 @@ class HollingTypeIII:
                * feed_pref / (kZ ** 2 + sum([resource ** 2 * feed_pref])) * consumer
 
 
+# NEW LIST INPUT FLUX:
+@phydra.comp
+class ListInputFlux:
+    """ get variable input of multiple labels as list
+        and do the routing etc.
+    """
+    resources = phydra.variable(foreign=True, negative=True, flux='growth', list_input=True, dims='resources')
+    consumer = phydra.variable(foreign=True, flux='growth')
+    halfsat = phydra.parameter()
+
+    @phydra.flux(dims='resources')
+    def growth(self, resources, consumer, halfsat):
+        # print(resources, consumer, halfsat)
+        return resources / (sum(resources) + halfsat) * consumer
+
+
 @phydra.comp(init_stage=3)
 class HollingTypeIII_2Resources:
     r_1 = phydra.variable(foreign=True, flux='r1_out', negative=True, description='resource 1')
@@ -155,6 +171,40 @@ class HollingTypeIII_2Resources:
         return self.flux(source=r_2, fp=fp_2, **kwargs)
 
 
+# First Group Flux Prototype:
+@phydra.comp(init_stage=4)
+class GroupedFlux:
+    """ Somehow i need to get other fluxes here as input args
+
+            the normal xs.group way doesn't really work anymore
+            i need to create a dict of labels, that the values of are retrieved from model STATE
+
+            -
+    """
+
+    var = phydra.variable(foreign=True, flux='growth')
+
+    @phydra.flux(group_to_arg='X_growth', description='HELLO')
+    def growth(self, var, X_growth):
+        # print(X_growth)
+        return sum(X_growth)
+
+
+@phydra.comp(init_stage=2)
+class SubFlux:
+    var = phydra.variable(foreign=True)
+    rate = phydra.parameter()
+
+    @phydra.flux(group='X_growth')
+    def one_growth(self, var, rate):
+        # print(var)
+        return var * rate
+
+    @phydra.flux(group='X_growth')
+    def two_growth(self, var, rate):
+        return - var * rate
+
+
 # MULTI LIM TESTS:
 # noinspection NonAsciiCharacters
 @phydra.comp(init_stage=3)
@@ -177,16 +227,12 @@ class Growth_Monod_Eppley_Steele:
 
     @phydra.flux
     def growth(self, resource, consumer, Temp, Light, MLD, i_opt, kw, kc, eppley, halfsat, µ_max):
-        try:
-            exp = self.m.Solver.gekko.exp
-        except:
-            exp = np.exp
 
-        temp_lim = exp(eppley * Temp)
+        temp_lim = self.m.exp(eppley * Temp)
         monod_lim = resource / (resource + halfsat)
         kPAR = kw + kc * consumer
         light_lim = 1. / (kPAR * MLD) * (
-                    -exp(1. - Light / i_opt) - (
-                        -exp((1. - (Light * exp(-kPAR * MLD)) / i_opt))))
+                    -self.m.exp(1. - Light / i_opt) - (
+                        -self.m.exp((1. - (Light * self.m.exp(-kPAR * MLD)) / i_opt))))
 
         return µ_max * temp_lim * monod_lim * light_lim * consumer

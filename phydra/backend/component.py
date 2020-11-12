@@ -25,7 +25,6 @@ def _convert_2_xsimlabvar(var, intent='in',
                           var_dims=None, value_store=False, groups=None,
                           description_label=''):
     """ """
-
     var_description = var.metadata.get('description')
     if var_description:
         description_label = description_label + var_description
@@ -39,6 +38,9 @@ def _convert_2_xsimlabvar(var, intent='in',
         else:
             var_dims = (var_dims, 'time')
 
+    if var_dims is None:
+        var_dims = ()
+
     var_attrs = var.metadata.get('attrs')
 
     return xs.variable(intent=intent, dims=var_dims, groups=groups, description=description_label, attrs=var_attrs)
@@ -48,8 +50,16 @@ def _make_phydra_variable(label, variable):
     """ """
     xs_var_dict = defaultdict()
     if variable.metadata.get('foreign') is True:
-        xs_var_dict[label] = _convert_2_xsimlabvar(var=variable, var_dims=(),
-                                                   description_label='label reference / ')
+        list_input = variable.metadata.get('list_input')
+        if list_input:
+            var_dims = variable.metadata.get('dims')
+            if var_dims is None:
+                raise Exception("Variable with list_input=True requires passing a unique dimension to dims keyword arg")
+            xs_var_dict[label] = _convert_2_xsimlabvar(var=variable, var_dims=var_dims,
+                                                       description_label='label reference / ')
+        else:
+            xs_var_dict[label] = _convert_2_xsimlabvar(var=variable, var_dims=(),
+                                                       description_label='label reference / ')
     elif variable.metadata.get('foreign') is False:
         xs_var_dict[label + '_label'] = _convert_2_xsimlabvar(var=variable, var_dims=(),
                                                               description_label='label / ')
@@ -165,8 +175,13 @@ def _initialize_process_vars(cls, vars_dict):
                 setattr(cls, key + '_value', cls.m.add_variable(label=_label, initial_value=_init))
             flux_label = var.metadata.get('flux')
             if flux_label:
-                cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux_label,
-                               negative=var.metadata.get('negative'))
+                list_input = var.metadata.get('list_input')
+                if list_input:
+                    cls.m.add_flux(process_label=cls.label, var_label="list_input", flux_label=flux_label,
+                                   negative=var.metadata.get('negative'), list_input=_label)
+                else:
+                    cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux_label,
+                                   negative=var.metadata.get('negative'))
         elif var_type is PhydraVarType.PARAMETER:
             if var.metadata.get('foreign') is False:
                 _par_value = getattr(cls, key)
@@ -186,6 +201,8 @@ def _create_flux_inputargs_dict(cls, vars_dict):
                 var_label = getattr(cls, key + '_label')
             elif var.metadata.get('foreign') is True:
                 var_label = getattr(cls, key)
+                if var.metadata.get('list_input'):
+                    var_label = np.array(var_label)  # force to list for easier type checking later
             input_arg_dict['vars'].append({'var': key, 'label': var_label})
         elif var_type is PhydraVarType.PARAMETER:
             # TODO: so it doesn't work with foreign parameters here yet!
@@ -199,9 +216,7 @@ def _create_flux_inputargs_dict(cls, vars_dict):
         elif var_type is PhydraVarType.FLUX:
             group_to_arg = var.metadata.get('group_to_arg')
             if group_to_arg:
-                print("ADDING INPUT ARG HERE:", group_to_arg)
-                group = list(getattr(cls, group_to_arg))
-                print([i for i in group])
+                group = list(getattr(cls, group_to_arg))  # convert generator to list for safer handling
                 input_arg_dict['vars'].append({'var': group_to_arg, 'label': group})
 
     print("returning input arg dict", input_arg_dict)
@@ -268,30 +283,42 @@ def comp(cls=None, *, init_stage=3):
 
                 input_args = {}
                 args_vectorize_exclude = []
+                args_signature = []
 
                 for v_dict in self.flux_input_args['vars']:
-                    if isinstance(v_dict['label'], list):
+                    if isinstance(v_dict['label'], list) or isinstance(v_dict['label'], np.ndarray):
                         input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
-                        args_vectorize_exclude.append(v_dict['var'])
+                        # args_vectorize_exclude.append(v_dict['var'])
+                        args_signature.append('(m)')
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
+                        args_signature.append('()')
 
                 for p_dict in self.flux_input_args['pars']:
                     input_args[p_dict['var']] = parameters[p_dict['label']]
+                    args_signature.append('()')
 
                 for f_dict in self.flux_input_args['forcs']:
                     input_args[f_dict['var']] = forcings[f_dict['label']]
                     args_vectorize_exclude.append(f_dict['var'])
+                    args_signature.append('()')
 
                 # added option to force vectorisation for model arrays/lists
                 #   containing objects (i.e. gekko components), excluding the forcings
+                # as well as forcing correct vectorization of list inputs via signature
                 try:
                     vectorized = kwargs.pop('vectorized')
                 except:
                     vectorized = False
 
                 if vectorized:
-                    return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
+                    output_dims = [sig for sig in args_signature if sig != '()']
+                    if output_dims:
+                        signature = f"(),{','.join(args_signature)}->{','.join(output_dims)}"
+                        return np.vectorize(func, excluded=args_vectorize_exclude,
+                                            signature=signature)(self, **input_args)
+                    else:
+                        return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
                 else:
                     return func(self, **input_args)
 

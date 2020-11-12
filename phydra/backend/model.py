@@ -1,6 +1,8 @@
 from collections import defaultdict
 import numpy as np
 
+# from itertools import zip_longest as zip
+
 
 def return_dim_ndarray(value):
     """ helper function to always have at least 1d numpy array returned """
@@ -95,15 +97,59 @@ class PhydraModel:
             fluxes_out.append(_value)
         # print("fluxes_out", fluxes_out)
 
+        # Route list input fluxes:
+        list_input_fluxes = defaultdict(list)
+        for flux_var_dict in self.fluxes_per_var["list_input"]:
+            flux_label, negative, list_input = flux_var_dict.values()
+            # print(flux_label, negative, flux_values[flux_label], list_input)
+
+            flux_val = flux_values[flux_label]
+            flux_dims = self.full_model_dims[flux_label]
+            # print(len(list_input), flux_dims)
+
+            if len(list_input) == flux_dims:
+                for var, flux in zip(list_input, flux_val):
+                    #var_dims = self.full_model_dims[var]
+                    #print(var, var_dims, flux, flux_dims)
+                    if negative:
+                        list_input_fluxes[var].append(-flux)
+                    else:
+                        list_input_fluxes[var].append(flux)
+            else:
+                raise Exception("list input vars number and flux dims do not match exactly, \n"
+                                "TODO: implement if necessary")
+            # elif flux_dims:
+            #     full_var_dims = defaultdict()
+            #     for var in list_input:
+            #         var_dims = self.full_model_dims[var]
+            #         full_var_dims[var] = var_dims
+            #     print("full var dims in list_input flux", full_var_dims, "and flux dims are", flux_dims)
+            #     raise Exception("Not sure if necessary functionality, TODO: check full model compatibility")
+            #
+            # elif not flux_dims and len(list_input) > 1:
+            #     print("flux is equally divided over list input, without vectorization, "
+            #           "are you sure you want to do this?")
+            #     for var in list_input:
+            #         var_dims = self.full_model_dims[var]
+            #         if var_dims:
+            #             pass
+            #         else:
+            #             if negative:
+            #                 list_input_fluxes[var].append(-flux_val / len(list_input))
+            #             else:
+            #                 list_input_fluxes[var].append(flux_val / len(list_input))
+            #     raise Exception("Not sure if necessary functionality, TODO: check full model compatibility")
+
         # Assign fluxes to variables:
         state_out = []
         for var_label, value in self.variables.items():
             var_fluxes = []
+            dims = self.full_model_dims[var_label]
             if var_label in self.fluxes_per_var:
-                dims = self.full_model_dims[var_label]
                 for flux_var_dict in self.fluxes_per_var[var_label]:
-                    flux_label, negative = flux_var_dict.values()
-                    # print(flux_label, flux_values[flux_label])
+                    flux_label, negative, list_input = flux_var_dict.values()
+                    # print("""""""""""""""""""""""""""""""""""""")
+                    # print(var_label, flux_label, flux_values[flux_label], list_input)
 
                     if dims:
                         _flux = flux_values[flux_label]
@@ -114,13 +160,23 @@ class PhydraModel:
                         var_fluxes.append(-_flux)
                     else:
                         var_fluxes.append(_flux)
+
+            if var_label in list_input_fluxes:
+                # print(list_input_fluxes[var_label])
+                if dims:
+                    _flux = list_input_fluxes[var_label]
+                else:
+                    _flux = np.sum(list_input_fluxes[var_label])
+                # print(_flux)
+                var_fluxes.append(_flux)
+
             else:
                 # print("here appending 0")
                 dims = self.full_model_dims[var_label]
                 if dims:
                     var_fluxes.append(np.array([0 for i in range(dims)]))
                 else:
-                    var_fluxes.append(np.array([0]))
+                    var_fluxes.append(0)
 
             # print("var_fluxes", var_fluxes)
             state_out.append(np.sum(var_fluxes, axis=0))

@@ -94,7 +94,7 @@ class ODEINTSolver(SolverABC):
             var_in_dict[var] = self.var_init[var]
         for var, value in self.flux_init.items():
             var_in_dict[var] = value
-        # print("VAR IN DICT", var_in_dict)
+        print("VAR IN DICT", var_in_dict)
 
         forcing_now = defaultdict()
         for key, func in model.forcing_func.items():
@@ -326,18 +326,17 @@ class GEKKOSolver(SolverABC):
     def add_flux(self, label, flux, model):
         """ this returns storage container """
         var_in_dict = {**model.variables, **model.flux_values}
-
         # need to force vectorization here, otherwise lists/arrays of gekko object are not iterated over:
         _flux = flux(state=var_in_dict,
                      parameters=model.parameters,
                      forcings=model.forcings, vectorized=True)
-
+        # print(_flux, type(_flux))
         try:
-            # print(_flux, type(_flux), len(_flux))
             flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
         except:
             flux_out = self.gekko.Intermediate(_flux, name=label)
 
+        # print(flux_out)
         return flux_out
 
     def add_forcing(self, label, forcing_func, model):
@@ -365,6 +364,8 @@ class GEKKOSolver(SolverABC):
             else:
                 model.full_model_dims[key] = None
 
+        # print("FULL MODEL VALS", self.full_model_values)
+
         # finally print model repr for diagnostic purposes:
         print("Model dicts are assembled:")
         print(model)
@@ -372,12 +373,36 @@ class GEKKOSolver(SolverABC):
         print("Now assembling gekko model:")
         # Assign fluxes to variables:
         equations = []
+        # Route list input fluxes:
+
+        # Route list input fluxes:
+        list_input_fluxes = defaultdict(list)
+        for flux_var_dict in model.fluxes_per_var["list_input"]:
+            flux_label, negative, list_input = flux_var_dict.values()
+            # print(flux_label, negative, flux_values[flux_label], list_input)
+
+            flux_val = model.flux_values[flux_label]
+            flux_dims = model.full_model_dims[flux_label]
+            print(len(list_input), flux_dims)
+
+            if len(list_input) == flux_dims:
+                for var, flux in zip(list_input, flux_val):
+                    #var_dims = self.full_model_dims[var]
+                    #print(var, var_dims, flux, flux_dims)
+                    if negative:
+                        list_input_fluxes[var].append(-flux)
+                    else:
+                        list_input_fluxes[var].append(flux)
+            else:
+                raise Exception("list input vars number and flux dims do not match exactly, \n"
+                                "TODO: implement if necessary")
+
         for var_label, value in model.variables.items():
             var_fluxes = []
             dims = model.full_model_dims[var_label]
             if var_label in model.fluxes_per_var:
                 for flux_var_dict in model.fluxes_per_var[var_label]:
-                    flux_label, negative = flux_var_dict.values()
+                    flux_label, negative, list_input = flux_var_dict.values()
                     _flux = model.flux_values[flux_label]
                     # print(var_label, dims, flux_label, _flux)
                     flux_dims = np.size(_flux)
@@ -392,6 +417,15 @@ class GEKKOSolver(SolverABC):
                             var_fluxes.append([_flux[i] for i in range(flux_dims)])
                         else:
                             var_fluxes.append(_flux)
+
+            if var_label in list_input_fluxes:
+                # print(list_input_fluxes[var_label])
+                if dims:
+                    _flux = list_input_fluxes[var_label]
+                else:
+                    _flux = np.sum(list_input_fluxes[var_label])
+                # print(_flux)
+                var_fluxes.append(_flux)
 
             else:
                 if dims:

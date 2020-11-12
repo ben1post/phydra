@@ -10,9 +10,8 @@ class PhydraVarType(Enum):
     FLUX = "flux"
 
 
-def variable(foreign=False,
-             flux=None, negative=False, dims=(),
-             description='', attrs={}):
+def variable(foreign=False, flux=None, negative=False, list_input=False,
+             dims=None, description='', attrs={}):
 
     attrs.update({'Phydra_store_out': True})
 
@@ -21,6 +20,7 @@ def variable(foreign=False,
         "foreign": foreign,
         "negative": negative,
         "flux": flux,
+        "list_input": list_input,
         "dims": dims,
         "attrs": attrs,
         "description": description,
