@@ -92,6 +92,9 @@ class ODEINTSolver(SolverABC):
         var_in_dict = defaultdict()
         for var, value in model.variables.items():
             var_in_dict[var] = self.var_init[var]
+        for var, value in self.flux_init.items():
+            var_in_dict[var] = value
+        print("VAR IN DICT", var_in_dict)
 
         forcing_now = defaultdict()
         for key, func in model.forcing_func.items():

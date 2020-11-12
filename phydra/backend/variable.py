@@ -59,7 +59,7 @@ def parameter(foreign=False, dims=(), description='', attrs=None):
     return attr.attrib(metadata=metadata)
 
 
-def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs={}):
+def flux(flux_func=None, *, dims=(), group=None, group_to_arg=None, description='', attrs={}):
     """ decorator arg setup allows to be applied to function with and without args """
 
     def create_attrib(function):
@@ -69,7 +69,8 @@ def flux(flux_func=None, *, group_input_arg=None, dims=(), description='', attrs
         metadata = {
             "var_type": PhydraVarType.FLUX,
             "flux_func": function,
-            "group_input_arg": group_input_arg,
+            "group": group,
+            "group_to_arg": group_to_arg,
             "dims": dims,
             "attrs": attrs,
             "description": description,

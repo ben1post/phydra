@@ -86,6 +86,18 @@ def _make_phydra_flux(label, variable):
     xs_var_dict[label + '_value'] = _convert_2_xsimlabvar(var=variable, intent='out',
                                                           value_store=True,
                                                           description_label='output of flux value / ')
+    group = variable.metadata.get('group')
+    group_to_arg = variable.metadata.get('group_to_arg')
+
+    if group and group_to_arg:
+        raise Exception("A flux can be either added to group or call a group to an attribute, not both.")
+
+    if group:
+        xs_var_dict[label + '_label'] = _convert_2_xsimlabvar(var=variable, intent='out', groups=group,
+                                                              description_label='label reference with group / ')
+    if group_to_arg:
+        xs_var_dict[group_to_arg] = xs.group(group_to_arg)
+
     return xs_var_dict
 
 
@@ -108,27 +120,6 @@ def _create_xsimlab_var_dict(cls_vars):
             xs_var_dict[xs_key] = xs_var
 
     return xs_var_dict
-
-
-def _create_fluxes_dict(cls, var_dict):
-    """ """
-    fluxes_dict = defaultdict()
-    flux_var_dict = defaultdict(dict)
-
-    for key, var in var_dict.items():
-        if var.metadata.get('var_type') is PhydraVarType.VARIABLE:
-            _flux = var.metadata.get('flux')
-            if _flux is not None:
-                if _flux not in flux_var_dict:
-                    fluxes_dict[_flux] = getattr(cls, _flux)
-
-                flux_var_dict[key] = {'flux': _flux,
-                                      'negative': var.metadata.get('negative'),
-                                      'foreign': var.metadata.get('foreign')}
-
-    flux_var_dict['_fluxes'] = fluxes_dict
-
-    return flux_var_dict
 
 
 def _create_forcing_dict(cls, var_dict):
@@ -172,9 +163,9 @@ def _initialize_process_vars(cls, vars_dict):
                 _init = getattr(cls, key + '_init')
                 _label = getattr(cls, key + '_label')
                 setattr(cls, key + '_value', cls.m.add_variable(label=_label, initial_value=_init))
-            flux = var.metadata.get('flux')
-            if flux:
-                cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux,
+            flux_label = var.metadata.get('flux')
+            if flux_label:
+                cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux_label,
                                negative=var.metadata.get('negative'))
         elif var_type is PhydraVarType.PARAMETER:
             if var.metadata.get('foreign') is False:
@@ -182,10 +173,55 @@ def _initialize_process_vars(cls, vars_dict):
                 cls.m.add_parameter(label=process_label + '_' + key, value=_par_value)
             else:
                 raise Exception("Currently Phydra does not support foreign=True for parameters -> TODO 4 v1")
+
+
+def _create_flux_inputargs_dict(cls, vars_dict):
+    """ """
+    input_arg_dict = defaultdict(list)
+
+    for key, var in vars_dict.items():
+        var_type = var.metadata.get('var_type')
+        if var_type is PhydraVarType.VARIABLE:
+            if var.metadata.get('foreign') is False:
+                var_label = getattr(cls, key + '_label')
+            elif var.metadata.get('foreign') is True:
+                var_label = getattr(cls, key)
+            input_arg_dict['vars'].append({'var': key, 'label': var_label})
+        elif var_type is PhydraVarType.PARAMETER:
+            # TODO: so it doesn't work with foreign parameters here yet!
+            input_arg_dict['pars'].append({'var': key, 'label': cls.label + '_' + key})
+        elif var_type is PhydraVarType.FORCING:
+            if var.metadata.get('foreign') is False:
+                forc_label = getattr(cls, key + '_label')
+            elif var.metadata.get('foreign') is True:
+                forc_label = getattr(cls, key)
+            input_arg_dict['forcs'].append({'var': key, 'label': forc_label})
         elif var_type is PhydraVarType.FLUX:
+            group_to_arg = var.metadata.get('group_to_arg')
+            if group_to_arg:
+                print("ADDING INPUT ARG HERE:", group_to_arg)
+                group = list(getattr(cls, group_to_arg))
+                print([i for i in group])
+                input_arg_dict['vars'].append({'var': group_to_arg, 'label': group})
+
+    print("returning input arg dict", input_arg_dict)
+
+    return input_arg_dict
+
+
+def _initialize_fluxes(cls, vars_dict):
+    """ """
+    for key, var in vars_dict.items():
+        var_type = var.metadata.get('var_type')
+        if var_type is PhydraVarType.FLUX:
             flux_func = var.metadata.get('flux_func')
+            label = cls.label + '_' + flux_func.__name__
+
+            if var.metadata.get('group'):
+                setattr(cls, flux_func.__name__ + '_label', label)
+
             setattr(cls, key + '_value',
-                    cls.m.register_flux(process_label=cls.label, flux=cls.flux_decorator(flux_func)))
+                    cls.m.register_flux(label=label, flux=cls.flux_decorator(flux_func)))
 
 
 def _initialize_forcings(cls, forcing_dict):
@@ -205,30 +241,6 @@ def _initialize_forcings(cls, forcing_dict):
                 cls.m.add_forcing(label=forc_label, forcing_func=forc_func))
 
 
-def _create_flux_inputargs_dict(cls, vars_dict):
-    """ """
-    input_arg_dict = defaultdict(list)
-
-    for key, var in vars_dict.items():
-        if var.metadata.get('var_type') is PhydraVarType.VARIABLE:
-            if var.metadata.get('foreign') is False:
-                var_label = getattr(cls, key + '_label')
-            elif var.metadata.get('foreign') is True:
-                var_label = getattr(cls, key)
-            input_arg_dict['vars'].append({'var': key, 'label': var_label})
-        elif var.metadata.get('var_type') is PhydraVarType.PARAMETER:
-            # TODO: so it doesn't work with foreign parameters here yet!
-            input_arg_dict['pars'].append({'var': key, 'label': cls.label + '_' + key})
-        elif var.metadata.get('var_type') is PhydraVarType.FORCING:
-            if var.metadata.get('foreign') is False:
-                forc_label = getattr(cls, key + '_label')
-            elif var.metadata.get('foreign') is True:
-                forc_label = getattr(cls, key)
-            input_arg_dict['forcs'].append({'var': key, 'label': forc_label})
-
-    return input_arg_dict
-
-
 # TODO: currently only function calls phydra.comp() of decorator work,
 #  i.e. phydra.comp returns parameterized type obj, not process
 
@@ -236,6 +248,7 @@ def comp(cls=None, *, init_stage=3):
     """ component decorator
     that converts simple base class using phydra.backend.variables into fully functional xarray simlab process
     """
+
     def create_component(cls):
 
         attr_cls = attr.attrs(cls, repr=False)
@@ -254,13 +267,17 @@ def comp(cls=None, *, init_stage=3):
                 forcings = kwargs.get('forcings')
 
                 input_args = {}
-
                 forcings_vectorize_exclude = []
 
                 for v_dict in self.flux_input_args['vars']:
-                    input_args[v_dict['var']] = state[v_dict['label']]
+                    if isinstance(v_dict['label'], list):
+                        input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
+                    else:
+                        input_args[v_dict['var']] = state[v_dict['label']]
+
                 for p_dict in self.flux_input_args['pars']:
                     input_args[p_dict['var']] = parameters[p_dict['label']]
+
                 for f_dict in self.flux_input_args['forcs']:
                     input_args[f_dict['var']] = forcings[f_dict['label']]
                     forcings_vectorize_exclude.append(f_dict['var'])
@@ -284,11 +301,14 @@ def comp(cls=None, *, init_stage=3):
             super(new_cls, self).initialize()
             print(f"Initializing component {self.label}")
 
+            _initialize_process_vars(self, vars_dict)
+
             self.flux_input_args = _create_flux_inputargs_dict(self, vars_dict)
+            print(self.flux_input_args)
+
+            _initialize_fluxes(self, vars_dict)
 
             _initialize_forcings(self, forcing_dict)
-
-            _initialize_process_vars(self, vars_dict)
 
         setattr(new_cls, 'flux_decorator', flux_decorator)
         setattr(new_cls, 'initialize', initialize)

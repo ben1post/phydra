@@ -37,10 +37,8 @@ class PhydraCore:
     def add_parameter(self, label, value):
         self.Model.parameters[label] = self.Solver.add_parameter(label, value)
 
-    def register_flux(self, process_label, flux):
+    def register_flux(self, label, flux):
         """"""
-        label = process_label + '_' + flux.__name__
-
         if label not in self.Model.fluxes:
             # to store flux function:
             self.Model.fluxes[label] = flux
