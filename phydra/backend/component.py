@@ -267,11 +267,12 @@ def comp(cls=None, *, init_stage=3):
                 forcings = kwargs.get('forcings')
 
                 input_args = {}
-                forcings_vectorize_exclude = []
+                args_vectorize_exclude = []
 
                 for v_dict in self.flux_input_args['vars']:
                     if isinstance(v_dict['label'], list):
                         input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
+                        args_vectorize_exclude.append(v_dict['var'])
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
 
@@ -280,7 +281,7 @@ def comp(cls=None, *, init_stage=3):
 
                 for f_dict in self.flux_input_args['forcs']:
                     input_args[f_dict['var']] = forcings[f_dict['label']]
-                    forcings_vectorize_exclude.append(f_dict['var'])
+                    args_vectorize_exclude.append(f_dict['var'])
 
                 # added option to force vectorisation for model arrays/lists
                 #   containing objects (i.e. gekko components), excluding the forcings
@@ -290,7 +291,7 @@ def comp(cls=None, *, init_stage=3):
                     vectorized = False
 
                 if vectorized:
-                    return np.vectorize(func, excluded=forcings_vectorize_exclude)(self, **input_args)
+                    return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
                 else:
                     return func(self, **input_args)
 

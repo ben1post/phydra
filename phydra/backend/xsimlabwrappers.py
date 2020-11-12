@@ -66,10 +66,11 @@ def update_setup(model, old_setup, new_solver, new_time=None):
         with model:
             setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver,
                                                                'Time__time': time})
-            setup2 = setup1.xsimlab.update_clocks(clocks={'clock': [0, 1]}, master_clock='clock')
+            setup2 = setup1.xsimlab.update_clocks(clocks={'clock': [time[0], time[1]]}, master_clock='clock')
     elif new_solver == "stepwise":
         with model:
-            setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver})  # ,
+            setup1 = old_setup.xsimlab.update_vars(input_vars={'Core__solver_type': new_solver,
+                                                               'Time__time': time})  # ,
             setup2 = setup1.xsimlab.update_clocks(clocks={'clock': time}, master_clock='clock')
     else:
         raise Exception("Please supply one of the available solvers: 'odeint', 'gekko' or 'stepwise'")

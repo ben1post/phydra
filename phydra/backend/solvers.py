@@ -94,7 +94,7 @@ class ODEINTSolver(SolverABC):
             var_in_dict[var] = self.var_init[var]
         for var, value in self.flux_init.items():
             var_in_dict[var] = value
-        print("VAR IN DICT", var_in_dict)
+        # print("VAR IN DICT", var_in_dict)
 
         forcing_now = defaultdict()
         for key, func in model.forcing_func.items():
@@ -120,13 +120,13 @@ class ODEINTSolver(SolverABC):
     def assemble(self, model):
         """ """
         for key, value in model.variables.items():
-            print("variables", key, np.shape(value))
+            # print("variables", key, np.shape(value))
             dims = set(np.shape(value)) - set(np.shape(model.time))
             add_dims = dims.pop() if dims else None
             model.full_model_dims[key] = add_dims
 
         for key, value in model.flux_values.items():
-            print("values", key, np.shape(value))
+            # print("values", key, np.shape(value))
             dims = set(np.shape(value)) - set(np.shape(model.time))
             add_dims = dims.pop() if dims else None
             model.full_model_dims[key] = add_dims
@@ -204,6 +204,9 @@ class StepwiseSolver(SolverABC):
 
         var_in_dict = defaultdict()
         for var, value in model.variables.items():
+            var_in_dict[var] = value[0] if np.size(value[0]) < 2 else value[:, 0]
+
+        for var, value in model.flux_values.items():
             var_in_dict[var] = value[0] if np.size(value[0]) < 2 else value[:, 0]
 
         forcing_now = defaultdict()
@@ -299,30 +302,17 @@ class GEKKOSolver(SolverABC):
         self.full_model_values = defaultdict()
 
     def add_variable(self, label, initial_value, model):
-        """"""
-        # TODO: NOW ADD GEKKO SUPPORT!
-        print("adding variable here:")
+        """ """
         if isinstance(initial_value, list) or isinstance(initial_value, np.ndarray):
             var_out = [self.gekko.SV(value=initial_value[i], name=label + str(i), lb=0)
                        for i in range(len(initial_value))]
         else:
             var_out = self.gekko.SV(value=initial_value, name=label, lb=0)
 
-        print(var_out)
-        print(type(var_out))
-
-        try:
-            print([var.name for var in var_out])
-            print(type(var_out))
-            print([type(var) for var in var_out])
-        except:
-            pass
-
         return var_out
 
     def add_parameter(self, label, value):
-        print("adding parameter:")
-
+        """ """
         if isinstance(value, str):
             return value
 
@@ -331,26 +321,19 @@ class GEKKOSolver(SolverABC):
         else:
             var_out = self.gekko.Param(value=value, name=label)
 
-        print(var_out)
-
-        try:
-            print([var.name for var in var_out])
-        except:
-            pass
-
         return var_out
 
     def add_flux(self, label, flux, model):
         """ this returns storage container """
-        print("adding flux")
+        var_in_dict = {**model.variables, **model.flux_values}
 
         # need to force vectorization here, otherwise lists/arrays of gekko object are not iterated over:
-        _flux = flux(state=model.variables,
+        _flux = flux(state=var_in_dict,
                      parameters=model.parameters,
                      forcings=model.forcings, vectorized=True)
 
         try:
-            print(_flux, type(_flux), len(_flux))
+            # print(_flux, type(_flux), len(_flux))
             flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
         except:
             flux_out = self.gekko.Intermediate(_flux, name=label)
@@ -364,7 +347,7 @@ class GEKKOSolver(SolverABC):
     def assemble(self, model):
         """ """
         for key, value in model.variables.items():
-            print("variables", key, np.shape(value))
+            # print("variables", key, np.shape(value))
             self.full_model_values[key] = value
             if isinstance(value, list) or isinstance(value, np.ndarray):
                 model.full_model_dims[key] = np.size(value)
@@ -372,7 +355,7 @@ class GEKKOSolver(SolverABC):
                 model.full_model_dims[key] = None
 
         for key, value in model.flux_values.items():
-            print("fluxes", key, np.shape(value))
+            # print("fluxes", key, np.shape(value))
             self.full_model_values[key] = value
             if isinstance(value, list) or isinstance(value, np.ndarray):
                 if np.size(value) == np.size(model.time):
@@ -411,8 +394,6 @@ class GEKKOSolver(SolverABC):
                             var_fluxes.append(_flux)
 
             else:
-                print("here appending 0")
-                # if not, define derivative as 0
                 if dims:
                     var_fluxes.append([0 for i in range(dims)])
                 else:
@@ -435,6 +416,7 @@ class GEKKOSolver(SolverABC):
 
         self.gekko.time = model.time
 
+        print("Model equations:")
         print([val.value for val in self.gekko.__dict__['_equations']])
 
     def solve(self, model, time_step):
