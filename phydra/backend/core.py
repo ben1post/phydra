@@ -1,5 +1,6 @@
 import time as tm
 import numpy as np
+import math
 
 from .model import PhydraModel
 from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
@@ -78,7 +79,14 @@ class PhydraCore:
     # math function wrappers:
     def exp(self, args):
         """ Exponential function that provides correct function for all supported solver types """
-        if isinstance(self.Solver , GEKKOSolver):
+        if isinstance(self.Solver, GEKKOSolver):
             return self.Solver.gekko.exp(args)
         else:
             return np.exp(args)
+
+    def product(self, args):
+        """ Exponential function that provides correct function for all supported solver types """
+        #if isinstance(self.Solver, GEKKOSolver):
+        #    return math.prod(args)
+        #else:
+        return np.prod(args)

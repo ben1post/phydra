@@ -94,7 +94,7 @@ class ODEINTSolver(SolverABC):
             var_in_dict[var] = self.var_init[var]
         for var, value in self.flux_init.items():
             var_in_dict[var] = value
-        print("VAR IN DICT", var_in_dict)
+        # print("VAR IN DICT", var_in_dict)
 
         forcing_now = defaultdict()
         for key, func in model.forcing_func.items():
@@ -313,11 +313,12 @@ class GEKKOSolver(SolverABC):
 
     def add_parameter(self, label, value):
         """ """
+        # print("adding parameter", label, value)
         if isinstance(value, str):
             return value
 
         if isinstance(value, list) or isinstance(value, np.ndarray):
-            var_out = [self.gekko.Param(value=value[i], name=label + str(i), lb=0) for i in range(len(value))]
+            var_out = [self.gekko.Param(value=value[i], name=label + str(i)) for i in range(len(value))]
         else:
             var_out = self.gekko.Param(value=value, name=label)
 
@@ -327,16 +328,22 @@ class GEKKOSolver(SolverABC):
         """ this returns storage container """
         var_in_dict = {**model.variables, **model.flux_values}
         # need to force vectorization here, otherwise lists/arrays of gekko object are not iterated over:
+        # print("PARAMETERS", model.parameters)
+
         _flux = flux(state=var_in_dict,
                      parameters=model.parameters,
                      forcings=model.forcings, vectorized=True)
-        # print(_flux, type(_flux))
-        try:
+
+        # print(label, _flux, type(_flux))
+
+        if np.size(_flux) > 1:
+            # print([_flux[i] for i in range(len(_flux))])
             flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
-        except:
+        else:
             flux_out = self.gekko.Intermediate(_flux, name=label)
 
-        # print(flux_out)
+        # print("Flux_OUT", flux_out)
+
         return flux_out
 
     def add_forcing(self, label, forcing_func, model):
@@ -373,17 +380,17 @@ class GEKKOSolver(SolverABC):
         print("Now assembling gekko model:")
         # Assign fluxes to variables:
         equations = []
-        # Route list input fluxes:
 
         # Route list input fluxes:
         list_input_fluxes = defaultdict(list)
         for flux_var_dict in model.fluxes_per_var["list_input"]:
             flux_label, negative, list_input = flux_var_dict.values()
-            # print(flux_label, negative, flux_values[flux_label], list_input)
+            # print(flux_label, negative, model.flux_values[flux_label], list_input)
 
             flux_val = model.flux_values[flux_label]
             flux_dims = model.full_model_dims[flux_label]
-            print(len(list_input), flux_dims)
+
+            # print(len(list_input), flux_dims)
 
             if len(list_input) == flux_dims:
                 for var, flux in zip(list_input, flux_val):
@@ -398,27 +405,30 @@ class GEKKOSolver(SolverABC):
                                 "TODO: implement if necessary")
 
         for var_label, value in model.variables.items():
+            flux_applied = False
             var_fluxes = []
             dims = model.full_model_dims[var_label]
             if var_label in model.fluxes_per_var:
+                flux_applied = True
                 for flux_var_dict in model.fluxes_per_var[var_label]:
                     flux_label, negative, list_input = flux_var_dict.values()
                     _flux = model.flux_values[flux_label]
-                    # print(var_label, dims, flux_label, _flux)
+                    # print(var_label, dims, flux_label, _flux, type(_flux))
                     flux_dims = np.size(_flux)
 
                     if negative:
-                        if flux_dims > 1:
+                        if flux_dims > 1 or isinstance(_flux, list) or isinstance(_flux, np.ndarray):
                             var_fluxes.append([-_flux[i] for i in range(flux_dims)])
                         else:
                             var_fluxes.append(-_flux)
                     else:
-                        if flux_dims > 1:
+                        if flux_dims > 1 or isinstance(_flux, list) or isinstance(_flux, np.ndarray):
                             var_fluxes.append([_flux[i] for i in range(flux_dims)])
                         else:
                             var_fluxes.append(_flux)
 
             if var_label in list_input_fluxes:
+                flux_applied = True
                 # print(list_input_fluxes[var_label])
                 if dims:
                     _flux = list_input_fluxes[var_label]
@@ -427,12 +437,14 @@ class GEKKOSolver(SolverABC):
                 # print(_flux)
                 var_fluxes.append(_flux)
 
-            else:
+            if not flux_applied:
+                # print(var_label, "appending 0")
                 if dims:
                     var_fluxes.append([0 for i in range(dims)])
                 else:
                     var_fluxes.append(0)
 
+            # print("VAR FLUXES", var_fluxes)
             if dims:
                 for i in range(dims):
                     equations.append(value[i].dt() == sum([var_flx[i] for var_flx in var_fluxes]))

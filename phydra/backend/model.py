@@ -73,7 +73,9 @@ class PhydraModel:
         :param forcing:
         :return:
         """
-        # print("CURRENT STATE", current_state, type(current_state), [type(val) for val in current_state])
+
+        # print("\n NEW TIME STEP")
+        # print("CURRENT STATE", current_state)
 
         state = self.unpack_flat_state(current_state)
 
@@ -87,16 +89,23 @@ class PhydraModel:
         elif forcing is None:
             forcing = self.forcings
 
+        # print("\n computing fluxes now ")
         # Compute fluxes:
         flux_values = defaultdict()
         fluxes_out = []
         for flx_label, flux in self.fluxes.items():
             _value = return_dim_ndarray(flux(state=state, parameters=self.parameters, forcings=forcing))
-            # print(flx_label, _value, _value)
+            # print(flx_label, _value)
             flux_values[flx_label] = _value
             fluxes_out.append(_value)
+            if flx_label in state:
+                state.update({flx_label: _value})
+                # print("UPDATE VALUE in state", state)
         # print("fluxes_out", fluxes_out)
 
+        # TODO: so I actually need to update the flux values in the state, if I use a flux state in another flux
+        #   that is the only way I can think of fixing the current problems
+        # print("\n routing list fluxes now ")
         # Route list input fluxes:
         list_input_fluxes = defaultdict(list)
         for flux_var_dict in self.fluxes_per_var["list_input"]:
@@ -140,12 +149,15 @@ class PhydraModel:
             #                 list_input_fluxes[var].append(flux_val / len(list_input))
             #     raise Exception("Not sure if necessary functionality, TODO: check full model compatibility")
 
+        # print("\n assigning fluxes to variables now ")
         # Assign fluxes to variables:
         state_out = []
         for var_label, value in self.variables.items():
             var_fluxes = []
             dims = self.full_model_dims[var_label]
+            flux_applied = False
             if var_label in self.fluxes_per_var:
+                flux_applied = True
                 for flux_var_dict in self.fluxes_per_var[var_label]:
                     flux_label, negative, list_input = flux_var_dict.values()
                     # print("""""""""""""""""""""""""""""""""""""")
@@ -162,7 +174,8 @@ class PhydraModel:
                         var_fluxes.append(_flux)
 
             if var_label in list_input_fluxes:
-                # print(list_input_fluxes[var_label])
+                flux_applied = True
+                # print("List input", list_input_fluxes[var_label])
                 if dims:
                     _flux = list_input_fluxes[var_label]
                 else:
@@ -170,7 +183,7 @@ class PhydraModel:
                 # print(_flux)
                 var_fluxes.append(_flux)
 
-            else:
+            if not flux_applied:
                 # print("here appending 0")
                 dims = self.full_model_dims[var_label]
                 if dims:
@@ -185,5 +198,5 @@ class PhydraModel:
         # print([i for i in fluxes_out])
         full_output = np.concatenate([[v for val in state_out for v in val.flatten()],
                                       [v for val in fluxes_out for v in val.flatten()]], axis=None)
-        # print("FULL OUT", full_output, type(full_output), [type(val) for val in full_output])
+        # print("FULL OUT", full_output)  # , type(full_output), [type(val) for val in full_output])
         return full_output

@@ -49,7 +49,8 @@ class LinearMortality:
 
 @phydra.comp(init_stage=3)
 class LinearMortality_Array:
-    var = phydra.variable(foreign=True, dims='var', flux='death', negative=True, description='variable affected by flux')
+    var = phydra.variable(foreign=True, dims='var', flux='death', negative=True,
+                          description='variable affected by flux')
     rate = phydra.parameter(dims='var', description='linear rate of change')
 
     @phydra.flux
@@ -174,12 +175,7 @@ class HollingTypeIII_2Resources:
 # First Group Flux Prototype:
 @phydra.comp(init_stage=4)
 class GroupedFlux:
-    """ Somehow i need to get other fluxes here as input args
-
-            the normal xs.group way doesn't really work anymore
-            i need to create a dict of labels, that the values of are retrieved from model STATE
-
-            -
+    """ XXX
     """
 
     var = phydra.variable(foreign=True, flux='growth')
@@ -205,6 +201,65 @@ class SubFlux:
         return - var * rate
 
 
+@phydra.comp(init_stage=4)
+class MultiLimGrowth:
+    """ XXX
+    """
+    resource = phydra.variable(foreign=True, flux='growth', negative=True)
+    consumer = phydra.variable(foreign=True, flux='growth', negative=False)
+
+    mu_max = phydra.parameter(description='maximum growth rate')
+
+    @phydra.flux(group_to_arg='growth_lims')
+    def growth(self, resource, consumer, mu_max, growth_lims):
+        # print([i for i in self.growth_lims])
+        # print(growth_lims, type(growth_lims))
+        return mu_max * self.m.product(growth_lims) * consumer
+
+
+@phydra.comp(init_stage=3)
+class Monod_ML:
+    resource = phydra.variable(foreign=True)
+
+    halfsat = phydra.parameter(description='monod half-saturation constant')
+
+    @phydra.flux(group='growth_lims')
+    def monod_lim(self, resource, halfsat):
+        return resource / (resource + halfsat)
+
+
+@phydra.comp(init_stage=3)
+class Steele_ML:
+    pigment_biomass = phydra.variable(foreign=True)
+
+    Light = phydra.forcing(foreign=True, description='Light forcing')
+    MLD = phydra.forcing(foreign=True, description='Mixed Layer Depth forcing')
+
+    i_opt = phydra.parameter(description='Optimal irradiance of consumer')
+    kw = phydra.parameter(description='light attenuation coef for water')
+    kc = phydra.parameter(description='light attenuation coef for pigment biomass')
+
+    @phydra.flux(group='growth_lims')
+    def steele_light_lim(self, Light, MLD, pigment_biomass, i_opt, kw, kc):
+        kPAR = kw + kc * pigment_biomass
+        light_lim = 1. / (kPAR * MLD) * (
+                    - self.m.exp(1. - Light / i_opt) - (
+                    - self.m.exp((1. - (Light * self.m.exp(-kPAR * MLD)) / i_opt))))
+        return light_lim
+
+@phydra.comp(init_stage=3)
+class Eppley_ML:
+    Temp = phydra.forcing(foreign=True, description='Temperature forcing')
+
+    eppley = phydra.parameter(description='eppley exponent')
+
+    @phydra.flux(group='growth_lims')
+    def eppley_growth(self, Temp, eppley):
+        # print("Eppley", "Temp", Temp, "exp", eppley)
+        # print("Eppley", self.m.exp(eppley * Temp))
+        return self.m.exp(eppley * Temp)
+
+
 # MULTI LIM TESTS:
 # noinspection NonAsciiCharacters
 @phydra.comp(init_stage=3)
@@ -227,12 +282,11 @@ class Growth_Monod_Eppley_Steele:
 
     @phydra.flux
     def growth(self, resource, consumer, Temp, Light, MLD, i_opt, kw, kc, eppley, halfsat, µ_max):
-
         temp_lim = self.m.exp(eppley * Temp)
         monod_lim = resource / (resource + halfsat)
         kPAR = kw + kc * consumer
         light_lim = 1. / (kPAR * MLD) * (
-                    -self.m.exp(1. - Light / i_opt) - (
-                        -self.m.exp((1. - (Light * self.m.exp(-kPAR * MLD)) / i_opt))))
+                -self.m.exp(1. - Light / i_opt) - (
+            -self.m.exp((1. - (Light * self.m.exp(-kPAR * MLD)) / i_opt))))
 
         return µ_max * temp_lim * monod_lim * light_lim * consumer
