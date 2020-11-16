@@ -127,12 +127,32 @@ class ListInputFlux:
     """
     resources = phydra.variable(foreign=True, negative=True, flux='growth', list_input=True, dims='resources')
     consumer = phydra.variable(foreign=True, flux='growth')
-    halfsat = phydra.parameter()
+    halfsats = phydra.parameter(dims='resources')
 
     @phydra.flux(dims='resources')
-    def growth(self, resources, consumer, halfsat):
-        # print(resources, consumer, halfsat)
-        return resources / (sum(resources) + halfsat) * consumer
+    def growth(self, resources, consumer, halfsats):
+        print(resources, consumer, halfsats)
+        print(sum(resources + halfsats))
+        out = resources / sum(resources + halfsats) * consumer
+        print("out:", out, np.shape(out))
+        return out
+
+
+@phydra.comp(init_stage=3)
+class HollingTypeIII_ListResources:
+    """ """
+    resources = phydra.variable(foreign=True, negative=True, flux='grazing', list_input=True, dims='resources')
+    consumer = phydra.variable(foreign=True, flux='grazing', negative=False)
+    feed_prefs = phydra.parameter(dims='resources', description='feeding preference for resources')
+    Imax = phydra.parameter(description='maximum ingestion rate')
+    kZ = phydra.parameter(description='feeding preferences')
+
+    @phydra.flux(dims='resources')
+    def grazing(self, resources, consumer, feed_prefs, Imax, kZ):
+
+        scaled_resources = resources ** 2 * feed_prefs
+
+        return scaled_resources * Imax / (kZ ** 2 + sum(scaled_resources)) * consumer
 
 
 @phydra.comp(init_stage=3)

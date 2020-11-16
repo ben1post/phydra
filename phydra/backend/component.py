@@ -287,21 +287,24 @@ def comp(cls=None, *, init_stage=3):
 
                 input_args = {}
                 args_vectorize_exclude = []
-                args_signature = []
+                args_signature_input = []
+                args_signature_output = []
                 signaturize = False
 
                 for v_dict in self.flux_input_args['vars']:
                     if isinstance(v_dict['label'], list) or isinstance(v_dict['label'], np.ndarray):
                         input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
-                        args_signature.append('(m)')
+                        args_signature_input.append('(m)')
+                        args_signature_output.append('(m)')
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
-                        args_signature.append('()')
+                        args_signature_input.append('()')
 
                 for v_dict in self.flux_input_args['list_input_vars']:
-                    input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
+                    input_args[v_dict['var']] = np.concatenate([state[label] for label in v_dict['label']], axis=None)
+                    args_signature_input.append('(m)')
+                    args_signature_output.append('(m)')
                     signaturize = True
-                    args_signature.append('(m)')
 
                 for v_dict in self.flux_input_args['group_args']:
                     input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
@@ -309,13 +312,17 @@ def comp(cls=None, *, init_stage=3):
                     signaturize = False
 
                 for p_dict in self.flux_input_args['pars']:
-                    input_args[p_dict['var']] = parameters[p_dict['label']]
-                    args_signature.append('()')
+                    if np.size(parameters[p_dict['label']]) > 1:
+                        input_args[p_dict['var']] = parameters[p_dict['label']]
+                        args_signature_input.append('(m)')
+                    else:
+                        input_args[p_dict['var']] = parameters[p_dict['label']]
+                        args_signature_input.append('()')
 
                 for f_dict in self.flux_input_args['forcs']:
                     input_args[f_dict['var']] = forcings[f_dict['label']]
                     args_vectorize_exclude.append(f_dict['var'])
-                    args_signature.append('()')
+                    args_signature_input.append('()')
 
                 # added option to force vectorisation for model arrays/lists
                 #   containing objects (i.e. gekko components), excluding the forcings
@@ -330,11 +337,17 @@ def comp(cls=None, *, init_stage=3):
 
                 if vectorized:
                     if signaturize:
-                        output_dims = [sig for sig in args_signature if sig != '()']
-                        if output_dims:
-                            signature = f"(),{','.join(args_signature)}->{','.join(output_dims)}"
+                        if not args_signature_output:
+                            args_signature_output.append('()')
+                        signature = f"(),{','.join(args_signature_input)}->{','.join(args_signature_output)}"
+                        try:
                             return np.vectorize(func, excluded=args_vectorize_exclude, signature=signature
-                                                )(self, **input_args)
+                                              )(self, **input_args)
+                        except AttributeError:
+                            raise Exception("Phydra Bug: AttributeError returned by np.vectorized flux, "
+                                            "most likely caused by: \n"
+                                            "- first argument in statement returned is not nd.array "
+                                            "(easy to fix by switching order)")
                     else:
                         return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
                 else:
