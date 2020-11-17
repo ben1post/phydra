@@ -85,8 +85,16 @@ class PhydraCore:
             return np.exp(args)
 
     def product(self, args):
-        """ Exponential function that provides correct function for all supported solver types """
-        #if isinstance(self.Solver, GEKKOSolver):
-        #    return math.prod(args)
-        #else:
+        """ Product function that provides correct function for all supported solver types """
         return np.prod(args)
+
+    def sum(self, args):
+        """ Sum function that provides correct function for all supported solver types """
+        return np.sum(args)
+
+    def max(self, x1, x2):
+        """ """
+        if isinstance(self.Solver, GEKKOSolver):
+            return self.Solver.gekko.Param(np.maximum(x1, x2))
+        else:
+            return np.maximum(x1, x2)

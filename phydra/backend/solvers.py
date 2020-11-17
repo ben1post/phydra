@@ -226,7 +226,7 @@ class StepwiseSolver(SolverABC):
             array_out = np.zeros(full_dims)
             array_out[:, 0] = flux_init
 
-        # print("flux", label, full_dims)
+        print("flux", label, full_dims)
 
         return array_out
 
@@ -243,7 +243,7 @@ class StepwiseSolver(SolverABC):
             model.full_model_dims[key] = add_dims
 
         for key, value in model.flux_values.items():
-            # print("values", key, np.shape(value))
+            print("values", key, np.shape(value))
             self.full_model_values[key] = value
             dims = set(np.shape(value)) - set(np.shape(model.time))
             add_dims = dims.pop() if dims else None
@@ -301,8 +301,15 @@ class GEKKOSolver(SolverABC):
 
         self.full_model_values = defaultdict()
 
+        self.reserved_labels = ['abs', 'exp', 'log10', 'log',
+                                'sqrt', 'sinh', 'cosh', 'tanh',
+                                'sin', 'cos', 'tan', 'asin',
+                                'acos', 'atan', 'erf', 'erfc']
+
     def add_variable(self, label, initial_value, model):
         """ """
+        if label.lower()[:3] in self.reserved_labels:
+            label = 'x' + label
         if isinstance(initial_value, list) or isinstance(initial_value, np.ndarray):
             var_out = [self.gekko.SV(value=initial_value[i], name=label + str(i), lb=0)
                        for i in range(len(initial_value))]
@@ -313,6 +320,9 @@ class GEKKOSolver(SolverABC):
 
     def add_parameter(self, label, value):
         """ """
+        if label.lower()[:3] in self.reserved_labels:
+            label = 'x' + label
+
         # print("adding parameter", label, value)
         if isinstance(value, str):
             return value
@@ -326,6 +336,8 @@ class GEKKOSolver(SolverABC):
 
     def add_flux(self, label, flux, model):
         """ this returns storage container """
+        if label.lower()[:3] in self.reserved_labels:
+            label = 'x' + label
         var_in_dict = {**model.variables, **model.flux_values}
         # need to force vectorization here, otherwise lists/arrays of gekko object are not iterated over:
         # print("PARAMETERS", model.parameters)
@@ -334,7 +346,7 @@ class GEKKOSolver(SolverABC):
                      parameters=model.parameters,
                      forcings=model.forcings, vectorized=True)
 
-        # print(label, _flux, type(_flux))
+        print(label, _flux, type(_flux))
 
         if np.size(_flux) > 1:
             # print([_flux[i] for i in range(len(_flux))])
@@ -342,12 +354,14 @@ class GEKKOSolver(SolverABC):
         else:
             flux_out = self.gekko.Intermediate(_flux, name=label)
 
-        # print("Flux_OUT", flux_out)
+        print("Flux_OUT", flux_out)
 
         return flux_out
 
     def add_forcing(self, label, forcing_func, model):
         """ """
+        if label.lower()[:3] in self.reserved_labels:
+            label = 'x' + label
         return self.gekko.Param(value=forcing_func(model.time), name=label)
 
     def assemble(self, model):
@@ -474,3 +488,6 @@ class GEKKOSolver(SolverABC):
 
     def cleanup(self):
         self.gekko.cleanup()
+
+
+

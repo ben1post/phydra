@@ -77,7 +77,7 @@ class FourthInit(Context):
 
 @xs.process
 class Solver(Context):
-
+    """ Solver process executed last """
     firstinit = xs.group('FirstInit')
     secondinit = xs.group('SecondInit')
     thirdinit = xs.group('ThirdInit')
