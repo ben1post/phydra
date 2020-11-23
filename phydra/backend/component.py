@@ -193,6 +193,7 @@ def _initialize_process_vars(cls, vars_dict):
 def _create_flux_inputargs_dict(cls, vars_dict):
     """ """
     input_arg_dict = defaultdict(list)
+    _check_duplicate_group_arg = []
 
     for key, var in vars_dict.items():
         var_type = var.metadata.get('var_type')
@@ -220,8 +221,10 @@ def _create_flux_inputargs_dict(cls, vars_dict):
         elif var_type is PhydraVarType.FLUX:
             group_to_arg = var.metadata.get('group_to_arg')
             if group_to_arg:
-                group = list(getattr(cls, group_to_arg))  # convert generator to list for safer handling
-                input_arg_dict['group_args'].append({'var': group_to_arg, 'label': group})
+                if group_to_arg not in _check_duplicate_group_arg:
+                    _check_duplicate_group_arg.append(group_to_arg)
+                    group = list(getattr(cls, group_to_arg))  # convert generator to list for safer handling
+                    input_arg_dict['group_args'].append({'var': group_to_arg, 'label': group})
 
     # print("returning input arg dict", input_arg_dict)
 
@@ -234,13 +237,14 @@ def _initialize_fluxes(cls, vars_dict):
         var_type = var.metadata.get('var_type')
         if var_type is PhydraVarType.FLUX:
             flux_func = var.metadata.get('flux_func')
+            flux_dim = var.metadata.get('dims')
             label = cls.label + '_' + flux_func.__name__
 
             if var.metadata.get('group'):
                 setattr(cls, flux_func.__name__ + '_label', label)
 
             setattr(cls, key + '_value',
-                    cls.m.register_flux(label=label, flux=cls.flux_decorator(flux_func)))
+                    cls.m.register_flux(label=label, flux=cls.flux_decorator(flux_func), dims=flux_dim))
 
 
 def _initialize_forcings(cls, forcing_dict):
@@ -303,7 +307,10 @@ def comp(cls=None, *, init_stage=3):
                         args_signature_output.append('(m)')
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
-                        args_signature_input.append('()')
+                        if kwargs.get('dims'):
+                            args_signature_input.append('()')
+                        else:
+                            args_vectorize_exclude.append(v_dict['var'])
 
                 for v_dict in self.flux_input_args['list_input_vars']:
                     input_args[v_dict['var']] = np.concatenate([state[label] for label in v_dict['label']],
@@ -312,11 +319,41 @@ def comp(cls=None, *, init_stage=3):
                     args_signature_output.append('(m)')
                     signaturize = True
 
+                #print(self.flux_input_args)
                 for v_dict in self.flux_input_args['group_args']:
                     # print("appending group arg", v_dict, [state[label] for label in v_dict['label']])
-                    input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
-                    args_vectorize_exclude.append(v_dict['var'])
-                    signaturize = False
+                    if vectorized:
+                        group_arg = [state[label] for label in v_dict['label']]
+                        max_arg_len = max([np.size(items) for items in group_arg])
+                        # print(group_arg, max_arg_len)
+                        _input_args = []
+                        for arg in group_arg:
+                            if np.size(arg) != max_arg_len:
+                                # print("extending group args here")
+                                _input_args.append([arg for i in range(max_arg_len)])
+                            else:
+                                # print("passing along args")
+                                _input_args.append(arg)
+                        # print("pre_transpose:", _input_args)
+                        _input_args = np.array(_input_args).T
+                        # print("post_transpose:", _input_args, type(_input_args))
+                        input_args[v_dict['var']] = _input_args
+
+                        try:
+                            add_dim = np.shape(_input_args)[1]
+                        except:
+                            add_dim = 0
+
+                        if add_dim > 1:
+                            args_signature_input.append('(n)')
+                            args_signature_output.append('()')
+                            signaturize = True
+                        else:
+                            args_vectorize_exclude.append(v_dict['var'])
+                    else:
+                        input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
+                        args_vectorize_exclude.append(v_dict['var'])
+                        signaturize = False
 
                 for p_dict in self.flux_input_args['pars']:
                     if np.size(parameters[p_dict['label']]) > 1:
@@ -337,13 +374,12 @@ def comp(cls=None, *, init_stage=3):
                 #   containing objects (i.e. gekko components), excluding the forcings
                 # as well as forcing correct vectorization of list inputs via signature
 
-
                 # TODO: for group fluxes, the signature does not work yet! need to pass some arg to
                 #   only use for list input fluxes....
-
+                # print("args vec excl", args_vectorize_exclude)
                 if vectorized:
                     if signaturize:
-                        print("signaturizing")
+                        # print("signaturizing")
                         if not args_signature_output:
                             args_signature_output.append('()')
                         signature = f"(),{','.join(args_signature_input)}->{','.join(args_signature_output)}"

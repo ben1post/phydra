@@ -114,7 +114,12 @@ class PhydraModel:
 
             flux_val = flux_values[flux_label]
             flux_dims = self.full_model_dims[flux_label]
-            # print(len(list_input), flux_dims)
+            #print(len(list_input), flux_dims, flux_val)
+
+            list_var_dims = []
+            for var in list_input:
+                _dim = self.full_model_dims[var]
+                list_var_dims.append(_dim or 1)
 
             if len(list_input) == flux_dims:
                 for var, flux in zip(list_input, flux_val):
@@ -124,30 +129,19 @@ class PhydraModel:
                         list_input_fluxes[var].append(-flux)
                     else:
                         list_input_fluxes[var].append(flux)
+            elif sum(list_var_dims) == flux_dims:
+                _dim_counter = 0
+                for var, dims in zip(list_input, list_var_dims):
+                    flux = flux_val[_dim_counter:_dim_counter+dims]
+                    _dim_counter += dims
+                    #print(var, dims, "flux", flux, _dim_counter)
+                    if negative:
+                        list_input_fluxes[var].append(-flux)
+                    else:
+                        list_input_fluxes[var].append(flux)
             else:
-                raise Exception("list input vars number and flux dims do not match exactly, \n"
-                                "TODO: implement if necessary")
-            # elif flux_dims:
-            #     full_var_dims = defaultdict()
-            #     for var in list_input:
-            #         var_dims = self.full_model_dims[var]
-            #         full_var_dims[var] = var_dims
-            #     print("full var dims in list_input flux", full_var_dims, "and flux dims are", flux_dims)
-            #     raise Exception("Not sure if necessary functionality, TODO: check full model compatibility")
-            #
-            # elif not flux_dims and len(list_input) > 1:
-            #     print("flux is equally divided over list input, without vectorization, "
-            #           "are you sure you want to do this?")
-            #     for var in list_input:
-            #         var_dims = self.full_model_dims[var]
-            #         if var_dims:
-            #             pass
-            #         else:
-            #             if negative:
-            #                 list_input_fluxes[var].append(-flux_val / len(list_input))
-            #             else:
-            #                 list_input_fluxes[var].append(flux_val / len(list_input))
-            #     raise Exception("Not sure if necessary functionality, TODO: check full model compatibility")
+                print(list_var_dims)
+                raise Exception("ERROR: list input vars dims and flux output dims do not match")
 
         # print("\n assigning fluxes to variables now ")
         # Assign fluxes to variables:
@@ -175,13 +169,14 @@ class PhydraModel:
 
             if var_label in list_input_fluxes:
                 flux_applied = True
-                # print("List input", list_input_fluxes[var_label])
-                if dims:
-                    _flux = list_input_fluxes[var_label]
-                else:
-                    _flux = np.sum(list_input_fluxes[var_label])
-                # print(_flux)
-                var_fluxes.append(_flux)
+                #print("List input", list_input_fluxes[var_label])
+                for flux in list_input_fluxes[var_label]:
+                    if dims:
+                        _flux = flux
+                    else:
+                        _flux = np.sum(flux)
+                    #print(_flux)
+                    var_fluxes.append(_flux)
 
             if not flux_applied:
                 # print("here appending 0")
@@ -191,7 +186,7 @@ class PhydraModel:
                 else:
                     var_fluxes.append(0)
 
-            # print("var_fluxes", var_fluxes)
+            #print(var_label, "var_fluxes", var_fluxes)
             state_out.append(np.sum(var_fluxes, axis=0))
 
         # print("state_out", state_out)

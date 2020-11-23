@@ -38,13 +38,13 @@ class PhydraCore:
     def add_parameter(self, label, value):
         self.Model.parameters[label] = self.Solver.add_parameter(label, value)
 
-    def register_flux(self, label, flux):
+    def register_flux(self, label, flux, dims=None):
         """"""
         if label not in self.Model.fluxes:
             # to store flux function:
             self.Model.fluxes[label] = flux
             # to store flux value:
-            self.Model.flux_values[label] = self.Solver.add_flux(label, flux, self.Model)
+            self.Model.flux_values[label] = self.Solver.register_flux(label, flux, self.Model, dims)
         else:
             raise Exception("Something is wrong, a unique flux label was registered twice")
 
@@ -86,7 +86,10 @@ class PhydraCore:
 
     def product(self, args):
         """ Product function that provides correct function for all supported solver types """
-        return np.prod(args)
+        try:
+            return np.prod(args)
+        except np.VisibleDeprecationWarning:
+            return math.prod(args)
 
     def sum(self, args):
         """ Sum function that provides correct function for all supported solver types """

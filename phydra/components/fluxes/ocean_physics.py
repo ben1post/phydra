@@ -1,6 +1,19 @@
 import phydra
 import numpy as np
 
+
+@phydra.comp
+class SlabSinking:
+    """ """
+    var = phydra.variable(foreign=True, flux='sinking', negative=True)
+    mld = phydra.forcing(foreign=True)
+    rate = phydra.parameter(description='sinking rate, units: m d^-1')
+
+    @phydra.flux
+    def sinking(self, var, rate, mld):
+        return var * rate / mld
+
+
 @phydra.comp
 class SlabUpwelling:
     """ """
@@ -21,17 +34,16 @@ class SlabUpwelling:
 @phydra.comp
 class SlabMixing:
     """ """
-    vars_sink = phydra.variable(foreign=True, negative=True, flux='mixing', list_input=True, dims='sinking_vars')
-    # vars_sink = phydra.variable(foreign=True, flux='mixing', negative=True, dims='sinking_vars', description='sinking')
+    vars_sink = phydra.variable(foreign=True, negative=True, flux='mixing',
+                                list_input=True, dims='sinking_vars', description='list of variables affected')
 
     mld = phydra.forcing(foreign=True)
     mld_deriv = phydra.forcing(foreign=True)
 
     kappa = phydra.parameter(description='constant mixing coefficient')
 
-    @phydra.flux(dims='sinking_vars')
+    @phydra.flux(dims='sinking_vars_full')
     def mixing(self, vars_sink, mld, mld_deriv, kappa):
         """ compute function of on_demand xarray variable
          specific flux needs to be implemented in BaseFlux """
-        #print(vars_sink, mld, mld_deriv, kappa)
         return vars_sink * (self.m.max(mld_deriv, 0) + kappa) / mld
