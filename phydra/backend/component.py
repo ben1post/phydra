@@ -201,20 +201,22 @@ def _create_flux_inputargs_dict(cls, vars_dict):
     for key, var in vars_dict.items():
         var_type = var.metadata.get('var_type')
         if var_type is PhydraVarType.VARIABLE:
+            var_dim = var.metadata.get('dims')
             if var.metadata.get('foreign') is False:
                 var_label = getattr(cls, key + '_label')
-                input_arg_dict['vars'].append({'var': key, 'label': var_label})
+                input_arg_dict['vars'].append({'var': key, 'label': var_label, 'dim': var_dim})
             elif var.metadata.get('foreign') is True:
                 var_label = getattr(cls, key)
                 if var.metadata.get('list_input'):
                     var_label = np.array(var_label)  # force to list for easier type checking later
-                    input_arg_dict['list_input_vars'].append({'var': key, 'label': var_label})
+                    input_arg_dict['list_input_vars'].append({'var': key, 'label': var_label, 'dim': var_dim})
                 else:
-                    input_arg_dict['vars'].append({'var': key, 'label': var_label})
+                    input_arg_dict['vars'].append({'var': key, 'label': var_label, 'dim': var_dim})
 
         elif var_type is PhydraVarType.PARAMETER:
+            par_dim = var.metadata.get('dims')
             # TODO: so it doesn't work with foreign parameters here yet!
-            input_arg_dict['pars'].append({'var': key, 'label': cls.label + '_' + key})
+            input_arg_dict['pars'].append({'var': key, 'label': cls.label + '_' + key, 'dim': par_dim})
         elif var_type is PhydraVarType.FORCING:
             if var.metadata.get('foreign') is False:
                 forc_label = getattr(cls, key + '_label')
@@ -222,12 +224,13 @@ def _create_flux_inputargs_dict(cls, vars_dict):
                 forc_label = getattr(cls, key)
             input_arg_dict['forcs'].append({'var': key, 'label': forc_label})
         elif var_type is PhydraVarType.FLUX:
+            flx_dim = var.metadata.get('dims')
             group_to_arg = var.metadata.get('group_to_arg')
             if group_to_arg:
                 if group_to_arg not in _check_duplicate_group_arg:
                     _check_duplicate_group_arg.append(group_to_arg)
                     group = list(getattr(cls, group_to_arg))  # convert generator to list for safer handling
-                    input_arg_dict['group_args'].append({'var': group_to_arg, 'label': group})
+                    input_arg_dict['group_args'].append({'var': group_to_arg, 'label': group, 'dim': flx_dim})
 
     # print("returning input arg dict", input_arg_dict)
 
@@ -304,10 +307,11 @@ def comp(cls=None, *, init_stage=3):
                 signaturize = False
 
                 for v_dict in self.flux_input_args['vars']:
+                    print(v_dict['dim'])
                     if isinstance(v_dict['label'], list) or isinstance(v_dict['label'], np.ndarray):
                         input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
-                        args_signature_input.append('(m)')
-                        args_signature_output.append('(m)')
+                        args_signature_input.append('(mop)')
+                        args_signature_output.append('(mop)')
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
                         if kwargs.get('dims'):
@@ -316,6 +320,7 @@ def comp(cls=None, *, init_stage=3):
                             args_vectorize_exclude.append(v_dict['var'])
 
                 for v_dict in self.flux_input_args['list_input_vars']:
+                    print(v_dict['dim'])
                     input_args[v_dict['var']] = np.concatenate([state[label] for label in v_dict['label']],
                                                                axis=None)
                     args_signature_input.append('(m)')
@@ -324,6 +329,7 @@ def comp(cls=None, *, init_stage=3):
 
                 #print(self.flux_input_args)
                 for v_dict in self.flux_input_args['group_args']:
+                    print(v_dict['dim'])
                     #print("appending group arg", v_dict, [state[label] for label in v_dict['label']])
                     if vectorized:
                         group_arg = [state[label] for label in v_dict['label']]
@@ -378,14 +384,14 @@ def comp(cls=None, *, init_stage=3):
                     signaturize = False
                     # args_signature_input.append('()')
 
-                #print('INPUT ARGS:', input_args)
+                print('INPUT ARGS:', input_args)
                 # added option to force vectorisation for model arrays/lists
                 #   containing objects (i.e. gekko components), excluding the forcings
                 # as well as forcing correct vectorization of list inputs via signature
 
                 # TODO: for group fluxes, the signature does not work yet! need to pass some arg to
                 #   only use for list input fluxes....
-                # print("args vec excl", args_vectorize_exclude)
+                print("args vec excl", args_vectorize_exclude)
                 if vectorized:
                     if signaturize:
                         # print("signaturizing")

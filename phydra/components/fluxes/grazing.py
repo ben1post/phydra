@@ -86,11 +86,11 @@ class SizebasedGrazingKernel_Dims:
 
     @phydra.flux(group='graze_matrix', dims=('resource', 'consumer'))
     def grazing(self, resource, consumer, phiP, Imax, KsZ):
-        # print("GRAZING mat calc", "res",resource, "con",consumer)
+        print("GRAZING mat calc", "res", resource, "con",consumer)
         PscaledAsFood = phiP / KsZ * np.vstack(resource)
-        # print("PscaledAsFood", PscaledAsFood)
+        print("PscaledAsFood", PscaledAsFood)
         FgrazP = Imax * consumer * PscaledAsFood / (1 + np.sum(PscaledAsFood, axis=0))
-        # print("FgrazP", FgrazP, type(FgrazP))
+        print("FgrazP", FgrazP, type(FgrazP))
         return FgrazP
 
 
