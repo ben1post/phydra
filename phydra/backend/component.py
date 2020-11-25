@@ -36,7 +36,10 @@ def _convert_2_xsimlabvar(var, intent='in',
         if not var_dims:
             var_dims = 'time'
         else:
-            var_dims = (var_dims, 'time')
+            if isinstance(var_dims, str):
+                var_dims = (var_dims, 'time')
+            else:
+                var_dims = (*var_dims, 'time')
 
     if var_dims is None:
         var_dims = ()
@@ -321,22 +324,22 @@ def comp(cls=None, *, init_stage=3):
 
                 #print(self.flux_input_args)
                 for v_dict in self.flux_input_args['group_args']:
-                    # print("appending group arg", v_dict, [state[label] for label in v_dict['label']])
+                    #print("appending group arg", v_dict, [state[label] for label in v_dict['label']])
                     if vectorized:
                         group_arg = [state[label] for label in v_dict['label']]
                         max_arg_len = max([np.size(items) for items in group_arg])
-                        # print(group_arg, max_arg_len)
+                        #print(group_arg, max_arg_len)
                         _input_args = []
                         for arg in group_arg:
                             if np.size(arg) != max_arg_len:
-                                # print("extending group args here")
+                                #print("extending group args here")
                                 _input_args.append([arg for i in range(max_arg_len)])
                             else:
-                                # print("passing along args")
+                                #print("passing along args")
                                 _input_args.append(arg)
-                        # print("pre_transpose:", _input_args)
+                        #print("pre_transpose:", _input_args)
                         _input_args = np.array(_input_args).T
-                        # print("post_transpose:", _input_args, type(_input_args))
+                        #print("post_transpose:", _input_args, type(_input_args))
                         input_args[v_dict['var']] = _input_args
 
                         try:
@@ -351,7 +354,13 @@ def comp(cls=None, *, init_stage=3):
                         else:
                             args_vectorize_exclude.append(v_dict['var'])
                     else:
-                        input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
+                        states = [state[label] for label in v_dict['label']]
+                        #print("STATES:", len(states), states)
+                        if len(states) == 1:
+                            # unpack list to array, for easier handling of single group arg
+                            input_args[v_dict['var']] = states[0]
+                        else:
+                            input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
                         args_vectorize_exclude.append(v_dict['var'])
                         signaturize = False
 
@@ -369,7 +378,7 @@ def comp(cls=None, *, init_stage=3):
                     signaturize = False
                     # args_signature_input.append('()')
 
-                # print('INPUT ARGS:', input_args)
+                #print('INPUT ARGS:', input_args)
                 # added option to force vectorisation for model arrays/lists
                 #   containing objects (i.e. gekko components), excluding the forcings
                 # as well as forcing correct vectorization of list inputs via signature
@@ -391,7 +400,7 @@ def comp(cls=None, *, init_stage=3):
                         except AttributeError:
                             raise Exception("Phydra Bug: AttributeError returned by np.vectorized flux, "
                                             "most likely caused by: \n"
-                                            "- first argument in statement returned is not nd.array "
+                                            "- first argument in statement returned from flux function is not nd.array "
                                             "(easy to fix by switching order)")
                     else:
                         return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
@@ -418,12 +427,15 @@ def comp(cls=None, *, init_stage=3):
 
         process_cls = xs.process(new_cls)
 
-        # TODO: clean this up below:
-        try:
-            process_cls.flux = getattr(cls, 'flux')
-        except AttributeError:
-            # print("process cls contains no flux func")
-            pass
+        # allow passing helper functions through to process class
+        _forcing_input_functions = [value.__name__ for value in forcing_dict.values()]
+        cls_dir = dir(cls)
+        for attribute in cls_dir:
+            if hasattr(cls, attribute) and callable(getattr(cls, attribute)):
+                if not attribute.startswith("__") and attribute not in _forcing_input_functions:
+                    print("setting new attr method")
+                    print(attribute)
+                    setattr(process_cls, attribute, getattr(cls, attribute))
 
         return process_cls
 

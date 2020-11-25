@@ -81,13 +81,16 @@ class SizebasedGrazingKernel_Dims:
     resource = phydra.variable(foreign=True, dims='resource')
     consumer = phydra.variable(foreign=True, dims='consumer')
     phiP = phydra.parameter(dims=('resource', 'consumer'), description='feeding preferences')
-    I0 = phydra.parameter(dims='consumer', description='maximum ingestion rate')
+    Imax = phydra.parameter(dims='consumer', description='maximum ingestion rate')
     KsZ = phydra.parameter(dims='consumer', description='feeding preferences')
 
     @phydra.flux(group='graze_matrix', dims=('resource', 'consumer'))
-    def grazing(self, resource, consumer, phiP, I0, KsZ):
-        PscaledAsFood = phiP / KsZ * resource
-        FgrazP = I0 * consumer * PscaledAsFood / (1 + np.sum(PscaledAsFood, axis=1))
+    def grazing(self, resource, consumer, phiP, Imax, KsZ):
+        # print("GRAZING mat calc", "res",resource, "con",consumer)
+        PscaledAsFood = phiP / KsZ * np.vstack(resource)
+        # print("PscaledAsFood", PscaledAsFood)
+        FgrazP = Imax * consumer * PscaledAsFood / (1 + np.sum(PscaledAsFood, axis=0))
+        # print("FgrazP", FgrazP, type(FgrazP))
         return FgrazP
 
 
@@ -107,15 +110,21 @@ class GrossGrowthEfficiency_MatrixGrazing:
 
     @phydra.flux(dims='resource', group_to_arg='graze_matrix')
     def grazing(self, assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon):
-        #print("grazing", graze_matrix)
-        out = np.sum(graze_matrix, axis=1)[0,:]
-        #print(out)
+        # print("grazing", graze_matrix)
+        out = np.sum(graze_matrix, axis=1)
+        # print("grazing out", out, sum(out))
         return out
 
     @phydra.flux(dims='consumer', group_to_arg='graze_matrix')
     def assimilation(self, assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon):
-        return np.sum(graze_matrix, axis=2)[0,:] * epsilon
+        #print("ASSIMILATION", assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon)
+        out = np.sum(graze_matrix, axis=0) * epsilon
+        # print("assimilation sum", np.sum(graze_matrix, axis=0), sum(np.sum(graze_matrix, axis=0)))
+        return out
 
     @phydra.flux(group_to_arg='graze_matrix')
     def egestion(self, assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon):
-        return np.sum(graze_matrix, axis=None) * (1 - f_eg - epsilon)
+        #print("EGESTION", assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon)
+        out = np.sum(graze_matrix, axis=None) * (1 - f_eg - epsilon)
+        #print("out", out)
+        return out

@@ -34,6 +34,8 @@ class PhydraModel:
         self.flux_values = defaultdict()
         self.fluxes_per_var = defaultdict(list)
 
+        self.var_dims = defaultdict()
+        self.flux_dims = defaultdict()
         self.full_model_dims = defaultdict()
 
     def __repr__(self):
@@ -52,16 +54,30 @@ class PhydraModel:
         state_dict = defaultdict()
         index = 0
         for key, dims in self.full_model_dims.items():
-            if dims:
+            #print(key, dims, index)
+            if dims is None:
+                # print("unpacking non-dimensional val", key)
+                state_dict[key] = flat_state[index]
+                # print(state_dict[key])
+                index += 1
+            elif isinstance(dims, int):
+                # print("unpacking single dim", key)
                 val_list = []
                 for i in range(dims):
                     val_list.append(flat_state[index])
                     index += 1
+                # print(val_list)
                 state_dict[key] = np.array(val_list)
             else:
-                state_dict[key] = flat_state[index]
-                index += 1
-            # print(key, dims, state_dict, index)
+                # print("UNPACKING MULTI DIMENSIONAL", key)
+                _length = np.prod(dims)
+                # print(_length)
+                val_list = flat_state[index:index+_length]
+                index += _length
+                # print(np.shape(val_list))
+                state_dict[key] = np.array(val_list).reshape(dims)
+                # print(state_dict[key])
+        # print("\n")
 
         return state_dict
 
@@ -75,11 +91,11 @@ class PhydraModel:
         """
 
         # print("\n NEW TIME STEP")
-        # print("CURRENT STATE", current_state)
+        #print("CURRENT STATE", current_state)
 
         state = self.unpack_flat_state(current_state)
 
-        # print("STATE", state)
+        #print("STATE", state['Grazing_grazing'])
         # Return forcings for time point:
         if time is not None:
             forcing_now = defaultdict()
@@ -103,8 +119,6 @@ class PhydraModel:
                 # print("UPDATE VALUE in state", state)
         # print("fluxes_out", fluxes_out)
 
-        # TODO: so I actually need to update the flux values in the state, if I use a flux state in another flux
-        #   that is the only way I can think of fixing the current problems
         # print("\n routing list fluxes now ")
         # Route list input fluxes:
         list_input_fluxes = defaultdict(list)
@@ -140,7 +154,7 @@ class PhydraModel:
                     else:
                         list_input_fluxes[var].append(flux)
             else:
-                print(list_var_dims)
+                #print(list_var_dims)
                 raise Exception("ERROR: list input vars dims and flux output dims do not match")
 
         # print("\n assigning fluxes to variables now ")
@@ -155,7 +169,7 @@ class PhydraModel:
                 for flux_var_dict in self.fluxes_per_var[var_label]:
                     flux_label, negative, list_input = flux_var_dict.values()
                     # print("""""""""""""""""""""""""""""""""""""")
-                    # print(var_label, flux_label, flux_values[flux_label], list_input)
+                    #print(var_label, negative, flux_label, flux_values[flux_label], list_input)
 
                     if dims:
                         _flux = flux_values[flux_label]
@@ -186,7 +200,8 @@ class PhydraModel:
                 else:
                     var_fluxes.append(0)
 
-            #print(var_label, "var_fluxes", var_fluxes)
+            # print(var_label, "var_fluxes", var_fluxes)
+            # print("SUM", np.sum(var_fluxes, axis=0))
             state_out.append(np.sum(var_fluxes, axis=0))
 
         # print("state_out", state_out)
