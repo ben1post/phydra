@@ -1,5 +1,7 @@
 import phydra
 
+import numpy as np
+
 
 @phydra.comp(init_stage=4)
 class Growth_ML:
@@ -12,7 +14,7 @@ class Growth_ML:
 
     @phydra.flux(group_to_arg='growth_lims')
     def growth(self, resource, consumer, mu_max, growth_lims):
-        # print(resource, consumer, mu_max, growth_lims)
+        # print("in growth flux func now", resource, consumer, mu_max, growth_lims)
         return mu_max * self.m.product(growth_lims) * consumer
 
 
@@ -71,7 +73,8 @@ class Growth_ML_ConsumerDim:
 
     @phydra.flux(dims='vars', group_to_arg='growth_lims')
     def growth(self, resource, consumer, mu_max, growth_lims):
-        return mu_max * self.m.product(growth_lims) * consumer
+        #print("in growth flux func now", resource, consumer, mu_max, growth_lims)
+        return consumer * mu_max * self.m.product(growth_lims, axis=0)
 
 
 @phydra.comp
@@ -82,6 +85,8 @@ class Monod_ML_ConsumerDim:
 
     @phydra.flux(dims='vars', group='growth_lims')
     def monod_lim(self, resource, halfsat):
+        #print("in monod lim", resource, halfsat)
+        #print(resource.value.ndim)
         return resource / (resource + halfsat)
 
 

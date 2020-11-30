@@ -103,7 +103,7 @@ def _make_phydra_flux(label, variable):
     group_to_arg = variable.metadata.get('group_to_arg')
 
     if group and group_to_arg:
-        raise Exception("A flux can be either added to group or call a group to an attribute, not both.")
+        raise Exception("A flux can be either added to group or take a group as argument, not both.")
 
     if group:
         xs_var_dict[label + '_label'] = _convert_2_xsimlabvar(var=variable, intent='out', groups=group, var_dims=(),
@@ -306,47 +306,66 @@ def comp(cls=None, *, init_stage=3):
                 args_signature_output = []
                 signaturize = False
 
+                _dims = kwargs.get('dims')
+                print('DIMS', _dims)
+                if isinstance(_dims, tuple):
+                    args_signature_output.append(f"{'(' + ','.join(_dims) + ')'}")
+                else:
+                    args_signature_output.append(f"({_dims})")
+
                 for v_dict in self.flux_input_args['vars']:
-                    print(v_dict['dim'])
+                    #print("adding variable", v_dict['label'], v_dict['dim'])
                     if isinstance(v_dict['label'], list) or isinstance(v_dict['label'], np.ndarray):
                         input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
                         args_signature_input.append('(mop)')
                         args_signature_output.append('(mop)')
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
-                        if kwargs.get('dims'):
-                            args_signature_input.append('()')
+                        #if kwargs.get('dims'):
+                        if v_dict['dim'] is None:
+                            args_signature_input.append("()")
+                        elif isinstance(v_dict['dim'], tuple):
+                            args_signature_input.append(f"{'(' + ','.join(v_dict['dim']) + ')'}")
                         else:
-                            args_vectorize_exclude.append(v_dict['var'])
+                            args_signature_input.append(f"{'(' + str(v_dict['dim']) + ')'}")
+                        #else:
+                        #    args_vectorize_exclude.append(v_dict['var'])
 
                 for v_dict in self.flux_input_args['list_input_vars']:
-                    print(v_dict['dim'])
+                    #print(v_dict['dim'])
                     input_args[v_dict['var']] = np.concatenate([state[label] for label in v_dict['label']],
                                                                axis=None)
-                    args_signature_input.append('(m)')
-                    args_signature_output.append('(m)')
+                    args_signature_input.append('(list)')
+                    #args_signature_output.append('(m)')
                     signaturize = True
 
                 #print(self.flux_input_args)
                 for v_dict in self.flux_input_args['group_args']:
-                    print(v_dict['dim'])
+                    #print(v_dict['dim'])
                     #print("appending group arg", v_dict, [state[label] for label in v_dict['label']])
                     if vectorized:
                         group_arg = [state[label] for label in v_dict['label']]
-                        max_arg_len = max([np.size(items) for items in group_arg])
-                        #print(group_arg, max_arg_len)
-                        _input_args = []
-                        for arg in group_arg:
-                            if np.size(arg) != max_arg_len:
-                                #print("extending group args here")
-                                _input_args.append([arg for i in range(max_arg_len)])
-                            else:
-                                #print("passing along args")
-                                _input_args.append(arg)
-                        #print("pre_transpose:", _input_args)
-                        _input_args = np.array(_input_args).T
-                        #print("post_transpose:", _input_args, type(_input_args))
-                        input_args[v_dict['var']] = _input_args
+                        #print("STATES:", len(group_arg), group_arg)
+                        if len(group_arg) == 1:
+                            # unpack list to array, for easier handling of single group arg
+                            input_args[v_dict['var']] = group_arg[0]
+                            # TODO: FIX THIS BELOW, actually handle dims properly..
+                            #args_signature_input.append("(resource,consumer)")
+                        else:
+                            max_arg_len = max([np.size(items) for items in group_arg])
+                            #print(group_arg, max_arg_len)
+                            _input_args = []
+                            for arg in group_arg:
+                                if np.size(arg) != max_arg_len:
+                                    #print("extending group args here")
+                                    _input_args.append(np.concatenate([arg for i in range(max_arg_len)], axis=None))
+                                else:
+                                    #print("passing along args")
+                                    _input_args.append(arg)
+                            #print("pre_transpose:", _input_args)
+                            _input_args = np.array(_input_args)  # .T
+                            #print("post_transpose:", _input_args, type(_input_args))
+                            input_args[v_dict['var']] = _input_args
 
                         try:
                             add_dim = np.shape(_input_args)[1]
@@ -354,12 +373,25 @@ def comp(cls=None, *, init_stage=3):
                             add_dim = 0
 
                         if add_dim > 1:
-                            args_signature_input.append('(n)')
-                            args_signature_output.append('()')
+                            if v_dict['dim']:
+                                #print("GROUP ARG DIMS: ", v_dict['dim'], type(v_dict['dim']))
+                                if isinstance(v_dict['dim'], tuple):
+                                    #print("unpacking tuple v dims", v_dict['dim'])
+                                    vars_sig = f"{'(' + ','.join(v_dict['dim']) + ',n)'}"
+                                else:
+                                    #print("appending single v dims", v_dict['dim'])
+                                    vars_sig = f"{'(' + v_dict['dim'] + ',n)'}"
+                                #print("GROUP ARGS SIG", vars_sig)
+                                args_signature_input.append(vars_sig)
+                            else:
+                                args_signature_input.append('(list)')
+                            # args_signature_output.append('()')
                             signaturize = True
                         else:
                             args_vectorize_exclude.append(v_dict['var'])
+                            signaturize = True
                     else:
+                        #print("non-vectorized")
                         states = [state[label] for label in v_dict['label']]
                         #print("STATES:", len(states), states)
                         if len(states) == 1:
@@ -368,47 +400,63 @@ def comp(cls=None, *, init_stage=3):
                         else:
                             input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
                         args_vectorize_exclude.append(v_dict['var'])
+                        #print("SWITCHING OFF SIGNATUREIZING")
                         signaturize = False
 
                 for p_dict in self.flux_input_args['pars']:
-                    if np.size(parameters[p_dict['label']]) > 1:
+                    #print("PAR, unpacking tuple p dims", p_dict['dim'], type(p_dict['dim']))
+                    if p_dict['dim']:
+                        if isinstance(p_dict['dim'], tuple):
+                            args_signature_input.append(f"{'(' + ','.join(p_dict['dim']) + ')'}")
+                        else:
+                            args_signature_input.append(f"{'(' + str(p_dict['dim']) + ')'}")
                         input_args[p_dict['var']] = parameters[p_dict['label']]
-                        args_signature_input.append('(m)')
+                        signaturize = True
                     else:
+                        #print("appending single p dims", p_dict['dim'], type(p_dict['dim']))
+                        args_signature_input.append(str(p_dict['dim']))
+                        # args_vectorize_exclude.append(p_dict['var'])
                         input_args[p_dict['var']] = parameters[p_dict['label']]
-                        args_signature_input.append('()')
 
                 for f_dict in self.flux_input_args['forcs']:
                     input_args[f_dict['var']] = forcings[f_dict['label']]
                     args_vectorize_exclude.append(f_dict['var'])
+                    # print("SWITCHING OFF SIGNATUREIZING")
                     signaturize = False
+                    if not _dims:
+                        vectorized = False
                     # args_signature_input.append('()')
 
-                print('INPUT ARGS:', input_args)
+                #print('INPUT ARGS:', input_args)
                 # added option to force vectorisation for model arrays/lists
                 #   containing objects (i.e. gekko components), excluding the forcings
                 # as well as forcing correct vectorization of list inputs via signature
 
                 # TODO: for group fluxes, the signature does not work yet! need to pass some arg to
                 #   only use for list input fluxes....
-                print("args vec excl", args_vectorize_exclude)
+                #print("args vec excl", args_vectorize_exclude)
                 if vectorized:
                     if signaturize:
-                        # print("signaturizing")
+                        print("signaturizing")
                         if not args_signature_output:
                             args_signature_output.append('()')
+                        #print(args_signature_input)
+                        #print(args_signature_output)
                         signature = f"(),{','.join(args_signature_input)}->{','.join(args_signature_output)}"
-                        # print(signature)
+                        #print(signature)
                         try:
                             # print({**input_args})
                             return np.vectorize(func, excluded=args_vectorize_exclude, signature=signature
                                                 )(self, **input_args)
                         except AttributeError:
-                            raise Exception("Phydra Bug: AttributeError returned by np.vectorized flux, "
-                                            "most likely caused by: \n"
-                                            "- first argument in statement returned from flux function is not nd.array "
-                                            "(easy to fix by switching order)")
+                            #print("CATCHING ATTRIBUTE ERROR")
+                            return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
+                            #raise Exception("Phydra Bug: AttributeError returned by np.vectorized flux, "
+                            #                "most likely caused by: \n"
+                            #                "- first argument in statement returned from flux function is not nd.array "
+                            #                "(easy to fix by switching order)")
                     else:
+                        #print("NOT signaturized")
                         return np.vectorize(func, excluded=args_vectorize_exclude)(self, **input_args)
                 else:
                     return func(self, **input_args)

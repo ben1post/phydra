@@ -72,7 +72,7 @@ class ODEINTSolver(SolverABC):
             _dims = np.shape(value)
             full_dims = (*_dims, np.size(model_time))
 
-        print("FULL DIMS", full_dims)
+        #print("FULL DIMS", full_dims)
         array_out = np.zeros(full_dims)
         return array_out, _dims
 
@@ -89,7 +89,7 @@ class ODEINTSolver(SolverABC):
 
         model.var_dims[label] = dims
 
-        print("variable", label, np.shape(array_out))
+        #print("variable", label, np.shape(array_out))
         return array_out
 
     def add_parameter(self, label, value):
@@ -122,7 +122,7 @@ class ODEINTSolver(SolverABC):
 
         model.flux_dims[label] = dims
 
-        print("flux", label, np.shape(array_out))
+        #print("flux", label, np.shape(array_out))
         return array_out
 
     def add_forcing(self, label, forcing_func, model):
@@ -145,20 +145,20 @@ class ODEINTSolver(SolverABC):
 
     def solve(self, model, time_step):
         """ """
-        print("start solve now")
-        print("var init", self.var_init)
-        print("flux_init", self.flux_init)
+        #print("start solve now")
+        #print("var init", self.var_init)
+        #print("flux_init", self.flux_init)
         full_init = np.concatenate([[v for val in self.var_init.values() for v in val.flatten()],
                                     [v for val in self.flux_init.values() for v in val.flatten()]], axis=None)
 
-        print("full init", np.size(full_init), np.shape(full_init), full_init)
+        #print("full init", np.size(full_init), np.shape(full_init), full_init)
         full_model_out = odeint(model.model_function, full_init, model.time)
 
-        print("FULL OUT", type(full_model_out), full_model_out)
+        #print("FULL OUT", type(full_model_out), full_model_out)
         state_rows = [row for row in full_model_out.T]
 
-        print(np.shape(state_rows))
-        print(state_rows)
+        #print(np.shape(state_rows))
+        #print(state_rows)
 
         state_dict = defaultdict()
         index = 0
@@ -195,6 +195,7 @@ class ODEINTSolver(SolverABC):
             # print(flux_key, val, state, np.diff(state))
             state = state_dict[flux_key]
             dims = model.full_model_dims[flux_key]
+            # TODO: below here actually append first value of state, not 0
             val[...] = np.diff(state, prepend=0) / time_step
 
     def cleanup(self):
@@ -391,16 +392,36 @@ class GEKKOSolver(SolverABC):
         """ """
         label = self.check_label(label)
 
-        # print("adding parameter", label, value)
+        #print("adding parameter", label, value)
+
         if isinstance(value, str):
             return value
 
-        if isinstance(value, list) or isinstance(value, np.ndarray):
-            var_out = [self.gekko.Param(value=value[i], name=label + str(i)) for i in range(len(value))]
+        if np.size(value) == 1:
+            par_out = self.gekko.Param(value=float(value), name=label)
+        elif len(np.shape(value)) == 1:
+            par_out = [self.gekko.Param(value=float(value[i]), name=label + str(i)) for i in range(len(value))]
+        elif len(np.shape(value)) == 2:
+            par_shape = np.shape(value)
+            par_out = [[self.gekko.Param(value=value[i, j], name=label + '_'.join((str(i), str(j))))
+                         for j in range(par_shape[1])] for i in range(par_shape[0])]
         else:
-            var_out = self.gekko.Param(value=value, name=label)
+            raise Exception("Currently phydra does not support 3 dimensional parameters")
 
-        return var_out
+        #var_out = np.zeros(np.shape(value), dtype=object)
+        #with np.nditer(value, flags=['multi_index', 'refs_ok']) as par_it:
+        #    print("value", value)
+        #    for par in par_it:
+        #        print(par, type(par), label + str(par_it.multi_index).replace(" ", ""))
+        #        var_out[par_it.multi_index] = self.gekko.Param(value=float(par),
+        #                                        name=label + str(par_it.multi_index).replace(" ", ""))
+
+        # if isinstance(value, list) or isinstance(value, np.ndarray):
+        #    var_out = [self.gekko.Param(value=value[i], name=label + str(i)) for i in range(len(value))]
+        # else:
+        #     var_out = self.gekko.Param(value=value, name=label)
+        #print("output of parameter setup", par_out)
+        return par_out
 
     def register_flux(self, label, flux, model, dims):
         """ this returns storage container """
@@ -409,27 +430,46 @@ class GEKKOSolver(SolverABC):
         var_in_dict = {**model.variables, **model.flux_values}
         # need to force vectorization here, otherwise lists/arrays of gekko object are not iterated over:
         # print("PARAMETERS", model.parameters)
-        print("CALCULATING FLUX", label, dims)
+        #print("CALCULATING FLUX", label, dims)
         _flux = flux(state=var_in_dict,
                      parameters=model.parameters,
                      forcings=model.forcings, vectorized=True, dims=dims)
 
-        print(label, _flux, type(_flux), dims)
+        print(label, _flux, type(_flux), np.shape(_flux) if type(_flux) is np.ndarray else None, dims)
 
-        if np.size(_flux) > 1:
-            # print([_flux[i] for i in range(len(_flux))])
-            flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
-        else:
+        if np.size(_flux) == 1:
             flux_out = self.gekko.Intermediate(_flux, name=label)
+        elif len(np.shape(_flux)) == 1:
+            flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
+        elif len(np.shape(_flux)) == 2:
+            flx_shape = np.shape(_flux)
+            flux_out = [[self.gekko.Intermediate(_flux[i, j], name=label + '_'.join((str(i), str(j))))
+                         for j in range(flx_shape[1])] for i in range(flx_shape[0])]
+        else:
+            raise Exception("Currently phydra does not support 3 dimensional fluxes")
+            #flux_out = np.zeros(np.shape(_flux), dtype=object)
+            #with np.nditer(_flux, flags=['multi_index', 'refs_ok']) as flux_it:
+            #    print(flux_it)
+            #    for flx in flux_it:
+            #        print(flx)
+            #        flux_out[flux_it.multi_index] = self.gekko.Intermediate(flx,
+            #                                                name=label + str(flux_it.multi_index).replace(" ", ""))
 
-        # print("Flux_OUT", flux_out)
+        #if np.size(_flux) > 1:
+            # print([_flux[i] for i in range(len(_flux))])
+        #    flux_out = [self.gekko.Intermediate(_flux[i], name=label + str(i)) for i in range(len(_flux))]
+        #else:
+        #    flux_out = self.gekko.Intermediate(_flux, name=label)
+
+        #print("Flux_OUT", flux_out)
 
         return flux_out
 
     def add_forcing(self, label, forcing_func, model):
         """ """
         label = self.check_label(label)
-
+        # store forcing as intermediate for easier hangling of parameter array (over time)
+        # return self.gekko.Intermediate(self.gekko.Param(value=forcing_func(model.time), name=label), name=label+"_forc")
         return self.gekko.Param(value=forcing_func(model.time), name=label)
 
     def assemble(self, model):
@@ -509,11 +549,13 @@ class GEKKOSolver(SolverABC):
                 for flux_var_dict in model.fluxes_per_var[var_label]:
                     flux_label, negative, list_input = flux_var_dict.values()
                     _flux = model.flux_values[flux_label]
-                    # print(var_label, dims, flux_label, _flux, type(_flux))
+                    #print(var_label, dims, flux_label, _flux, type(_flux), np.shape(_flux))
+
                     flux_dims = np.size(_flux)
 
                     if negative:
                         if flux_dims > 1 or isinstance(_flux, list) or isinstance(_flux, np.ndarray):
+
                             var_fluxes.append([-_flux[i] for i in range(flux_dims)])
                         else:
                             var_fluxes.append(-_flux)
@@ -543,18 +585,32 @@ class GEKKOSolver(SolverABC):
                 else:
                     var_fluxes.append(0)
 
-            # print("VAR FLUXES", var_fluxes)
+            #print("VAR FLUXES", var_fluxes)
             if dims:
+                #print("appending to dims var", dims)
                 for i in range(dims):
-                    equations.append(value[i].dt() == sum([var_flx[i] for var_flx in var_fluxes]))
+                    #print("dimension", i)
+                    _VAR_FLUXES = []
+                    for var_flx in var_fluxes:
+                        #print("var_flx", [flx.name for flx in var_flx], [flx.value for flx in var_flx])
+                        #print("appending sum of", var_flx[i])
+                        _VAR_FLUXES.append(var_flx[i])
+                    #print("VAR FLUXEs", _VAR_FLUXES)
+                    equations.append(value[i].dt() == sum(_VAR_FLUXES))
             else:
+                #print("no dims")
                 _var_fluxes = []
                 for flx in var_fluxes:
                     if np.size(flx) > 1:
+                        #print("appending sum flux", flx)
                         _var_fluxes.append(sum(flx))
                     else:
+                        #if isinstance(flx, (list, np.ndarray)):
+                        #    flx = sum(flx)
+                        #print("appending flux", flx)
                         _var_fluxes.append(flx)
-                equations.append(value.dt() == sum(_var_fluxes))
+                    #print("fluxes", _var_fluxes)
+                equations.append(value.dt() == np.sum(_var_fluxes))
 
         # create Equations
         self.gekko.Equations(equations)
@@ -564,6 +620,9 @@ class GEKKOSolver(SolverABC):
         print("Model equations:")
         for val in self.gekko.__dict__['_equations']:
             print(val.value)
+
+        #for val in self.gekko.__dict__['_intermediates']:
+        #    print(val.name, val.value)
 
     def solve(self, model, time_step):
         self.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet

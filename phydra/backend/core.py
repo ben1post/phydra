@@ -5,13 +5,14 @@ import math
 from .model import PhydraModel
 from .solvers import SolverABC, ODEINTSolver, GEKKOSolver, StepwiseSolver
 
-
 _built_in_solvers = {'odeint': ODEINTSolver, 'gekko': GEKKOSolver, 'stepwise': StepwiseSolver}
 
 
 class PhydraCore:
     """"""
+
     def __init__(self, solver):
+        self.counter = 0
 
         self.Model = PhydraModel()
 
@@ -84,11 +85,12 @@ class PhydraCore:
         else:
             return np.exp(args)
 
-    def product(self, args):
+    def product(self, args, axis=None):
         """ Product function that provides correct function for all supported solver types """
         try:
-            return np.prod(args)
+            return np.prod(args, axis=axis)
         except np.VisibleDeprecationWarning:
+            # print("falling back on math prod function")
             return math.prod(args)
 
     def sum(self, args):
@@ -98,6 +100,22 @@ class PhydraCore:
     def max(self, x1, x2):
         """ """
         if isinstance(self.Solver, GEKKOSolver):
+            print("MAXIMUM")
+            print("x1", x1, type(x1), "x2", x2, type(x2))
+            #out = self.Solver.gekko.max2(x1, self.Solver.gekko.Param(x2))
+            #out = self.Solver.gekko.Param(np.maximum(x1.value, x2), name='max'+str(self.counter))
+            #print("OUT", max(x1.value, x2), out)
             return self.Solver.gekko.Param(np.maximum(x1, x2))
+
+            #self.counter += 1
+            #return out
+
+            # return self.Solver.gekko.max3(x1, x2)
+        # elif 1 == 2:
+        #    if isinstance(x2, int):
+        #        x2 = np.array([x2])
+        #        print(x2, type(x2))
+        #
+        #    return self.Solver.gekko.Param(np.maximum(x1, x2))
         else:
             return np.maximum(x1, x2)
