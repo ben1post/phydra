@@ -73,7 +73,6 @@ class GrossGrowthEfficiency:
     def excretion(self, assimilated_consumer, egested_detritus, excreted_nutrient, graze_out, beta, epsilon):
         return self.m.sum(graze_out) * beta * (1-epsilon)
 
-import numpy as np
 
 @phydra.comp
 class SizebasedGrazingKernel_Dims:
@@ -86,11 +85,9 @@ class SizebasedGrazingKernel_Dims:
 
     @phydra.flux(group='graze_matrix', dims=('resource', 'consumer'))
     def grazing(self, resource, consumer, phiP, Imax, KsZ):
-        #print("GRAZING mat calc", "res", resource, "con",consumer)
-        PscaledAsFood = phiP / KsZ * np.vstack(resource)
-        #print("PscaledAsFood", PscaledAsFood)
-        FgrazP = Imax * consumer * PscaledAsFood / (1 + np.sum(PscaledAsFood, axis=0))
-        #print("FgrazP", FgrazP, type(FgrazP), np.shape(FgrazP))
+        """ """
+        PscaledAsFood = phiP / KsZ * resource[:, None]
+        FgrazP = Imax * consumer * PscaledAsFood / (1 + self.m.sum(PscaledAsFood, axis=0))
         return FgrazP
 
 
@@ -110,21 +107,18 @@ class GrossGrowthEfficiency_MatrixGrazing:
 
     @phydra.flux(dims='resource', group_to_arg='graze_matrix')
     def grazing(self, assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon):
-        #print("grazing", graze_matrix)
-        out = np.sum(graze_matrix, axis=1)
-        #print("grazing out", out, sum(out))
+        """ """
+        out = self.m.sum(graze_matrix, axis=1)
         return out
 
     @phydra.flux(dims='consumer', group_to_arg='graze_matrix')
     def assimilation(self, assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon):
-        #print("ASSIMILATION", assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon)
-        out = np.sum(graze_matrix, axis=0) * epsilon
-        #print("assimilation sum", np.sum(graze_matrix, axis=0), sum(np.sum(graze_matrix, axis=0)))
+        """ """
+        out = self.m.sum(graze_matrix, axis=0) * epsilon
         return out
 
     @phydra.flux(group_to_arg='graze_matrix')
     def egestion(self, assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon):
-        #print("EGESTION", assimilated_consumer, egested_detritus, grazed_resource, graze_matrix, f_eg, epsilon)
-        out = np.sum(graze_matrix, axis=None) * (1 - f_eg - epsilon)
-        #print("out", out)
+        """ """
+        out = self.m.sum(graze_matrix, axis=None) * (1 - f_eg - epsilon)
         return out
