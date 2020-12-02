@@ -81,7 +81,7 @@ class SizebasedGrazingKernel_Dims:
     consumer = phydra.variable(foreign=True, dims='consumer')
     phiP = phydra.parameter(dims=('resource', 'consumer'), description='feeding preferences')
     Imax = phydra.parameter(dims='consumer', description='maximum ingestion rate')
-    KsZ = phydra.parameter(dims='consumer', description='feeding preferences')
+    KsZ = phydra.parameter(description='half sat of grazing')
 
     @phydra.flux(group='graze_matrix', dims=('resource', 'consumer'))
     def grazing(self, resource, consumer, phiP, Imax, KsZ):

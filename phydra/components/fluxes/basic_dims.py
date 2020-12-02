@@ -26,10 +26,22 @@ class ExponentialGrowth_Dim:
 
 
 @phydra.comp
-class LinearDecay_Dim:
+class LinearDecay_VarDim:
     """ """
-    var = phydra.variable(foreign=True, dims='var', flux='decay', negative=True, description='variable affected by flux')
+    var = phydra.variable(dims='var', foreign=True, flux='decay', negative=True, description='variable affected by flux')
     rate = phydra.parameter(description='linear rate of decay/mortality')
+
+    @phydra.flux(dims='var')
+    def decay(self, var, rate):
+        """ """
+        return var * rate
+
+
+@phydra.comp
+class LinearDecay_Dims:
+    """ """
+    var = phydra.variable(dims='var', foreign=True, flux='decay', negative=True, description='variable affected by flux')
+    rate = phydra.parameter(dims='var', description='linear rate of decay/mortality')
 
     @phydra.flux(dims='var')
     def decay(self, var, rate):

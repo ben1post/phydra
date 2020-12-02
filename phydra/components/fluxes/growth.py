@@ -20,6 +20,6 @@ class MonodGrowth_ConsumerDim:
 
     halfsat = phydra.parameter(dims='var', description='half-saturation constant')  # dims='var'
 
-    @phydra.flux
+    @phydra.flux(dims='var')
     def uptake(self, resource, consumer, halfsat):
         return resource / (resource + halfsat) * consumer

@@ -73,7 +73,7 @@ class Growth_ML_ConsumerDim:
 
     @phydra.flux(dims='vars', group_to_arg='growth_lims')
     def growth(self, resource, consumer, mu_max, growth_lims):
-        #print("in growth flux func now", resource, consumer, mu_max, growth_lims)
+        # print("in growth flux func now", resource, consumer, mu_max, growth_lims)
         return consumer * mu_max * self.m.product(growth_lims, axis=0)
 
 

@@ -178,9 +178,14 @@ class ODEINTSolver(SolverABC):
         for flux_key, val in model.flux_values.items():
             state = state_dict[flux_key]
             dims = model.full_model_dims[flux_key]
-            # TODO: below here actually append first value of state, not 0
-            val[...] = np.diff(state, prepend=0) / time_step
 
+            difference = np.diff(state) / time_step
+
+            if dims:
+                val[...] = np.hstack((difference[..., 0][:,None], difference))
+            else:
+                val[...] = np.hstack((difference[0], difference))
+                
     def cleanup(self):
         pass
 
