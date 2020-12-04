@@ -113,25 +113,27 @@ class VerifData:
     initializes and reads verification data, contained in ncdf files
     """
 
-    def __init__(self, Lat, Lon, RBB):
-        self.Lat = Lat
-        self.Lon = Lon
-        self.RangeBB = RBB
+    def __init__(self, lat, lon, rbb, kostadinov=False):
+        self.Lat = lat
+        self.Lon = lon
+        self.RangeBB = rbb
         self.fordir = str(Path(__file__).resolve().parents[3]) + '/phydra-data/'
+
         self.chla = self.readchla()
         #self.chlaint = self.interplt(self.chla)
         self.N = self.readnutrientaboveMLD('n0')
         #self.Nint = self.interplt(self.N)
 
-        self.carbontotal = self.readKostadinovCarbonSize('C_biomass_total')
-        self.c_microp = self.readKostadinovCarbonSize('C_biomass_microplankton')
-        self.c_nanop = self.readKostadinovCarbonSize('C_biomass_nanoplankton')
-        self.c_picop = self.readKostadinovCarbonSize('C_biomass_picoplankton')
+        if kostadinov:
+            self.carbontotal = self.readKostadinovCarbonSize('C_biomass_total')
+            self.c_microp = self.readKostadinovCarbonSize('C_biomass_microplankton')
+            self.c_nanop = self.readKostadinovCarbonSize('C_biomass_nanoplankton')
+            self.c_picop = self.readKostadinovCarbonSize('C_biomass_picoplankton')
 
-        self.carbontotal_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_total')
-        self.c_microp_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_microplankton')
-        self.c_nanop_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_nanoplankton')
-        self.c_picop_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_picoplankton')
+            self.carbontotal_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_total')
+            self.c_microp_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_microplankton')
+            self.c_nanop_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_nanoplankton')
+            self.c_picop_sd = self.readKostadinovCarbonSize('Composite_standard_deviation_C_biomass_picoplankton')
 
         print('VerifData forcing created')
 

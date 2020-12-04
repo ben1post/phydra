@@ -78,23 +78,36 @@ class PhydraCore:
         self.Solver.cleanup()
 
     # math function wrappers:
-    def exp(self, args):
+    def exp(self, x):
         """ Exponential function that provides correct function for all supported solver types """
         if isinstance(self.Solver, GEKKOSolver):
-            return self.Solver.gekko.exp(args)
+            return self.Solver.gekko.exp(x)
         else:
-            return np.exp(args)
+            return np.exp(x)
 
-    def product(self, args, axis=None):
+    def sqrt(self, x):
+        """ Square root function that provides correct function for all supported solver types"""
+        if isinstance(self.Solver, GEKKOSolver):
+            return self.Solver.gekko.sqrt(x)
+        else:
+            return np.sqrt(x)
+
+    def log(self, x):
+        if isinstance(self.Solver, GEKKOSolver):
+            return self.Solver.gekko.log(x)
+        else:
+            return np.log(x)
+
+    def product(self, x, axis=None):
         """ Product function that provides correct function for all supported solver types """
         try:
-            return np.prod(args, axis=axis)
+            return np.prod(x, axis=axis)
         except np.VisibleDeprecationWarning:
-            return math.prod(args)
+            return math.prod(x)
 
-    def sum(self, args, axis=None):
+    def sum(self, x, axis=None):
         """ Sum function that provides correct function for all supported solver types """
-        return np.sum(args, axis=axis)
+        return np.sum(x, axis=axis)
 
     def max(self, x1, x2):
         """ """

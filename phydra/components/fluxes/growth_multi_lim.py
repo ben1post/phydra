@@ -1,7 +1,5 @@
 import phydra
 
-import numpy as np
-
 
 @phydra.comp(init_stage=4)
 class Growth_ML:
@@ -48,6 +46,32 @@ class Steele_ML:
                     - self.m.exp(1. - i_0 / i_opt) - (
                     - self.m.exp((1. - (i_0 * self.m.exp(-kPAR * mld)) / i_opt))))
         return light_lim
+
+
+@phydra.comp
+class Smith_ML:
+    """ """
+    pigment_biomass = phydra.variable(foreign=True)
+
+    i_0 = phydra.forcing(foreign=True, description='Light forcing')
+    mld = phydra.forcing(foreign=True, description='Mixed Layer Depth forcing')
+
+    alpha = phydra.parameter(description='initial slop of PI curve')
+    VpMax = phydra.parameter(description='Maximum photosynthetic rate')
+    kw = phydra.parameter(description='light attenuation coef for water')
+    kc = phydra.parameter(description='light attenuation coef for pigment biomass')
+
+    @phydra.flux(group='growth_lims')
+    def smith_light_lim(self, i_0, mld, pigment_biomass, alpha, VpMax, kw, kc):
+        kPAR = kw + kc * pigment_biomass
+        x_0 = alpha * i_0  # * self.m.exp(- kPAR * 0) # (== 1)
+        x_H = alpha * i_0 * self.m.exp(- kPAR * mld)
+        VpH = (VpMax / (kPAR * mld)) * \
+              self.m.log(
+                  (x_0 + self.m.sqrt(VpMax ** 2 + x_0 ** 2)) /
+                  (x_H + self.m.sqrt(VpMax ** 2 + x_H ** 2))
+              )
+        return VpH
 
 
 @phydra.comp

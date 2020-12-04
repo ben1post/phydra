@@ -185,7 +185,7 @@ class ODEINTSolver(SolverABC):
                 val[...] = np.hstack((difference[..., 0][:,None], difference))
             else:
                 val[...] = np.hstack((difference[0], difference))
-                
+
     def cleanup(self):
         pass
 
