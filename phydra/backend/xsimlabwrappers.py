@@ -15,7 +15,7 @@ def create(model_dict):
     return xs.Model(model_dict)
 
 
-def setup(solver, model, input_vars, output_vars, time=None):
+def setup(solver, model, input_vars, output_vars=None, time=None):
     """ This function wraps create_setup and adds a dummy clock parameter
     necessary for model execution """
     if time is None:
@@ -25,7 +25,7 @@ def setup(solver, model, input_vars, output_vars, time=None):
                        'Time__time': time})
 
     # convenient option "ALL" and providing set of values that automatically are returned with dim None:
-    if output_vars == "ALL":
+    if output_vars == "ALL" or output_vars is None:
         full_output_vars = defaultdict()
         for var in model._var_cache.values():
             try:

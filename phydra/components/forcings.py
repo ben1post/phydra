@@ -8,7 +8,7 @@ from phydra.utility.forcingdata import ClimatologyForcing
 
 @phydra.comp(init_stage=2)
 class ConstantForcing:
-    forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
+    forcing = phydra.forcing(foreign=False, setup_func='forcing_setup')
     value = phydra.parameter(description='constant value of forcing')
 
     def forcing_setup(self, value):
@@ -25,26 +25,23 @@ class ConstantForcing:
 
 @phydra.comp(init_stage=2)
 class SinusoidalForcing:
-    forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
-    value = phydra.parameter(description='constant value of forcing')
+    forcing = phydra.forcing(foreign=False, setup_func='forcing_setup')
+    period = phydra.parameter(description='period of sinusoidal forcing')
 
-    def forcing_setup(value):
-
-
+    def forcing_setup(self, period):
         cwd = os.getcwd()
         print("forcing function is in directory:", cwd)
-        print("forcing_val:", value)
 
         @np.vectorize
         def forcing(time):
-            return np.cos(time / 365 * 2 * np.pi) + 1
+            return np.cos(time / period * 2 * np.pi) + 1
 
         return forcing
 
 
 @phydra.comp(init_stage=2)
 class GlobalSlabClimatologyForcing:
-    forcing = phydra.forcing(foreign=False, file_input_func='forcing_setup')
+    forcing = phydra.forcing(foreign=False, setup_func='forcing_setup')
     dataset = phydra.parameter(description="Options: 'n0x', 'mld', 'tmld', 'par'")
     lat = phydra.parameter(description='constant value of forcing')
     lon = phydra.parameter(description='constant value of forcing')

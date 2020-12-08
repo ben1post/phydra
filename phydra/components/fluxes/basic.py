@@ -38,6 +38,19 @@ class LinearDecay:
 
 
 @phydra.comp
+class LinearDecay_ListInput:
+    """ """
+    var_list = phydra.variable(dims='decay_vars', list_input=True,
+                           foreign=True, flux='decay', negative=True, description='list of variables affected by flux')
+    rate = phydra.parameter(description='linear rate of decay/mortality')
+
+    @phydra.flux(dims='decay_vars_full')
+    def decay(self, var_list, rate):
+        """ """
+        return var_list * rate
+
+
+@phydra.comp
 class LinearExchange:
     """ """
     source = phydra.variable(foreign=True, flux='decay', negative=True)

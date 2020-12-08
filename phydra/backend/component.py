@@ -141,9 +141,9 @@ def _create_forcing_dict(cls, var_dict):
 
     for key, var in var_dict.items():
         if var.metadata.get('var_type') is PhydraVarType.FORCING:
-            _file_input_func = var.metadata.get('file_input_func')
-            if _file_input_func is not None:
-                forcings_dict[key] = getattr(cls, _file_input_func)
+            _forcing_setup_func = var.metadata.get('setup_func')
+            if _forcing_setup_func is not None:
+                forcings_dict[key] = getattr(cls, _forcing_setup_func)
 
     return forcings_dict
 
@@ -177,14 +177,28 @@ def _initialize_process_vars(cls, vars_dict):
                 _label = getattr(cls, key + '_label')
                 setattr(cls, key + '_value', cls.m.add_variable(label=_label, initial_value=_init))
             flux_label = var.metadata.get('flux')
+            # TODO: use dict mapping for flux + negative statements, instead of two separate args and lists
+            flux_negative = var.metadata.get('negative')
+            list_input = var.metadata.get('list_input')
             if flux_label:
-                list_input = var.metadata.get('list_input')
-                if list_input:
-                    cls.m.add_flux(process_label=cls.label, var_label="list_input", flux_label=flux_label,
-                                   negative=var.metadata.get('negative'), list_input=_label)
+                if isinstance(flux_label, list) and isinstance(flux_negative, list):
+                    for _flx_label, _flx_negative in zip(flux_label, flux_negative):
+                        if list_input:
+                            cls.m.add_flux(process_label=cls.label, var_label="list_input", flux_label=_flx_label,
+                                           negative=_flx_negative, list_input=_label)
+                        else:
+                            cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=_flx_label,
+                                           negative=_flx_negative)
+                elif isinstance(flux_label, list) or isinstance(flux_negative, list):
+                    raise ValueError(f"Variable {_label} was assigned {flux_label} with negative arguments {flux_negative}, "
+                                     f"both need to be supplied as list")
                 else:
-                    cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux_label,
-                                   negative=var.metadata.get('negative'))
+                    if list_input:
+                        cls.m.add_flux(process_label=cls.label, var_label="list_input", flux_label=flux_label,
+                                       negative=flux_negative, list_input=_label)
+                    else:
+                        cls.m.add_flux(process_label=cls.label, var_label=_label, flux_label=flux_label,
+                                       negative=flux_negative)
         elif var_type is PhydraVarType.PARAMETER:
             if var.metadata.get('foreign') is False:
                 _par_value = getattr(cls, key)

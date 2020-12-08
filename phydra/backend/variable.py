@@ -30,14 +30,14 @@ def variable(foreign=False, flux=None, negative=False, list_input=False,
 
 
 def forcing(foreign=False,
-            file_input_func=None, dims=(), description='', attrs={}):
+            setup_func=None, dims=(), description='', attrs={}):
 
     attrs.update({'Phydra_store_out': True})
 
     metadata = {
         "var_type": PhydraVarType.FORCING,
         "foreign": foreign,
-        "file_input_func": file_input_func,
+        "setup_func": setup_func,
         "dims": dims,
         "attrs": attrs,
         "description": description,
