@@ -9,7 +9,7 @@ import inspect
 import numpy as np
 
 from .variable import PhydraVarType
-from ..components.main import FirstInit, SecondInit, ThirdInit, FourthInit
+from ..components.main import FirstInit, SecondInit, ThirdInit, FourthInit, FifthInit
 
 
 def _create_variables_dict(process_cls):
@@ -102,8 +102,8 @@ def _make_phydra_flux(label, variable):
     group = variable.metadata.get('group')
     group_to_arg = variable.metadata.get('group_to_arg')
 
-    if group and group_to_arg:
-        raise Exception("A flux can be either added to group or take a group as argument, not both.")
+    #if group and group_to_arg:
+    #    raise Exception("A flux can be either added to group or take a group as argument, not both.")
 
     if group:
         xs_var_dict[label + '_label'] = _convert_2_xsimlabvar(var=variable, intent='out', groups=group, var_dims=(),
@@ -158,8 +158,10 @@ def _create_new_cls(cls, cls_dict, init_stage):
         new_cls = type(cls.__name__, (ThirdInit,), cls_dict)
     elif init_stage == 4:
         new_cls = type(cls.__name__, (FourthInit,), cls_dict)
+    elif init_stage == 5:
+        new_cls = type(cls.__name__, (FifthInit,), cls_dict)
     else:
-        raise Exception("Wrong init_stage supplied, needs to be 1, 2, 3 or 4")
+        raise Exception("Wrong init_stage supplied, needs to be 1, 2, 3, 4 or 5")
     return new_cls
 
 
