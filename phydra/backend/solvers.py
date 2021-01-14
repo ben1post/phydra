@@ -138,12 +138,11 @@ class ODEINTSolver(SolverABC):
         print("Model is assembled:")
         print(model)
 
-
     def solve(self, model, time_step):
         """ """
 
-        full_init = np.concatenate([[v for val in self.var_init.values() for v in val.flatten()],
-                                    [v for val in self.flux_init.values() for v in val.flatten()]], axis=None)
+        full_init = np.concatenate([[v for val in self.var_init.values() for v in val.ravel()],
+                                    [v for val in self.flux_init.values() for v in val.ravel()]], axis=None)
 
         full_model_out = odeint(model.model_function, full_init, model.time)
 
@@ -182,7 +181,10 @@ class ODEINTSolver(SolverABC):
             difference = np.diff(state) / time_step
 
             if dims:
-                val[...] = np.hstack((difference[..., 0][:,None], difference))
+                if isinstance(dims, tuple):
+                    val[...] = np.concatenate((difference[..., 0][..., np.newaxis], difference), axis=len(dims))
+                else:
+                    val[...] = np.hstack((difference[..., 0][:, None], difference))
             else:
                 val[...] = np.hstack((difference[0], difference))
 
@@ -536,7 +538,7 @@ class GEKKOSolver(SolverABC):
     def solve(self, model, time_step):
         self.gekko.options.REDUCE = 3  # handles reduction of larger models, have not benchmarked it yet
         self.gekko.options.NODES = 3  # improves solution accuracy
-        self.gekko.options.IMODE = 7  # sequential dynamic Solver
+        self.gekko.options.IMODE = 6  # sequential dynamic Solver
 
         self.gekko.solve(disp=False)  # use option disp=True to print gekko output
 

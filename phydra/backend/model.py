@@ -56,16 +56,12 @@ class PhydraModel:
                 state_dict[key] = flat_state[index]
                 index += 1
             elif isinstance(dims, int):
-                val_list = []
-                for i in range(dims):
-                    val_list.append(flat_state[index])
-                    index += 1
-                state_dict[key] = np.array(val_list)
+                state_dict[key] = flat_state[index:index+dims]
+                index += dims
             else:
                 _length = np.prod(dims)
-                val_list = flat_state[index:index+_length]
+                state_dict[key] = flat_state[index:index+_length].reshape(dims)  # np.array( )
                 index += _length
-                state_dict[key] = np.array(val_list).reshape(dims)
 
         return state_dict
 
@@ -169,7 +165,7 @@ class PhydraModel:
 
             state_out.append(np.sum(var_fluxes, axis=0))
 
-        full_output = np.concatenate([[v for val in state_out for v in val.flatten()],
-                                      [v for val in fluxes_out for v in val.flatten()]], axis=None)
+        full_output = np.concatenate([[v for val in state_out for v in val.ravel()],
+                                      [v for val in fluxes_out for v in val.ravel()]], axis=None)
 
         return full_output

@@ -122,3 +122,20 @@ class GrossGrowthEfficiency_MatrixGrazing:
         """ """
         out = self.m.sum(graze_matrix, axis=None) * (1 - f_eg - epsilon)
         return out
+
+
+@phydra.comp
+class SizebasedGrazingKernel_NoExtraFlux_Dims:
+    """ ASTroCAT Grazing Kernel """
+    resource = phydra.variable(foreign=True, dims='resource')
+    consumer = phydra.variable(foreign=True, dims='consumer')
+    phiP = phydra.parameter(dims=('resource', 'consumer'), description='feeding preferences')
+    Imax = phydra.parameter(dims='consumer', description='maximum ingestion rate')
+    KsZ = phydra.parameter(description='half sat of grazing')
+
+    @phydra.flux(group='graze_matrix', dims=('resource', 'consumer'))
+    def grazing(self, resource, consumer, phiP, Imax, KsZ):
+        """ """
+        PscaledAsFood = phiP / KsZ * resource[:, None]
+        FgrazP = Imax * consumer * PscaledAsFood / (1 + self.m.sum(PscaledAsFood, axis=0))
+        return FgrazP

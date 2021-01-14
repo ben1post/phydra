@@ -23,7 +23,7 @@ def _create_variables_dict(process_cls):
 
 def _convert_2_xsimlabvar(var, intent='in',
                           var_dims=None, value_store=False, groups=None,
-                          description_label=''):
+                          description_label='', attrs=True):
     """ """
     var_description = var.metadata.get('description')
     if var_description:
@@ -44,7 +44,10 @@ def _convert_2_xsimlabvar(var, intent='in',
     if var_dims is None:
         var_dims = ()
 
-    var_attrs = var.metadata.get('attrs')
+    if attrs:
+        var_attrs = var.metadata.get('attrs')
+    else:
+        var_attrs = {}
 
     return xs.variable(intent=intent, dims=var_dims, groups=groups, description=description_label, attrs=var_attrs)
 
@@ -107,7 +110,8 @@ def _make_phydra_flux(label, variable):
 
     if group:
         xs_var_dict[label + '_label'] = _convert_2_xsimlabvar(var=variable, intent='out', groups=group, var_dims=(),
-                                                              description_label='label reference with group / ')
+                                                              description_label='label reference with group / ',
+                                                              attrs=False)
     if group_to_arg:
         xs_var_dict[group_to_arg] = xs.group(group_to_arg)
 
@@ -262,6 +266,7 @@ def _initialize_fluxes(cls, vars_dict):
 
             if var.metadata.get('group'):
                 setattr(cls, flux_func.__name__ + '_label', label)
+                print(getattr(cls, flux_func.__name__ + '_label'))
 
             setattr(cls, key + '_value',
                     cls.m.register_flux(label=label, flux=cls.flux_decorator(flux_func), dims=flux_dim))
@@ -330,8 +335,8 @@ def comp(cls=None, *, init_stage=3):
                 for v_dict in self.flux_input_args['vars']:
                     if isinstance(v_dict['label'], list) or isinstance(v_dict['label'], np.ndarray):
                         input_args[v_dict['var']] = [state[label] for label in v_dict['label']]
-                        args_signature_input.append('(mop)')
-                        args_signature_output.append('(mop)')
+                        args_signature_input.append('(list_dims)')
+                        args_signature_output.append('(list_dims)')
                     else:
                         input_args[v_dict['var']] = state[v_dict['label']]
                         if v_dict['dim'] is None:
@@ -410,8 +415,6 @@ def comp(cls=None, *, init_stage=3):
                     if not _dims:
                         vectorized = False
 
-                # TODO: for group fluxes, the signature does not work yet! need to pass some arg to
-                #   only use for list input fluxes....
                 if vectorized:
                     if signaturize:
                         print("signaturizing")

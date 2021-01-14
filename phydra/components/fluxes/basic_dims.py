@@ -74,6 +74,18 @@ class QuadraticDecay_Dim:
 
 
 @phydra.comp
+class QuadraticDecay_Dim_Sum:
+    """ """
+    var = phydra.variable(foreign=True, dims='var', flux='decay', negative=True, description='variable affected by flux')
+    rate = phydra.parameter(description='quadratic rate of change')
+
+    @phydra.flux(dims='var')
+    def decay(self, var, rate):
+        """ """
+        return var * self.m.sum(var) * rate
+
+
+@phydra.comp
 class QuadraticExchange_SourceDim:
     """ """
     source = phydra.variable(foreign=True, dims='var', flux='decay', negative=True)

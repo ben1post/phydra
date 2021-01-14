@@ -18,6 +18,14 @@ class SVArray:
     var = phydra.variable(dims='var', description='basic state variable')
 
 
+@phydra.comp(init_stage=2)
+class SVArraySize:
+    """represents a state variable in the model"""
+
+    var = phydra.variable(dims='var', description='basic state variable')
+    sizes = phydra.parameter(dims='sizes', description='store of size array')
+
+
 @xs.process
 class Time(FirstInit):
     """Time is represented as a state variable"""
