@@ -70,6 +70,106 @@ class GlobalSlabClimatologyForcing:
 
         return forcing
 
+# TODO: - instead return Noon PAR here, and do the time conversion somewhere else?
+#   - what actually makes sense here? usually it is plotted as Noon PAR..
+
+@phydra.comp(init_stage=2)
+class NoonPARfromLat:
+    """ Component that calculates Photosynthetically Active Radiation (PAR) from Latitude"""
+
+    NoonPAR = phydra.forcing(setup_func='calcNoonPAR', description='calculated PAR from Irradiance',
+                             attrs={'unit': 'W m^-2'})
+
+    station = phydra.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
+
+    def calcNoonPAR(self, station):
+        """ Function adapted from EMPOWER model (Anderson et al. 2015)"""
+
+        def noon_PAR_calc(jday, latradians, clouds, e0):
+            albedo = 0.04  # albedo
+            solarconst = 1368.0  # solar constant, w m-2
+            parrac = 0.43  # PAR fraction
+            declin = 23.45 * np.sin(2 * np.pi * (284 + jday) * 0.00274) * np.pi / 180  # solar declination angle
+            coszen = np.sin(latradians) * np.sin(declin) + np.cos(latradians) * np.cos(declin)  # cosine of zenith angle
+            zen = np.arccos(coszen) * 180 / np.pi  # zenith angle, degrees
+            Rvector = 1 / np.sqrt(1 + 0.033 * np.cos(2 * np.pi * jday * 0.00274))  # Earth's radius vector
+            Iclear = solarconst * coszen ** 2 / (Rvector ** 2) / (
+                        1.2 * coszen + e0 * (1.0 + coszen) * 0.001 + 0.0455)  # irradiance at ocean surface, clear sky
+            cfac = (1 - 0.62 * clouds * 0.125 + 0.0019 * (90 - zen))  # cloud factor (atmospheric transmission)
+            Inoon = Iclear * cfac * (1 - albedo)  # noon irradiance: total solar
+            noonparnow = parrac * Inoon
+            return noonparnow
+
+        if station == 'india':
+            latitude = 60.0  # latitude, degrees
+            clouds = 6.0  # cloud fraction, oktas
+            e0 = 12.0  # atmospheric vapour pressure
+        elif station == 'biotrans':
+            latitude = 47.0
+            clouds = 6.0
+            e0 = 12.0
+        elif station == 'kerfix':
+            latitude = -50.67
+            clouds = 6.0
+            e0 = 12.0
+        elif station == 'papa':
+            latitude = 50.0
+            clouds = 6.0
+            e0 = 12.0
+        else:
+            raise ValueError("station label not found, options: 'india', 'biotrans', 'kerfix', 'papa'")
+
+        latradians = latitude * np.pi / 180.
+
+        def return_noonPAR(time):
+            return noon_PAR_calc(time, latradians, clouds, e0)
+
+        return return_noonPAR
+
+
+@phydra.comp(init_stage=3)
+class IrradianceFromNoonPAR:
+    """ Calculate I0 at surface from noon PAR
+    TODO: DOESNT WORK WITH FOREIGN FORCING YET! NEED TO FIX IN XARRAY SIMLAB ODE """
+
+    NoonPAR = phydra.forcing(foreign=True)
+
+    I0 = phydra.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
+                        attrs={'unit': 'W m^-2'})
+
+    station = phydra.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
+
+    def calculate_I0(self, station, NoonPAR):
+
+        def day_length_calc(jday, latradians):
+            """ Function to calculate day length for location """
+            declin = 23.45 * np.sin(2 * np.pi * (284 + jday) * 0.00274) * np.pi / 180  # solar declination angle
+            daylnow = 2 * np.arccos(-1 * np.tan(latradians) * np.tan(declin)) * 12 / np.pi  # day length
+            return daylnow
+
+        if station == 'india':
+            latitude = 60.0  # latitude, degrees
+        elif station == 'biotrans':
+            latitude = 47.0
+        elif station == 'kerfix':
+            latitude = -50.67
+        elif station == 'papa':
+            latitude = 50.0
+        else:
+            raise ValueError("station label not found, options: 'india', 'biotrans', 'kerfix', 'papa'")
+
+        latradians = latitude * np.pi / 180.
+
+        def return_PAR_forcing(time):
+            day_length = day_length_calc(time, latradians)
+            print("day_len", day_length)
+            noonpar = NoonPAR
+            print("NOON PAR", noonpar)
+            return noonpar * day_length * np.sin(2 / np.pi)  # sinusoidal integration
+            # return noonpar * day_length / 2  # trapezoidal integration
+
+        return return_PAR_forcing
+
 
 @phydra.comp(init_stage=2)
 class EMPOWER_IrradianceFromLat:
