@@ -1,13 +1,13 @@
-import phydra
+import xso
 
 
-@phydra.comp
+@xso.component
 class LinearForcingInput:
-    var = phydra.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
-    forcing = phydra.forcing(foreign=True, description='forcing affecting flux')
-    rate = phydra.parameter(description='linear rate of change')
+    var = xso.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
+    forcing = xso.forcing(foreign=True, description='forcing affecting flux')
+    rate = xso.parameter(description='linear rate of change')
 
-    @phydra.flux
+    @xso.flux
     def input(self, var, forcing, rate):
         """ """
         return forcing * rate

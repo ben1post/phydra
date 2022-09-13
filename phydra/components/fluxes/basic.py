@@ -1,87 +1,87 @@
-import phydra
+import xso
 
 
-@phydra.comp
+@xso.component
 class LinearInput:
     """ """
-    var = phydra.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
-    rate = phydra.parameter(description='linear rate of change')
+    var = xso.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
+    rate = xso.parameter(description='linear rate of change')
 
-    @phydra.flux
+    @xso.flux
     def input(self, var, rate):
         """ """
         return rate
 
 
-@phydra.comp
+@xso.component
 class ExponentialGrowth:
     """ """
-    var = phydra.variable(foreign=True, flux='growth', negative=False, description='variable affected by flux')
-    rate = phydra.parameter(description='linear rate of change')
+    var = xso.variable(foreign=True, flux='growth', negative=False, description='variable affected by flux')
+    rate = xso.parameter(description='linear rate of change')
 
-    @phydra.flux
+    @xso.flux
     def growth(self, var, rate):
         """ """
         return var * rate
 
 
-@phydra.comp
+@xso.component
 class LinearDecay:
     """ """
-    var = phydra.variable(foreign=True, flux='decay', negative=True, description='variable affected by flux')
-    rate = phydra.parameter(description='linear rate of decay/mortality')
+    var = xso.variable(foreign=True, flux='decay', negative=True, description='variable affected by flux')
+    rate = xso.parameter(description='linear rate of decay/mortality')
 
-    @phydra.flux
+    @xso.flux
     def decay(self, var, rate):
         """ """
         return var * rate
 
 
-@phydra.comp
+@xso.component
 class LinearDecay_ListInput:
     """ """
-    var_list = phydra.variable(dims='decay_vars', list_input=True,
+    var_list = xso.variable(dims='decay_vars', list_input=True,
                            foreign=True, flux='decay', negative=True, description='list of variables affected by flux')
-    rate = phydra.parameter(description='linear rate of decay/mortality')
+    rate = xso.parameter(description='linear rate of decay/mortality')
 
-    @phydra.flux(dims='decay_vars_full')
+    @xso.flux(dims='decay_vars_full')
     def decay(self, var_list, rate):
         """ """
         return var_list * rate
 
 
-@phydra.comp
+@xso.component
 class LinearExchange:
     """ """
-    source = phydra.variable(foreign=True, flux='decay', negative=True)
-    sink = phydra.variable(foreign=True, flux='decay', negative=False)
-    rate = phydra.parameter(description='decay/mortality rate')
+    source = xso.variable(foreign=True, flux='decay', negative=True)
+    sink = xso.variable(foreign=True, flux='decay', negative=False)
+    rate = xso.parameter(description='decay/mortality rate')
 
-    @phydra.flux
+    @xso.flux
     def decay(self, source, sink, rate):
         return source * rate
 
 
-@phydra.comp
+@xso.component
 class QuadraticDecay:
     """ """
-    var = phydra.variable(foreign=True, flux='decay', negative=True, description='variable affected by flux')
-    rate = phydra.parameter(description='quadratic rate of change')
+    var = xso.variable(foreign=True, flux='decay', negative=True, description='variable affected by flux')
+    rate = xso.parameter(description='quadratic rate of change')
 
-    @phydra.flux
+    @xso.flux
     def decay(self, var, rate):
         """ """
         return var ** 2 * rate
 
 
-@phydra.comp
+@xso.component
 class QuadraticExchange:
     """ """
-    source = phydra.variable(foreign=True, flux='decay', negative=True)
-    sink = phydra.variable(foreign=True, flux='decay', negative=False)
-    rate = phydra.parameter(description='quadratic rate of change')
+    source = xso.variable(foreign=True, flux='decay', negative=True)
+    sink = xso.variable(foreign=True, flux='decay', negative=False)
+    rate = xso.parameter(description='quadratic rate of change')
 
-    @phydra.flux
+    @xso.flux
     def decay(self, source, sink, rate):
         """ """
         return source ** 2 * rate

@@ -1,62 +1,62 @@
-import phydra
+import xso
 
 import numpy as np
 
 
-@phydra.comp(init_stage=5)
+@xso.component(init_stage=5)
 class EMPOWER_Growth_ML:
     """ XXX
     """
-    resource = phydra.variable(foreign=True, flux='growth', negative=True)
-    consumer = phydra.variable(foreign=True, flux='growth', negative=False)
+    resource = xso.variable(foreign=True, flux='growth', negative=True)
+    consumer = xso.variable(foreign=True, flux='growth', negative=False)
 
-    mu_max = phydra.parameter(description='maximum growth rate')
+    mu_max = xso.parameter(description='maximum growth rate')
 
-    @phydra.flux(group_to_arg='growth_lims')
+    @xso.flux(group_to_arg='growth_lims')
     def growth(self, resource, consumer, mu_max, growth_lims):
         # print("in growth flux func now", resource, consumer, mu_max, growth_lims)
         return mu_max * self.m.product(growth_lims) * consumer
 
 
-@phydra.comp
+@xso.component
 class EMPOWER_Monod_ML:
     """ """
-    resource = phydra.variable(foreign=True)
-    halfsat = phydra.parameter(description='monod half-saturation constant')
+    resource = xso.variable(foreign=True)
+    halfsat = xso.parameter(description='monod half-saturation constant')
 
-    @phydra.flux(group='growth_lims')
+    @xso.flux(group='growth_lims')
     def monod_lim(self, resource, halfsat):
         return resource / (resource + halfsat)
 
 
-@phydra.comp
+@xso.component
 class EMPOWER_Eppley_ML:
     """ """
-    temp = phydra.forcing(foreign=True, description='Temperature forcing')
+    temp = xso.forcing(foreign=True, description='Temperature forcing')
 
-    VpMax = phydra.parameter(description='Maximum photosynthetic rate at 0 degrees celcius')
+    VpMax = xso.parameter(description='Maximum photosynthetic rate at 0 degrees celcius')
 
-    @phydra.flux(group='VpT')
+    @xso.flux(group='VpT')
     def temp_dependence(self, temp, VpMax):
         return VpMax * 1.066 ** temp
 
 
 # chl <- P*6.625*12.0/CtoChl
 
-@phydra.comp(init_stage=4)
+@xso.component(init_stage=4)
 class EMPOWER_Smith_ML:
     """ """
-    pigment_biomass = phydra.variable(foreign=True)
+    pigment_biomass = xso.variable(foreign=True)
 
-    i_0 = phydra.forcing(foreign=True, description='Light forcing')
-    mld = phydra.forcing(foreign=True, description='Mixed Layer Depth forcing')
+    i_0 = xso.forcing(foreign=True, description='Light forcing')
+    mld = xso.forcing(foreign=True, description='Mixed Layer Depth forcing')
 
-    alpha = phydra.parameter(description='initial slop of PI curve')
-    CtoChl = phydra.parameter(description='chlorophyll to carbon ratio')
-    kw = phydra.parameter(description='light attenuation coef for water')
-    kc = phydra.parameter(description='light attenuation coef for pigment biomass')
+    alpha = xso.parameter(description='initial slop of PI curve')
+    CtoChl = xso.parameter(description='chlorophyll to carbon ratio')
+    kw = xso.parameter(description='light attenuation coef for water')
+    kc = xso.parameter(description='light attenuation coef for pigment biomass')
 
-    @phydra.flux(group_to_arg='VpT', group='growth_lims')
+    @xso.flux(group_to_arg='VpT', group='growth_lims')
     def smith_light_lim(self, i_0, mld, pigment_biomass, alpha, VpT, kw, kc, CtoChl):
         kPAR = kw + kc * pigment_biomass
         i_0 = i_0 / 24  # from per day to per h
@@ -67,20 +67,20 @@ class EMPOWER_Smith_ML:
         return VpH * 24 / CtoChl
 
 
-@phydra.comp(init_stage=4)
+@xso.component(init_stage=4)
 class EMPOWER_Anderson_Light_ML:
     """ """
-    pigment_biomass = phydra.variable(foreign=True)
+    pigment_biomass = xso.variable(foreign=True)
 
-    i_0 = phydra.forcing(foreign=True, description='Light forcing')
-    mld = phydra.forcing(foreign=True, description='Mixed Layer Depth forcing')
+    i_0 = xso.forcing(foreign=True, description='Light forcing')
+    mld = xso.forcing(foreign=True, description='Mixed Layer Depth forcing')
 
-    alpha = phydra.parameter(description='initial slop of PI curve')
-    CtoChl = phydra.parameter(description='chlorophyll to carbon ratio')
-    kw = phydra.parameter(description='light attenuation coef for water')
-    kc = phydra.parameter(description='light attenuation coef for pigment biomass')
+    alpha = xso.parameter(description='initial slop of PI curve')
+    CtoChl = xso.parameter(description='chlorophyll to carbon ratio')
+    kw = xso.parameter(description='light attenuation coef for water')
+    kc = xso.parameter(description='light attenuation coef for pigment biomass')
 
-    @phydra.flux(group_to_arg='VpT', group='growth_lims')
+    @xso.flux(group_to_arg='VpT', group='growth_lims')
     def irradiance_out(self, i_0, mld, pigment_biomass, alpha, VpT, kw, kc, CtoChl):
         """ """
         i_0 = i_0 / 24

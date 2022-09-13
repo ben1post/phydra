@@ -1,30 +1,7 @@
-import phydra
-from .main import FirstInit, SecondInit
+import xso
+from xso.main import FirstInit, SecondInit
 
 import xsimlab as xs
-
-
-@phydra.comp(init_stage=2)
-class SV:
-    """represents a state variable in the model"""
-
-    var = phydra.variable(description='basic state variable')
-
-
-@phydra.comp(init_stage=2)
-class SVArray:
-    """represents a state variable in the model"""
-
-    var = phydra.variable(dims='var', description='basic state variable')
-
-
-@phydra.comp(init_stage=2)
-class SVArraySize:
-    """represents a state variable in the model"""
-
-    var = phydra.variable(dims='var', description='basic state variable')
-    sizes = phydra.parameter(dims='sizes', description='store of size array')
-
 
 @xs.process
 class Time(FirstInit):
@@ -49,30 +26,23 @@ class Time(FirstInit):
         return dtdt
 
 
-@xs.process
-class OldSV(SecondInit):
+@xso.component(init_stage=2)
+class SV:
     """represents a state variable in the model"""
 
-    init = xs.variable(intent='in', description='initial value for state variable')
-    value = xs.variable(intent='out', dims='time', description='value output of state variable')
-
-    def initialize(self):
-        super(OldSV, self).initialize()  # handles initialization stages
-        print(f"initializing state variable {self.label}")
-
-        self.value = self.m.add_variable(self.label, initial_value=self.init)
+    var = xso.variable(description='basic state variable')
 
 
-@xs.process
-class OLD_SV_Array(SecondInit):
+@xso.component(init_stage=2)
+class SVArray:
     """represents a state variable in the model"""
 
-    init = xs.variable(intent='in', dims='SV')
-    dim = xs.variable(intent='in', dims='SV', static=True)
-    value = xs.variable(intent='out', dims='time')
+    var = xso.variable(dims='var', description='basic state variable')
 
-    def initialize(self):
-        super(SV_Array, self).initialize()  # handles initialization stages
-        print(f"initializing state variable {self.label}")
 
-        self.value = self.m.add_variable(self.label, initial_value=self.init)
+@xso.component(init_stage=2)
+class SVArraySize:
+    """represents a state variable in the model"""
+
+    var = xso.variable(dims='var', description='basic state variable')
+    sizes = xso.parameter(dims='sizes', description='store of size array')

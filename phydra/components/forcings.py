@@ -3,14 +3,14 @@ import pandas
 import numpy as np
 import scipy.interpolate as intrp
 
-import phydra
+import xso
 from phydra.utility.forcingdata import ClimatologyForcing
 
 
-@phydra.comp(init_stage=2)
+@xso.component(init_stage=2)
 class ConstantForcing:
-    forcing = phydra.forcing(foreign=False, setup_func='forcing_setup')
-    value = phydra.parameter(description='constant value of forcing')
+    forcing = xso.forcing(foreign=False, setup_func='forcing_setup')
+    value = xso.parameter(description='constant value of forcing')
 
     def forcing_setup(self, value):
         cwd = os.getcwd()
@@ -24,10 +24,10 @@ class ConstantForcing:
         return forcing
 
 
-@phydra.comp(init_stage=2)
+@xso.component(init_stage=2)
 class SinusoidalForcing:
-    forcing = phydra.forcing(foreign=False, setup_func='forcing_setup')
-    period = phydra.parameter(description='period of sinusoidal forcing')
+    forcing = xso.forcing(foreign=False, setup_func='forcing_setup')
+    period = xso.parameter(description='period of sinusoidal forcing')
 
     def forcing_setup(self, period):
         cwd = os.getcwd()
@@ -40,16 +40,16 @@ class SinusoidalForcing:
         return forcing
 
 
-@phydra.comp(init_stage=2)
+@xso.component(init_stage=2)
 class GlobalSlabClimatologyForcing:
-    forcing = phydra.forcing(foreign=False, setup_func='forcing_setup')
-    dataset = phydra.parameter(description="Options: 'n0x', 'mld', 'tmld', 'par'")
-    lat = phydra.parameter(description='constant value of forcing')
-    lon = phydra.parameter(description='constant value of forcing')
-    rbb = phydra.parameter(description='constant value of forcing')
-    smooth = phydra.parameter(description='smoothing conditions, larger values = stronger smoothing')
-    k = phydra.parameter(description='The degree of the spline fit')
-    deriv = phydra.parameter(description='order of derivative to store, for basic forcing pass 0')
+    forcing = xso.forcing(foreign=False, setup_func='forcing_setup')
+    dataset = xso.parameter(description="Options: 'n0x', 'mld', 'tmld', 'par'")
+    lat = xso.parameter(description='constant value of forcing')
+    lon = xso.parameter(description='constant value of forcing')
+    rbb = xso.parameter(description='constant value of forcing')
+    smooth = xso.parameter(description='smoothing conditions, larger values = stronger smoothing')
+    k = xso.parameter(description='The degree of the spline fit')
+    deriv = xso.parameter(description='order of derivative to store, for basic forcing pass 0')
 
     def forcing_setup(self, dataset, lat, lon, rbb, smooth, k, deriv):
         data = ClimatologyForcing(lat, lon, rbb, dataset).outForcing
@@ -73,14 +73,14 @@ class GlobalSlabClimatologyForcing:
 # TODO: - instead return Noon PAR here, and do the time conversion somewhere else?
 #   - what actually makes sense here? usually it is plotted as Noon PAR..
 
-@phydra.comp(init_stage=2)
+@xso.component(init_stage=2)
 class NoonPARfromLat:
-    """ Component that calculates Photosynthetically Active Radiation (PAR) from Latitude"""
+    """ componentonent that calculates Photosynthetically Active Radiation (PAR) from Latitude"""
 
-    NoonPAR = phydra.forcing(setup_func='calcNoonPAR', description='calculated PAR from Irradiance',
+    NoonPAR = xso.forcing(setup_func='calcNoonPAR', description='calculated PAR from Irradiance',
                              attrs={'unit': 'W m^-2'})
 
-    station = phydra.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
+    station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
     def calcNoonPAR(self, station):
         """ Function adapted from EMPOWER model (Anderson et al. 2015)"""
@@ -127,17 +127,17 @@ class NoonPARfromLat:
         return return_noonPAR
 
 
-@phydra.comp(init_stage=3)
+@xso.component(init_stage=3)
 class IrradianceFromNoonPAR:
     """ Calculate I0 at surface from noon PAR
     TODO: DOESNT WORK WITH FOREIGN FORCING YET! NEED TO FIX IN XARRAY SIMLAB ODE """
 
-    NoonPAR = phydra.forcing(foreign=True)
+    NoonPAR = xso.forcing(foreign=True)
 
-    I0 = phydra.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
+    I0 = xso.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
                         attrs={'unit': 'W m^-2'})
 
-    station = phydra.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
+    station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
     def calculate_I0(self, station, NoonPAR):
 
@@ -171,14 +171,14 @@ class IrradianceFromNoonPAR:
         return return_PAR_forcing
 
 
-@phydra.comp(init_stage=2)
+@xso.component(init_stage=2)
 class EMPOWER_IrradianceFromLat:
-    """ Component that calculates daily irradiance from latitude of station """
+    """ componentonent that calculates daily irradiance from latitude of station """
 
-    I0 = phydra.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
+    I0 = xso.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
                         attrs={'unit': 'W m^-2'})
 
-    station = phydra.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
+    station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
     def calculate_I0(self, station):
         """ Function adapted from EMPOWER model (Anderson et al. 2015)"""
@@ -235,15 +235,15 @@ class EMPOWER_IrradianceFromLat:
         return return_PAR_forcing
 
 
-@phydra.comp(init_stage=2)
+@xso.component(init_stage=2)
 class EMPOWER_ForcingFromFile:
     """ """
-    MLD = phydra.forcing(setup_func='create_MLD_forcing', description='Empower MLD Forcing')
-    MLDderiv = phydra.forcing(setup_func='create_MLD_deriv_forcing', description='Empower MLDderiv Forcing')
-    SST = phydra.forcing(setup_func='create_SST_forcing', description='Empower SST Forcing')
-    N0 = phydra.forcing(setup_func='create_N0_forcing', description='Empower N0 Forcing')
+    MLD = xso.forcing(setup_func='create_MLD_forcing', description='Empower MLD Forcing')
+    MLDderiv = xso.forcing(setup_func='create_MLD_deriv_forcing', description='Empower MLDderiv Forcing')
+    SST = xso.forcing(setup_func='create_SST_forcing', description='Empower SST Forcing')
+    N0 = xso.forcing(setup_func='create_N0_forcing', description='Empower N0 Forcing')
 
-    station = phydra.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
+    station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
     def read_intrp_forcing(self, station, data, k, smooth, deriv):
         """ """

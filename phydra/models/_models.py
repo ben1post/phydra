@@ -1,7 +1,6 @@
 import xsimlab as xs
 
-import phydra
-from phydra.components.main import Backend
+from xso.main import Backend
 
 
 
