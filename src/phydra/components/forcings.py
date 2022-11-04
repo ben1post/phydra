@@ -13,9 +13,6 @@ class ConstantForcing:
     value = xso.parameter(description='constant value of forcing')
 
     def forcing_setup(self, value):
-        cwd = os.getcwd()
-        print("forcing function is in directory:", cwd)
-        print("forcing_val:", value)
 
         @np.vectorize
         def forcing(time):
@@ -30,8 +27,6 @@ class SinusoidalForcing:
     period = xso.parameter(description='period of sinusoidal forcing')
 
     def forcing_setup(self, period):
-        cwd = os.getcwd()
-        print("forcing function is in directory:", cwd)
 
         @np.vectorize
         def forcing(time):
