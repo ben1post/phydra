@@ -1,10 +1,7 @@
-import os
+import xso
 import pandas
 import numpy as np
 import scipy.interpolate as intrp
-
-import xso
-from phydra.utility.forcingdata import ClimatologyForcing
 
 
 @xso.component(init_stage=2)
