@@ -3,13 +3,39 @@ import xso
 
 @xso.component
 class LinearInput:
-    """ """
+    """ XSO Component for a linear input flux
+
+    Parameters
+    ----------
+    var : xso.variable
+        variable affected by flux
+    rate : xso.parameter
+        linear rate of change
+
+    Fluxes
+    ------
+    input : xso.flux
+        linear input flux
+    """
     var = xso.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
     rate = xso.parameter(description='linear rate of change')
 
     @xso.flux
     def input(self, var, rate):
-        """ """
+        """ Flux function for linear input flux
+
+        Parameters
+        ----------
+        var : xso.variable
+            variable affected by flux
+        rate : xso.parameter
+            linear rate of change
+
+        Returns
+        -------
+        xso.flux
+            linear input flux
+        """
         return rate
 
 

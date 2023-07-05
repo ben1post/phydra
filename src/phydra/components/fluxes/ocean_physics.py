@@ -61,7 +61,7 @@ class Mixing_K:
         return (self.m.max(mld_deriv, 0) + kappa) / mld
 
 
-@xso.component(init_stage=4)
+@xso.component
 class SlabUpwelling_KfromGroup:
     """ """
     n = xso.variable(foreign=True, flux='mixing', description='nutrient mixed into system')
@@ -74,7 +74,7 @@ class SlabUpwelling_KfromGroup:
         return (n_0 - n) * mixing_K
 
 
-@xso.component(init_stage=4)
+@xso.component
 class SlabMixing_KfromGroup:
     """ """
     vars_sink = xso.variable(foreign=True, negative=True, flux='mixing',

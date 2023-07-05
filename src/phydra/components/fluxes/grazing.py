@@ -47,7 +47,7 @@ class HollingTypeIII_ResourcesListInput_Consumption2Group:
         return scaled_resources * Imax / (kZ ** 2 + self.m.sum(scaled_resources)) * consumer
 
 
-@xso.component(init_stage=4)
+@xso.component
 class GrossGrowthEfficiency:
     """
     to N: beta*(1-epsilon)
@@ -91,7 +91,7 @@ class SizebasedGrazingKernel_Dims:
         return FgrazP
 
 
-@xso.component(init_stage=4)
+@xso.component
 class GrossGrowthEfficiency_MatrixGrazing:
     """
     to N: beta*(1-epsilon)

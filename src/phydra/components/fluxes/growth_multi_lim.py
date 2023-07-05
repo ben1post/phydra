@@ -1,7 +1,7 @@
 import xso
 
 
-@xso.component(init_stage=4)
+@xso.component
 class Growth_ML:
     """ XXX
     """
@@ -86,7 +86,7 @@ class Eppley_ML:
         return self.m.exp(eppley_exp * temp)
 
 
-@xso.component(init_stage=4)
+@xso.component
 class Growth_ML_ConsumerDim:
     """ XXX
     """

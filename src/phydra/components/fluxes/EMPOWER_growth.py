@@ -3,7 +3,7 @@ import xso
 import numpy as np
 
 
-@xso.component(init_stage=5)
+@xso.component
 class EMPOWER_Growth_ML:
     """ XXX
     """
@@ -43,7 +43,7 @@ class EMPOWER_Eppley_ML:
 
 # chl <- P*6.625*12.0/CtoChl
 
-@xso.component(init_stage=4)
+@xso.component
 class EMPOWER_Smith_ML:
     """ """
     pigment_biomass = xso.variable(foreign=True)
@@ -67,7 +67,7 @@ class EMPOWER_Smith_ML:
         return VpH * 24 / CtoChl
 
 
-@xso.component(init_stage=4)
+@xso.component
 class EMPOWER_Anderson_Light_ML:
     """ """
     pigment_biomass = xso.variable(foreign=True)

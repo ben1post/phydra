@@ -1,21 +1,21 @@
 import xso
 
 
-@xso.component(init_stage=2)
+@xso.component
 class SV:
     """represents a state variable in the model"""
 
     var = xso.variable(description='basic state variable')
 
 
-@xso.component(init_stage=2)
+@xso.component
 class SVArray:
     """represents a state variable in the model"""
 
     var = xso.variable(dims='var', description='basic state variable')
 
 
-@xso.component(init_stage=2)
+@xso.component
 class SVArraySize:
     """represents a state variable in the model"""
 

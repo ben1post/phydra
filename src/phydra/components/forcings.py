@@ -4,13 +4,12 @@ import numpy as np
 import scipy.interpolate as intrp
 
 
-@xso.component(init_stage=2)
+@xso.component
 class ConstantForcing:
     forcing = xso.forcing(foreign=False, setup_func='forcing_setup')
     value = xso.parameter(description='constant value of forcing')
 
     def forcing_setup(self, value):
-
         @np.vectorize
         def forcing(time):
             return value
@@ -18,13 +17,12 @@ class ConstantForcing:
         return forcing
 
 
-@xso.component(init_stage=2)
+@xso.component
 class SinusoidalForcing:
     forcing = xso.forcing(foreign=False, setup_func='forcing_setup')
     period = xso.parameter(description='period of sinusoidal forcing')
 
     def forcing_setup(self, period):
-
         @np.vectorize
         def forcing(time):
             return np.cos(time / period * 2 * np.pi) + 1
@@ -32,7 +30,7 @@ class SinusoidalForcing:
         return forcing
 
 
-@xso.component(init_stage=2)
+@xso.component
 class GlobalSlabClimatologyForcing:
     forcing = xso.forcing(foreign=False, setup_func='forcing_setup')
     dataset = xso.parameter(description="Options: 'n0x', 'mld', 'tmld', 'par'")
@@ -62,15 +60,16 @@ class GlobalSlabClimatologyForcing:
 
         return forcing
 
+
 # TODO: - instead return Noon PAR here, and do the time conversion somewhere else?
 #   - what actually makes sense here? usually it is plotted as Noon PAR..
 
-@xso.component(init_stage=2)
+@xso.component
 class NoonPARfromLat:
     """ componentonent that calculates Photosynthetically Active Radiation (PAR) from Latitude"""
 
     NoonPAR = xso.forcing(setup_func='calcNoonPAR', description='calculated PAR from Irradiance',
-                             attrs={'unit': 'W m^-2'})
+                          attrs={'unit': 'W m^-2'})
 
     station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
@@ -86,7 +85,7 @@ class NoonPARfromLat:
             zen = np.arccos(coszen) * 180 / np.pi  # zenith angle, degrees
             Rvector = 1 / np.sqrt(1 + 0.033 * np.cos(2 * np.pi * jday * 0.00274))  # Earth's radius vector
             Iclear = solarconst * coszen ** 2 / (Rvector ** 2) / (
-                        1.2 * coszen + e0 * (1.0 + coszen) * 0.001 + 0.0455)  # irradiance at ocean surface, clear sky
+                    1.2 * coszen + e0 * (1.0 + coszen) * 0.001 + 0.0455)  # irradiance at ocean surface, clear sky
             cfac = (1 - 0.62 * clouds * 0.125 + 0.0019 * (90 - zen))  # cloud factor (atmospheric transmission)
             Inoon = Iclear * cfac * (1 - albedo)  # noon irradiance: total solar
             noonparnow = parrac * Inoon
@@ -119,7 +118,7 @@ class NoonPARfromLat:
         return return_noonPAR
 
 
-@xso.component(init_stage=3)
+@xso.component
 class IrradianceFromNoonPAR:
     """ Calculate I0 at surface from noon PAR
     TODO: DOESNT WORK WITH FOREIGN FORCING YET! NEED TO FIX IN XARRAY SIMLAB ODE """
@@ -127,7 +126,7 @@ class IrradianceFromNoonPAR:
     NoonPAR = xso.forcing(foreign=True)
 
     I0 = xso.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
-                        attrs={'unit': 'W m^-2'})
+                     attrs={'unit': 'W m^-2'})
 
     station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
@@ -163,12 +162,12 @@ class IrradianceFromNoonPAR:
         return return_PAR_forcing
 
 
-@xso.component(init_stage=2)
+@xso.component
 class EMPOWER_IrradianceFromLat:
     """ componentonent that calculates daily irradiance from latitude of station """
 
     I0 = xso.forcing(setup_func='calculate_I0', description='calculated irradiance for latitude',
-                        attrs={'unit': 'W m^-2'})
+                     attrs={'unit': 'W m^-2'})
 
     station = xso.parameter(description="name of station, options: 'india', 'biotrans', 'kerfix', 'papa'")
 
@@ -190,7 +189,7 @@ class EMPOWER_IrradianceFromLat:
             zen = np.arccos(coszen) * 180 / np.pi  # zenith angle, degrees
             Rvector = 1 / np.sqrt(1 + 0.033 * np.cos(2 * np.pi * jday * 0.00274))  # Earth's radius vector
             Iclear = solarconst * coszen ** 2 / (Rvector ** 2) / (
-                        1.2 * coszen + e0 * (1.0 + coszen) * 0.001 + 0.0455)  # irradiance at ocean surface, clear sky
+                    1.2 * coszen + e0 * (1.0 + coszen) * 0.001 + 0.0455)  # irradiance at ocean surface, clear sky
             cfac = (1 - 0.62 * clouds * 0.125 + 0.0019 * (90 - zen))  # cloud factor (atmospheric transmission)
             Inoon = Iclear * cfac * (1 - albedo)  # noon irradiance: total solar
             noonparnow = parrac * Inoon
@@ -227,7 +226,7 @@ class EMPOWER_IrradianceFromLat:
         return return_PAR_forcing
 
 
-@xso.component(init_stage=2)
+@xso.component
 class EMPOWER_ForcingFromFile:
     """ """
     MLD = xso.forcing(setup_func='create_MLD_forcing', description='Empower MLD Forcing')
