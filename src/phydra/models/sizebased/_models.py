@@ -8,7 +8,7 @@ from .fluxes.basic import LinearForcingInput, LinearDecay_Dims, QuadraticDecay_D
 from .fluxes.growth import MonodGrowth_mu_ConsumerDim
 from .fluxes.grazing import SizebasedGrazingKernel_Dims, GrossGrowthEfficiency_MatrixGrazing
 
-ASTroCAT = xso.create({
+NPxZxSizeBased = xso.create({
     # State variables
     'Nutrient': SV,
     'Phytoplankton': SVArray,  #

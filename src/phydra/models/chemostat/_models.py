@@ -1,23 +1,23 @@
 import xso
 
-from .variables import SV
-from .fluxes import LinearForcingInput, MonodGrowth, LinearDecay_ListInput
-from .forcings import ConstantForcing, SinusoidalForcing
+from .variables import Nutrient, Phytoplankton
+from .fluxes import LinearInflow, MonodGrowth, LinearOutflow_ListInput
+from .forcings import ConstantExternalNutrient, SinusoidalExternalNutrient
 
 NPChemostat = xso.create({
     # State variables
-    'Nutrient': SV,
-    'Phytoplankton': SV,
+    'Nutrient': Nutrient,
+    'Phytoplankton': Phytoplankton,
 
     # Flows:
-    'Inflow': LinearForcingInput,
-    'Outflow': LinearDecay_ListInput,
+    'Inflow': LinearInflow,
+    'Outflow': LinearOutflow_ListInput,
 
     # Growth
     'Growth': MonodGrowth,
 
     # Forcings
-    'N0': ConstantForcing
+    'N0': ConstantExternalNutrient
 })
 
-NPChemostat_sinu = NPChemostat.update_processes({'N0': SinusoidalForcing})
+NPChemostat_sinu = NPChemostat.update_processes({'N0': SinusoidalExternalNutrient})

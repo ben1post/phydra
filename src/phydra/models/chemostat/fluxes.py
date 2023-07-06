@@ -2,23 +2,24 @@ import xso
 
 
 @xso.component
-class LinearForcingInput:
-    var = xso.variable(foreign=True, flux='input', negative=False, description='variable affected by flux')
-    forcing = xso.forcing(foreign=True, description='forcing affecting flux')
-    rate = xso.parameter(description='linear rate of change')
+class LinearInflow:
+    """Component defining the linear inflow of one variable."""
+    sink = xso.variable(foreign=True, flux='input', negative=False)
+    source = xso.forcing(foreign=True)
+    rate = xso.parameter(description='linear rate of inflow')
 
     @xso.flux
-    def input(self, var, forcing, rate):
-        """ """
-        return forcing * rate
+    def input(self, sink, source, rate):
+        return source * rate
 
 
 @xso.component
 class MonodGrowth:
+    """Component defining a growth process based on Monod-kinetics."""
     resource = xso.variable(foreign=True, flux='uptake', negative=True)
-    consumer = xso.variable(foreign=True, flux='uptake', negative=False)  # dims='var',
+    consumer = xso.variable(foreign=True, flux='uptake', negative=False)
 
-    halfsat = xso.parameter(description='half-saturation constant')  # dims='var'
+    halfsat = xso.parameter(description='half-saturation constant')
 
     @xso.flux
     def uptake(self, resource, consumer, halfsat):
@@ -26,13 +27,14 @@ class MonodGrowth:
 
 
 @xso.component
-class LinearDecay_ListInput:
-    """ """
-    var_list = xso.variable(dims='decay_vars', list_input=True,
-                           foreign=True, flux='decay', negative=True, description='list of variables affected by flux')
-    rate = xso.parameter(description='linear rate of decay/mortality')
+class LinearOutflow_ListInput:
+    """Component defining the linear outflow of multiple variables."""
+    var_list = xso.variable(dims='d', list_input=True,
+                           foreign=True, flux='decay', negative=True, description='variables flowing out')
+    rate = xso.parameter(description='linear rate of outflow')
 
-    @xso.flux(dims='decay_vars_full')
+    @xso.flux(dims='d')
     def decay(self, var_list, rate):
-        """ """
+        # due to the list_input=True argument, var_list is an array of variables.
+        # Thanks to vectorization we can just multiply the array with the rate.
         return var_list * rate

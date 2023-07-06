@@ -1,1 +1,1 @@
-from ._models import ASTroCAT
+from ._models import NPxZxSizeBased
