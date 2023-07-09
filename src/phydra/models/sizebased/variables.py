@@ -2,19 +2,11 @@ import xso
 
 
 @xso.component
-class SV:
+class Nutrient:
     """XSO component to define a state variable in the model."""
+    value = xso.variable(description='nutrient concentration',
+                         attrs={'units': 'mmol N m-3'})
 
-    var = xso.variable(description='basic state variable')
-
-
-@xso.component
-class SVArray:
-    """XS0 component to define an array of state variables in the model."""
-
-    var = xso.variable(dims='var', description='basic state variable')
-
-import xsimlab as xs
 
 @xso.component
 class PhytoSizeSpectrum:

@@ -20,10 +20,11 @@ class MonodGrowth:
     consumer = xso.variable(foreign=True, flux='uptake', negative=False)
 
     halfsat = xso.parameter(description='half-saturation constant')
+    mu_max = xso.parameter(description='maximum growth rate')
 
     @xso.flux
-    def uptake(self, resource, consumer, halfsat):
-        return resource / (resource + halfsat) * consumer
+    def uptake(self, mu_max, resource, consumer, halfsat):
+        return mu_max * resource / (resource + halfsat) * consumer
 
 
 @xso.component

@@ -1,13 +1,13 @@
 import xso
 
-from .variables import Nutrient, Phytoplankton
+from .variables import StateVariable
 from .fluxes import LinearInflow, MonodGrowth, LinearOutflow_ListInput
 from .forcings import ConstantExternalNutrient, SinusoidalExternalNutrient
 
 NPChemostat = xso.create({
     # State variables
-    'Nutrient': Nutrient,
-    'Phytoplankton': Phytoplankton,
+    'Nutrient': StateVariable,
+    'Phytoplankton': StateVariable,
 
     # Flows:
     'Inflow': LinearInflow,

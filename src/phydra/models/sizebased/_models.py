@@ -1,6 +1,6 @@
 import xso
 
-from .variables import SV, PhytoSizeSpectrum, ZooSizeSpectrum
+from .variables import Nutrient, PhytoSizeSpectrum, ZooSizeSpectrum
 
 from .forcings import ConstantExternalNutrient
 
@@ -10,7 +10,7 @@ from .fluxes.grazing import SizebasedGrazingMatrix, GrossGrowthEfficiency_Matrix
 
 NPxZxSizeBased = xso.create({
     # State variables
-    'Nutrient': SV,
+    'Nutrient': Nutrient,
     'Phytoplankton': PhytoSizeSpectrum,
     'Zooplankton': ZooSizeSpectrum,
 
