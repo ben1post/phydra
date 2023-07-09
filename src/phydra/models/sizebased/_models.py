@@ -1,33 +1,33 @@
 import xso
 
-from .variables import SV, SVArray, SVArraySize
+from .variables import SV, PhytoSizeSpectrum, ZooSizeSpectrum
 
-from .forcings import ConstantForcing
+from .forcings import ConstantExternalNutrient
 
-from .fluxes.basic import LinearForcingInput, LinearDecay_Dims, QuadraticDecay_Dim_Sum
-from .fluxes.growth import MonodGrowth_mu_ConsumerDim
-from .fluxes.grazing import SizebasedGrazingKernel_Dims, GrossGrowthEfficiency_MatrixGrazing
+from .fluxes.basic import LinearForcingInput, LinearPhytoMortality, QuadraticZooMortality
+from .fluxes.growth import MonodGrowth_SizeBased
+from .fluxes.grazing import SizebasedGrazingMatrix, GrossGrowthEfficiency_MatrixGrazing
 
 NPxZxSizeBased = xso.create({
     # State variables
     'Nutrient': SV,
-    'Phytoplankton': SVArray,  #
-    'Zooplankton': SVArray,  #
+    'Phytoplankton': PhytoSizeSpectrum,
+    'Zooplankton': ZooSizeSpectrum,
 
     # Flows:
     'Inflow': LinearForcingInput,
 
     # Growth
-    'Growth': MonodGrowth_mu_ConsumerDim,
+    'Growth': MonodGrowth_SizeBased,
 
     # Grazing
-    'Grazing': SizebasedGrazingKernel_Dims,
+    'Grazing': SizebasedGrazingMatrix,
     'GGE': GrossGrowthEfficiency_MatrixGrazing,
 
     # Mortality
-    'PhytoMortality': LinearDecay_Dims,
-    'ZooMortality': QuadraticDecay_Dim_Sum,
+    'PhytoMortality': LinearPhytoMortality,
+    'ZooMortality': QuadraticZooMortality,
 
     # Forcings
-    'N0': ConstantForcing,
+    'N0': ConstantExternalNutrient,
 })

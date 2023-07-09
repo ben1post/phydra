@@ -1,27 +1,20 @@
 import xso
-
+import numpy as np
 
 @xso.component
-class ConstantForcing:
-    """XSO component to define a constant forcing in the model."""
+class ConstantExternalNutrient:
+    """Component that provides a constant external nutrient
+     as a forcing value.
+    """
 
-    forcing = xso.forcing(foreign=True, description='forcing affecting flux')
-    rate = xso.parameter(description='constant rate of change')
+    forcing = xso.forcing(foreign=False, setup_func='forcing_setup', description='external nutrient')
+    value = xso.parameter(description='constant value')
 
-    @xso.flux
-    def input(self, forcing, rate):
-        """Flux function for constant input flux
+    def forcing_setup(self, value):
+        """Method that returns forcing function providing the
+        forcing value as a function of time."""
+        @np.vectorize
+        def forcing(time):
+            return value
 
-        Parameters
-        ----------
-        forcing : xso.forcing
-            forcing affecting flux
-        rate : xso.parameter
-            constant rate of change
-
-        Returns
-        -------
-        xso.flux
-            constant input flux
-        """
-        return forcing * rate
+        return forcing
