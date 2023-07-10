@@ -1,9 +1,20 @@
 # phydra
 
-A library of plankton community models utilizing the XSO frammework ([Xarray-simlab-ODE](https://github.com/ben1post/xarray-simlab-ode)). The library and framework are in the early stages of development.
+A library of plankton community models utilizing the XSO frammework ([Xarray-simlab-ODE](https://github.com/ben1post/xarray-simlab-ode)). 
+
+> Disclaimer: The library and framework are in the early stages of development. Feedback, testing, and contributions are very welcome.
+
+
 
 ## What is phydra?
-Phydra is a Python package that provides a library of modular plankton community models built using the XSO framework. Phydra establishes conventions and common usage for building models using XSO.
+Phydra is a Python package that provides a library of modular plankton community models built using the XSO framework. XSO provides a streamlined, interactive and reproducible workflow for building and running models. The model input and output data is an Xarray-Dataset directly compatible with a wealth of tools of the Python scientific ecosystem.
+
+
+![00_schematics_PhydraXSO.png](docs%2F_static%2F00_schematics_PhydraXSO.png)
+
+## Usage
+
+See the included [notebooks](https://github.com/ben1post/phydra/tree/master/notebooks) for an interactive presentation of the usage of the Phydra library.
 
 ## Package structure
 The plankton community models included in the Phydra package are available to the user at multiple hierarchical levels: as a library of pre-built XSO model _components_, as pre-assembled _model objects_, and as exemplary model simulations in interactive Jupyter notebooks. These levels are described below.
@@ -25,10 +36,6 @@ The open-source and extensible nature of Phydra and XSO enables users to customi
 ```bash
 $ pip install phydra
 ```
-
-## Usage
-
-See the included [notebooks](https://github.com/ben1post/phydra/tree/master/notebooks) for an interactive presentation of the usage of the Phydra library.
 
 ## Contributing
 
