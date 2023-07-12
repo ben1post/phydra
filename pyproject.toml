@@ -1,13 +1,16 @@
 [tool.poetry]
 name = "phydra"
-version = "0.1.0"
+version = "0.0.2"
 description = "A library of marine ecosystem models using the XSO frammework (xarray-simlab-ode)"
 authors = ["Benjamin Post"]
 license = "BSD 3-Clause"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.12"
+jupyter = "^1.0.0"
+matplotlib = "^3.7.2"
+xso = "^0.0.2"
 
 [tool.poetry.dev-dependencies]
 
