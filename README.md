@@ -12,7 +12,7 @@ models built using the XSO framework. XSO provides a streamlined, interactive an
 reproducible workflow for building and running models. The model input and output 
 data is an Xarray-Dataset directly compatible with a wealth of tools of the Python scientific ecosystem.
 
-![00_schematics_PhydraXSO.png](docs%2F_static%2F00_schematics_PhydraXSO.png)
+![00_schematics_PhydraXSO.png](notebooks/images/00_schematics_PhydraXSO.png)
 
 ## Usage & Installation
 
