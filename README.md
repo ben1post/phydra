@@ -23,8 +23,8 @@ notebooks in a new conda environment using the following commands:
 ```bash
 $ git clone https://github.com/ben1post/phydra
 $ cd phydra
-$ conda env create -f environment.yml
-$ conda activate phydra
+$ conda env create -n phydra_env -f environment.yml
+$ conda activate phydra_env
 ```
 
 Then run the command below to start the Jupyterlab application:
@@ -75,17 +75,12 @@ ecosystem models.
 
 
 ## Contributing
-s
-Interested in contributing? Check out the contributing guidelines. Please 
-note that this project is released with a Code of Conduct. By contributing 
-to this project, you agree to abide by its terms.
+
+The library is in the early stages of development. Feedback from testing and contributions are very welcome. 
+See [GitHub Issues](https://github.com/ben1post/phydra/issues) for existing issues, or raise your own.
+Code contributions can be made via Pull Requests on [GitHub](https://github.com/ben1post/phydra).
 
 ## License
 
 `phydra` was created by Benjamin Post. It is licensed under the terms of 
 the BSD 3-Clause license.
-
-## Credits
-
-`phydra` was created with [`cookiecutter`](https://cookiecutter.readthedocs.io/en/latest/) 
-and the `py-pkgs-cookiecutter` [template](https://github.com/py-pkgs/py-pkgs-cookiecutter).

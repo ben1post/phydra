@@ -1,0 +1,19 @@
+name: phydra
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - ca-certificates
+  - openssl
+  - numpy
+  - matplotlib
+  - certifi
+  - xarray-simlab
+  - scipy
+  - jupyterlab
+  - ipywidgets
+  - tqdm
+  - pip
+  - pip:
+      - xso
+prefix: phydra
