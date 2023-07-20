@@ -43,21 +43,17 @@ class SinusoidalExternalNutrient:
     forcing_setup : function
         The function that defines the forcing value as a function of time.
     """
-    forcing = xso.forcing(setup_func='forcing_setup')
+    forcing = xso.forcing(setup_func='forcing_setup', description='sinusoidal forcing')
     period = xso.parameter(description='period of sinusoidal forcing')
     mean = xso.parameter(description='mean of sinusoidal forcing')
     amplitude = xso.parameter(description='amplitude of sinusoidal forcing')
 
-    def forcing_setup(self, period):
+    def forcing_setup(self, period, mean, amplitude):
         """Method that returns forcing function providing the
         forcing value as a function of time."""
         @np.vectorize
         def forcing(time):
-            return self.mean + self.amplitude * self.m.sin(time / period * 2 * self.m.pi)
+            return mean + amplitude * self.m.sin(time / period * 2 * self.m.pi)
 
         return forcing
 
-# write function returning a sinusoidal curve
-def sinusoidal(time, mean, amplitude, period):
-    """Function that returns a sinusoidal curve as a function of time."""
-    return mean + amplitude * np.sin(time / period * 2 * np.pi)
