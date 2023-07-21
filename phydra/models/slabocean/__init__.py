@@ -1,1 +1,1 @@
-from ._models import NPZDSlabOcean, NPZDSlabOcean_smith
+from ._models import NPZDSlabOcean, NPZDSlabOcean_3layer

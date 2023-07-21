@@ -30,7 +30,7 @@ NPZDSlabOcean = xso.create({
     # Growth
     'Growth': EMPOWER_Growth_ML,
     'Nut_lim': EMPOWER_Monod_ML,
-    'Light_lim': EMPOWER_Smith_Anderson3Layer_ML,
+    'Light_lim': EMPOWER_Smith_LambertBeer_ML,
     'Temp_lim': EMPOWER_Eppley_ML,
 
     # Grazing
@@ -49,4 +49,4 @@ NPZDSlabOcean = xso.create({
     'Forcings': StationForcingFromFile,
 })
 
-NPZDSlabOcean_smith = NPZDSlabOcean.update_processes({'Light_lim': EMPOWER_Smith_LambertBeer_ML})
+NPZDSlabOcean_3layer = NPZDSlabOcean.update_processes({'Light_lim': EMPOWER_Smith_Anderson3Layer_ML})
