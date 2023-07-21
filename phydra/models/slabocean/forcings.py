@@ -74,7 +74,7 @@ class IrradianceFromLat:
 class StationForcingFromFile:
     """Component that reads forcing data for EMPOWER stations from file."""
 
-    MLD = xso.forcing(setup_func='create_MLD_forcing', description='Empower MLD Forcing')
+    MLD = xso.forcing(setup_func='create_MLD_forcing', description='Empower MLD Forcing', attrs={'unit': 'm'})
     MLDderiv = xso.forcing(setup_func='create_MLD_deriv_forcing', description='Empower MLDderiv Forcing')
     SST = xso.forcing(setup_func='create_SST_forcing', description='Empower SST Forcing')
     N0 = xso.forcing(setup_func='create_N0_forcing', description='Empower N0 Forcing')
@@ -91,12 +91,12 @@ class StationForcingFromFile:
 
         # read the forcing file from the current directory
         try:
-            all_forcings = pandas.read_csv("forcings/stations_forcing.txt", sep=r'\s*,\s*',
+            all_forcings = pandas.read_csv("data/stations_forcing.csv", sep=r'\s*,\s*',
                                    header=0, encoding='ascii', engine='python')
         except FileNotFoundError:
             raise FileNotFoundError("Forcing file not found, make sure it is in the current working directory. \n"
                                     "This error could arise because you moved the Notebook for the slab model, "
-                                    "or moved the stations_forcing.txt file from the forcings folder.")
+                                    "or moved the stations_forcing.csv file from the data folder.")
 
         station_data = all_forcings[stations_dict[station][data]].values[:-1]
 

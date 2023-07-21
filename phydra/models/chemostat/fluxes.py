@@ -22,7 +22,7 @@ class MonodGrowth:
     halfsat = xso.parameter(description='half-saturation constant')
     mu_max = xso.parameter(description='maximum growth rate')
 
-    @xso.flux
+    @xso.flux(attrs={'units': 'µM N $d^{-1}$'})
     def uptake(self, mu_max, resource, consumer, halfsat):
         return mu_max * resource / (resource + halfsat) * consumer
 

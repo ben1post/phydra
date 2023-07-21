@@ -7,9 +7,9 @@ from .fluxes.basic import LinearExchange, QuadraticExchange, QuadraticDecay
 from .fluxes.mixing import (Mixing_K, SlabUpwelling_KfromGroup,
                             SlabMixing_KfromGroup, SlabSinking)
 
-from .fluxes.growth import (EMPOWER_Growth_ML, EMPOWER_Monod_ML,
-                            EMPOWER_Anderson_Light_ML, EMPOWER_Eppley_ML,
-                            EMPOWER_Smith_ML)
+from .fluxes.growth import (EMPOWER_Growth_ML, EMPOWER_Monod_ML, EMPOWER_Eppley_ML,
+                            EMPOWER_Smith_Anderson3Layer_ML,
+                            EMPOWER_Smith_LambertBeer_ML)
 
 from .fluxes.grazing import (HollingTypeIII_ResourcesListInput_Consumption2Group,
                              GrossGrowthEfficiency)
@@ -30,7 +30,7 @@ NPZDSlabOcean = xso.create({
     # Growth
     'Growth': EMPOWER_Growth_ML,
     'Nut_lim': EMPOWER_Monod_ML,
-    'Light_lim': EMPOWER_Anderson_Light_ML,
+    'Light_lim': EMPOWER_Smith_Anderson3Layer_ML,
     'Temp_lim': EMPOWER_Eppley_ML,
 
     # Grazing
@@ -49,4 +49,4 @@ NPZDSlabOcean = xso.create({
     'Forcings': StationForcingFromFile,
 })
 
-NPZDSlabOcean_smith = NPZDSlabOcean.update_processes({'Light_lim': EMPOWER_Smith_ML})
+NPZDSlabOcean_smith = NPZDSlabOcean.update_processes({'Light_lim': EMPOWER_Smith_LambertBeer_ML})

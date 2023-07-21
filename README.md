@@ -1,6 +1,6 @@
 # phydra
 
-A library of plankton community models utilizing the XSO frammework 
+A library of plankton community models utilizing the XSO framework 
 ([Xarray-simlab-ODE](https://github.com/ben1post/xarray-simlab-ode)). 
 
 > Disclaimer: The library and framework are in the early stages of development. 
@@ -82,5 +82,5 @@ Code contributions can be made via Pull Requests on [GitHub](https://github.com/
 
 ## License
 
-`phydra` was created by Benjamin Post. It is licensed under the terms of 
+`phydra` was created by Benjamin Post. It is licensed open source under the terms of 
 the BSD 3-Clause license.
