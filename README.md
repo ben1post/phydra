@@ -7,10 +7,7 @@ A library of plankton community models utilizing the XSO framework
 > Feedback, testing, and contributions are very welcome.
 
 ## What is phydra?
-Phydra is a Python package that provides a library of modular plankton community 
-models built using the XSO framework. XSO provides a streamlined, interactive and 
-reproducible workflow for building and running models. The model input and output 
-data is an Xarray-Dataset directly compatible with a wealth of tools of the Python scientific ecosystem.
+Phydra is a Python package that provides a library of modular plankton community models built using the XSO framework. XSO provides a streamlined, interactive and reproducible workflow for building and running models. The model input and output data is an Xarray-Dataset directly compatible with a wealth of tools of the Python scientific ecosystem.
 
 ![00_schematics_PhydraXSO.png](notebooks/images/00_schematics_PhydraXSO.png)
 
@@ -33,34 +30,19 @@ Then run the command below to start the Jupyterlab application:
 $ jupyter lab
 ```
 
-This should open an interactive session in your browser. Navigate to the
-[notebooks](https://github.com/ben1post/phydra/tree/master/notebooks) directory
-and open the included notebooks for an interactive presentation of included 
-plankton community models.
+This should open an interactive session in your browser. Navigate to the [notebooks](https://github.com/ben1post/phydra/tree/master/notebooks) directory and open the included notebooks for an interactive presentation of included plankton community models.
 
 ## Package structure
-The plankton community models included in the Phydra package are available to the 
-user at multiple hierarchical levels: as a library of pre-built XSO model _components_, 
-as pre-assembled _model objects_, and as exemplary model simulations in interactive 
-Jupyter notebooks. These levels are described below.
+The plankton community models included in the Phydra package are available to the user at multiple hierarchical levels: as a library of pre-built XSO model _components_, as pre-assembled _model objects_, and as exemplary model simulations in interactive Jupyter notebooks. These levels are described below.
 
 
-- _**Components**_: The first version of the library will contain all 
-  _components_ used to create the three model applications presented in the notebooks.
+- _**Components**_: The first version of the library will contain all _components_ used to create the three model applications presented in the notebooks.
     
-- _**Model objects**_: The first release of Phydra contains the _model 
-  objects_ defined in the three model applications presented in section _UseCases_. 
-  The _model objects_ can be imported from the library and can be readily 
-  setup, modified, and run by a user.
+- _**Model objects**_: The first release of Phydra contains the _model objects_ defined in the three model applications presented in section _UseCases_. The _model objects_ can be imported from the library and can be readily setup, modified, and run by a user.
     
-- _**Example notebooks**_: _Model objects_ only define the collection of 
-  _components_. To run a model, the input parameters still need to be 
-  defined and supplied at runtime. The Phydra library comes with three fully 
-  documented model applications that are presented in interactive Jupyter 
-   notebooks. These notebooks show all steps from creating the _model setup_ 
-  object to analyzing model output and provide a template for further 
-  exploration  and experimentation with the provided plankton community models.
+- _**Example notebooks**_: _Model objects_ only define the collection of _components_. To run a model, the input parameters still need to be defined and supplied at runtime. The Phydra library comes with three fully documented model applications that are presented in interactive Jupyter notebooks. These notebooks show all steps from creating the _model setup_ object to analyzing model output and provide a template for further exploration  and experimentation with the provided plankton community models.
     
+You can learn more about Xarray-simlab-ODE in the [XSO Documentation on ReadTheDocs](https://xarray-simlab-ode.readthedocs.io/en/latest/index.html).
 
 # Motivation
 
