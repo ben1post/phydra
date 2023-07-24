@@ -1,4 +1,6 @@
 # phydra
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8178694.svg)](https://doi.org/10.5281/zenodo.8178694)
+
 
 A library of plankton community models utilizing the XSO framework 
 ([Xarray-simlab-ODE](https://github.com/ben1post/xarray-simlab-ode)). 
