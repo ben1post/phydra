@@ -40,4 +40,4 @@ class QuadraticZooMortality:
         Utilizes the XSO Math module, available at self.m within fluxes,
         to allow for flexible implementation of math functions according
         to solver backend."""
-        return rate * var * np.sum(var)
+        return rate * var * self.m.sum(var)
